@@ -1,0 +1,34 @@
+body {
+    background: #f4f6f9;
+}
+
+.pos-header {
+    background: #212529;
+    color: #fff;
+    padding: 10px 15px;
+}
+
+.category-btn {
+    width: 100%;
+    margin-bottom: 8px;
+}
+
+.menu-card {
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.menu-card:hover {
+    transform: scale(1.03);
+}
+
+.bill-panel {
+    background: #fff;
+    height: calc(100vh - 70px);
+    overflow-y: auto;
+}
+
+.bill-footer button {
+    width: 100%;
+    margin-bottom: 8px;
+}
