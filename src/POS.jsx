@@ -39,27 +39,36 @@ const POS = () => {
     // --- Cart Logic ---
     const addToCart = (item) => {
         setCart(prevCart => {
-            const newCart = { ...prevCart };
-            if (newCart[item.id]) {
-                newCart[item.id].qty += 1;
-            } else {
-                newCart[item.id] = { ...item, qty: 1 };
+            const existing = prevCart[item.id];
+            if (existing) {
+                return {
+                    ...prevCart,
+                    [item.id]: { ...existing, qty: existing.qty + 1 }
+                };
             }
-            return newCart;
+
+            return {
+                ...prevCart,
+                [item.id]: { ...item, qty: 1 }
+            };
         });
     };
 
     const updateQty = (id, delta) => {
         setCart(prevCart => {
-            const newCart = { ...prevCart };
-            if (!newCart[id]) return prevCart;
-            
-            newCart[id].qty += delta;
-            
-            if (newCart[id].qty <= 0) {
-                delete newCart[id];
+            const existing = prevCart[id];
+            if (!existing) return prevCart;
+
+            const newQty = existing.qty + delta;
+            if (newQty <= 0) {
+                const { [id]: _, ...rest } = prevCart;
+                return rest;
             }
-            return newCart;
+
+            return {
+                ...prevCart,
+                [id]: { ...existing, qty: newQty }
+            };
         });
     };
 
