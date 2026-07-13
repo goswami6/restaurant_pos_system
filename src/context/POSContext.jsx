@@ -1,0 +1,788 @@
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
+
+export const POSContext = createContext(null);
+
+export const usePOS = () => {
+    const ctx = useContext(POSContext);
+    if (!ctx) throw new Error('usePOS must be used inside POSProvider');
+    return ctx;
+};
+
+// Robust local fallback data
+const FALLBACK_MENU = {
+    "version": "1.0.0",
+    "last_updated": "2026-05-15T10:30:00Z",
+    "categories": [
+        {
+            "category_id": "5",
+            "category_name": "Biryani",
+            "image_url": null,
+            "items": [
+                {
+                    "item_id": "5", "category_id": "5", "item_name": "Veg Biryani",
+                    "price": "299.00", "tax_percentage": "5.00", "dietary_info": "Veg", "image": null,
+                    "variants": [
+                        { "id": "OPT-01", "name": "Rare", "price": 0.00 },
+                        { "id": "OPT-02", "name": "Medium Rare", "price": 0.00 },
+                        { "id": "OPT-03", "name": "Well Done", "price": 0.00 }
+                    ],
+                    "addons": []
+                }
+            ]
+        },
+        {
+            "category_id": "6",
+            "category_name": "Starters",
+            "image_url": null,
+            "items": [
+                {
+                    "item_id": "6", "category_id": "6", "item_name": "Paneer Tikka",
+                    "price": "399.00", "tax_percentage": "5.00", "dietary_info": "Veg", "image": null,
+                    "variants": [], "addons": []
+                }
+            ]
+        },
+        { "category_id": "7", "category_name": "Main Course", "image_url": null, "items": [] }
+    ]
+};
+
+export const POSProvider = ({ user, onLogout, children }) => {
+    const navigate = useNavigate();
+
+    // ── Data State ──────────────────────────────────────────────────────────
+    const [menuData, setMenuData] = useState({ categories: [] });
+    const [loading, setLoading] = useState(true);
+    const [tablesData, setTablesData] = useState({ total_tables: 0, sections: [], tables: [] });
+    const [orderHistory, setOrderHistory] = useState([]);
+    const [paidOrderIds, setPaidOrderIds] = useState(() => {
+        const saved = localStorage.getItem('pos_paid_order_ids');
+        return saved ? JSON.parse(saved) : [];
+    });
+    const [posSettings, setPosSettings] = useState({
+        restaurantName: 'Big Ben Restaurant',
+        address: '1st Flr, Sun Mill Compound, Lower Parel',
+        taxRate: 5.00,
+        serviceCharge: 10.00,
+        enableThermalPrinting: true,
+        autoCleanTables: false
+    });
+    const [staffList, setStaffList] = useState([
+        { id: 100, name: 'Alex M.', role: 'Waiter', status: 'Active', ordersHandled: 12 },
+        { id: 101, name: 'Ravi S.', role: 'Manager', status: 'Active', ordersHandled: 4 },
+        { id: 102, name: 'Priya K.', role: 'Chef', status: 'Active', ordersHandled: 25 },
+        { id: 103, name: 'Amit P.', role: 'Waiter', status: 'On Break', ordersHandled: 8 },
+        { id: 104, name: 'Neha R.', role: 'Cashier', status: 'Active', ordersHandled: 0 }
+    ]);
+
+    // ── Cart & UI State ──────────────────────────────────────────────────────
+    const [cart, setCart] = useState({});
+    const [cartModified, setCartModified] = useState(false);
+    const [tableModified, setTableModified] = useState({});
+    const [tableId, setTableId] = useState('');
+    const [tableCarts, setTableCarts] = useState({});
+    const [orderType, setOrderType] = useState('DINE-IN');
+    const [selectedDetailOrder, setSelectedDetailOrder] = useState(null);
+    const [toast, setToast] = useState(null);
+    const toastTimeoutRef = useRef(null);
+
+    // ── Reservation Modal State ──────────────────────────────────────────────
+    const [showReservationModal, setShowReservationModal] = useState(false);
+    const [resCustomerName, setResCustomerName] = useState('');
+    const [resCustomerPhone, setResCustomerPhone] = useState('');
+    const [resSelectedTableNum, setResSelectedTableNum] = useState('');
+    const [resGuestCount, setResGuestCount] = useState(4);
+    const [resTime, setResTime] = useState(() => {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 30);
+        const tzOffset = now.getTimezoneOffset() * 60000;
+        return (new Date(now - tzOffset)).toISOString().slice(0, 16);
+    });
+
+    // ── Variant Modal State ──────────────────────────────────────────────────
+    const [selectedItemForModal, setSelectedItemForModal] = useState(null);
+    const [chosenVariant, setChosenVariant] = useState(null);
+
+    // ── Toast ────────────────────────────────────────────────────────────────
+    const showToast = (message, type = 'success', title = '') => {
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        setToast({ message, type, title });
+        toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
+    };
+
+    // ── Derived: categories & menu items ────────────────────────────────────
+    const categories = menuData.categories || [];
+    const menuItems = useMemo(() => categories.reduce((acc, cat) => [...acc, ...(cat.items || [])], []), [categories]);
+
+    // ── mergeLocalStatus ────────────────────────────────────────────────────
+    const mergeLocalStatus = (nextData, prev) => {
+        const mergeTablesList = (list) => (list || []).map(t => {
+            const prevTable = (() => {
+                if (prev?.tables) {
+                    const found = prev.tables.find(pt => pt.table_number === t.table_number);
+                    if (found) return found;
+                }
+                if (prev?.sections) {
+                    for (const sec of prev.sections) {
+                        const found = (sec.tables || []).find(pt => pt.table_number === t.table_number);
+                        if (found) return found;
+                    }
+                }
+                return null;
+            })();
+
+            if (prevTable) {
+                if (prevTable.status === 'Dirty') return { ...t, status: 'Dirty', current_session: prevTable.current_session };
+                if (prevTable.status === 'Occupied' && (t.status === 'Available' || !t.current_session)) {
+                    return { ...t, status: 'Occupied', current_session: prevTable.current_session };
+                }
+            }
+            return t;
+        });
+
+        let merged = { ...nextData };
+        if (merged.tables?.length > 0) {
+            merged.tables = mergeTablesList(merged.tables);
+        } else if (merged.sections?.length > 0) {
+            merged.sections = merged.sections.map(sec => ({ ...sec, tables: mergeTablesList(sec.tables) }));
+        }
+        return merged;
+    };
+
+    // ── fetchTables ──────────────────────────────────────────────────────────
+    const fetchTables = async () => {
+        const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+
+        const mapTableItem = (t) => {
+            if (!t) return t;
+            const statusRaw = t.status || 'Available';
+            const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1).toLowerCase();
+            let tNum = t.table_name || t.table_number || '';
+            if (tNum.startsWith('Table ')) tNum = tNum.replace('Table ', '');
+            if (!tNum.startsWith('#') && !tNum.startsWith('T-') && tNum) tNum = '#' + tNum;
+            return {
+                table_id: t.id || t.table_id || String(Math.floor(1000 + Math.random() * 9000)),
+                table_number: tNum || `#${t.id || ''}`,
+                capacity: parseInt(t.capacity) || 4,
+                status: statusFormatted,
+                current_session: t.current_session || null,
+                updated_at: t.updated_at || new Date().toISOString()
+            };
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/tables/${restaurantId}`);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+            if (data?.status === true && Array.isArray(data.data)) {
+                const hasSections = data.data.length > 0 && data.data[0].tables;
+                let parsedData;
+                if (hasSections) {
+                    const mappedSections = data.data.map(sec => ({ ...sec, tables: (sec.tables || []).map(mapTableItem) }));
+                    parsedData = { total_tables: mappedSections.reduce((s, sec) => s + (sec.tables || []).length, 0), sections: mappedSections, tables: [] };
+                } else {
+                    const mappedTables = data.data.map(mapTableItem);
+                    parsedData = { total_tables: mappedTables.length, sections: [], tables: mappedTables };
+                }
+                setTablesData(prev => mergeLocalStatus(parsedData, prev));
+            } else {
+                throw new Error(data?.message || 'Invalid tables response');
+            }
+        } catch (error) {
+            console.warn('API tables fetch failed:', error.message);
+        }
+    };
+
+    // ── fetchOrders ──────────────────────────────────────────────────────────
+    const fetchOrders = async () => {
+        const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+        try {
+            const response = await fetch(`${API_BASE_URL}/orders/${restaurantId}`);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+            if (data?.status === true && Array.isArray(data.data)) {
+                const mappedOrders = data.data.map(apiOrder => {
+                    let typeFormatted = 'Dine-In';
+                    if (apiOrder.order_type === 'TAKEAWAY') typeFormatted = 'Takeaway';
+                    if (apiOrder.order_type === 'DELIVERY') typeFormatted = 'Delivery';
+
+                    let tableNum = apiOrder.table_name || apiOrder.table_number_id || 'N/A';
+                    if (tableNum.startsWith('Table ')) tableNum = tableNum.replace('Table ', '');
+                    if (!tableNum.startsWith('#') && !tableNum.startsWith('T-') && tableNum !== 'N/A') tableNum = '#' + tableNum;
+
+                    const paymentStatus = apiOrder.bill?.payment_status || 'UNPAID';
+                    const isPaidLocally = paidOrderIds.includes(String(apiOrder.order_id));
+                    const statusFormatted = (paymentStatus === 'PAID' || isPaidLocally) ? 'PAID' : 'PENDING';
+
+                    return {
+                        order_id: String(apiOrder.order_id),
+                        table_number: tableNum,
+                        type: typeFormatted,
+                        time: apiOrder.created_at || new Date().toISOString(),
+                        total: parseFloat(apiOrder.bill?.grand_total || 0),
+                        status: statusFormatted,
+                        subtotal: parseFloat(apiOrder.bill?.subtotal || 0),
+                        tax: parseFloat(apiOrder.bill?.tax_amount || 0),
+                        serviceCharge: parseFloat(apiOrder.bill?.service_charge || 0),
+                        items: (apiOrder.items || []).map(item => ({
+                            id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
+                            item_id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
+                            name: item.name,
+                            price: parseFloat(item.unit_price || 0),
+                            qty: parseInt(item.quantity || 1),
+                            selectedVariant: item.variant_name ? { id: item.variant_name, name: item.variant_name, price: 0 } : null,
+                            notes: item.notes || ''
+                        }))
+                    };
+                });
+                mappedOrders.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+                setOrderHistory(mappedOrders);
+            }
+        } catch (error) {
+            console.warn('API orders fetch failed:', error.message);
+        }
+    };
+
+    // ── Initial Fetches & Polling ────────────────────────────────────────────
+    useEffect(() => {
+        const fetchMenus = async () => {
+            const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+            try {
+                setLoading(true);
+                const response = await fetch(`${API_BASE_URL}/menus/${restaurantId}`);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                setMenuData(data);
+            } catch (error) {
+                console.warn('API menu fetch failed:', error.message);
+                setMenuData({ categories: [] });
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchMenus();
+    }, [user?.restaurant_id, user?.restaurent_id]);
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+            try {
+                const response = await fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`);
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                const data = await response.json();
+                if (data) {
+                    setPosSettings({
+                        restaurantName: data.restaurant_info?.name || 'Big Ben Restaurant',
+                        address: data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel',
+                        taxRate: parseFloat(data.financials?.tax_rate_percentage) ?? 5.00,
+                        serviceCharge: parseFloat(data.financials?.service_charge_percentage) ?? 10.00,
+                        enableThermalPrinting: data.hardware_and_preferences?.enable_web_serial_thermal_printing ?? true,
+                        autoCleanTables: data.hardware_and_preferences?.auto_clean_dirty_tables ?? false
+                    });
+                }
+            } catch (error) {
+                console.warn('Using fallback POS settings:', error.message);
+            }
+        };
+        fetchSettings();
+    }, [user?.restaurant_id, user?.restaurent_id]);
+
+    useEffect(() => {
+        fetchTables();
+        fetchOrders();
+        const pollInterval = import.meta.env.DEV ? 60000 : 20000;
+        const interval = setInterval(() => { fetchTables(); fetchOrders(); }, pollInterval);
+        return () => clearInterval(interval);
+    }, [user?.restaurant_id, user?.restaurent_id]);
+
+    // ── tablesList (memoized, with order sessions merged) ───────────────────
+    const tablesList = useMemo(() => {
+        let list = [];
+        if (tablesData?.tables?.length > 0) {
+            list = tablesData.tables;
+        } else if (tablesData?.sections?.length > 0) {
+            tablesData.sections.forEach(sec => { if (sec?.tables) list.push(...sec.tables); });
+        }
+
+        return list.map(t => {
+            const activeOrder = orderHistory.find(oh => oh.table_number === t.table_number && oh.status === 'PENDING');
+            if (activeOrder && t.status === 'Occupied') {
+                return { ...t, status: 'Occupied', current_session: { active_order_id: activeOrder.order_id, staff_name: activeOrder.staff_name || user?.username || 'Alex M.', updated_at: activeOrder.time, current_total: activeOrder.total, total_items: activeOrder.items.reduce((s, i) => s + i.qty, 0), items: activeOrder.items } };
+            }
+            if (t.status === 'Occupied' && !t.current_session) {
+                return { ...t, status: 'Occupied', current_session: { active_order_id: null, staff_name: 'Unknown', updated_at: new Date().toISOString(), current_total: 0, total_items: 0, items: [] } };
+            }
+            return t;
+        });
+    }, [tablesData, orderHistory, user?.username]);
+
+    // ── Default first table ──────────────────────────────────────────────────
+    useEffect(() => {
+        if (tablesList.length > 0 && !tableId) setTableId(tablesList[0].table_number);
+    }, [tablesList]);
+
+    // ── activeTableInfo ──────────────────────────────────────────────────────
+    const activeTableInfo = useMemo(() => {
+        if (!tableId) return null;
+        const foundTable = tablesList.find(t => t.table_number === tableId);
+        if (!foundTable) return null;
+        let sectionName = '';
+        if (tablesData?.sections) {
+            for (const sec of tablesData.sections) {
+                if ((sec.tables || []).some(t => t.table_number === tableId)) { sectionName = sec.section_name; break; }
+            }
+        }
+        return { ...foundTable, section_name: sectionName };
+    }, [tableId, tablesList, tablesData]);
+
+    // ── Cart switch on tableId change ────────────────────────────────────────
+    const prevTableIdRef = useRef(tableId);
+
+    const generateSessionCart = (table) => {
+        if (table.status !== 'Occupied' || !table.current_session) return {};
+        const session = table.current_session;
+        if (session.items?.length > 0) {
+            const newCart = {};
+            session.items.forEach(item => {
+                const cartKey = item.variant_id ? `${item.item_id}_${item.variant_id}` : String(item.item_id);
+                newCart[cartKey] = {
+                    id: cartKey, item_id: String(item.item_id),
+                    name: item.name.endsWith('(Active Order)') ? item.name : `${item.name} (Active Order)`,
+                    price: parseFloat(item.price !== undefined ? item.price : item.unit_price) || 0,
+                    qty: parseInt(item.qty !== undefined ? item.qty : item.quantity) || 1,
+                    category_id: String(item.category_id || '5'),
+                    selectedVariant: item.variant_id ? { id: item.variant_id, name: item.variant_name || 'Variant', price: 0 } : null,
+                    notes: item.notes || `Session Order: ${session.active_order_id || 'Active'}`
+                };
+            });
+            return newCart;
+        }
+        return {};
+    };
+
+    useEffect(() => {
+        const prevTableId = prevTableIdRef.current;
+        if (prevTableId && prevTableId !== tableId) {
+            setTableCarts(prev => ({ ...prev, [prevTableId]: cart }));
+            setTableModified(prev => ({ ...prev, [prevTableId]: cartModified }));
+        }
+        if (tableId) {
+            setCartModified(tableModified[tableId] || false);
+            if (tableCarts[tableId] !== undefined) {
+                setCart(tableCarts[tableId]);
+            } else {
+                const tableInfo = tablesList.find(t => t.table_number === tableId);
+                if (tableInfo?.status === 'Occupied' && tableInfo.current_session) {
+                    setCart(generateSessionCart(tableInfo));
+                } else {
+                    setCart({});
+                }
+            }
+        }
+        prevTableIdRef.current = tableId;
+    }, [tableId, tablesList]);
+
+    // ── Derived cart calculations ────────────────────────────────────────────
+    const cartItems = Object.values(cart);
+    const subtotal = cartItems.reduce((sum, item) => {
+        const cost = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
+        return sum + cost * item.qty;
+    }, 0);
+    const tax = cartItems.reduce((sum, item) => {
+        const menuItem = menuItems.find(mi => mi.item_id === item.item_id);
+        const taxPct = menuItem ? parseFloat(menuItem.tax_percentage || posSettings.taxRate) : posSettings.taxRate;
+        const cost = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
+        return sum + cost * item.qty * taxPct / 100;
+    }, 0);
+    const serviceCharge = subtotal * (posSettings.serviceCharge / 100);
+    const grandTotal = subtotal + tax + serviceCharge;
+
+    // ── Cart Actions ─────────────────────────────────────────────────────────
+    const addToCart = (item, variant = null, notes = '') => {
+        const cartKey = variant ? `${item.item_id}_${variant.id}` : item.item_id;
+        setCart(prev => {
+            const existing = prev[cartKey];
+            if (existing) return { ...prev, [cartKey]: { ...existing, qty: existing.qty + 1 } };
+            return { ...prev, [cartKey]: { id: cartKey, item_id: item.item_id, name: item.item_name, price: parseFloat(item.price), qty: 1, category_id: item.category_id, selectedVariant: variant, notes } };
+        });
+        setCartModified(true);
+    };
+
+    const handleItemClick = (item) => {
+        if (item.variants?.length > 0) {
+            setSelectedItemForModal(item);
+            setChosenVariant(item.variants[0]);
+        } else {
+            addToCart(item);
+        }
+    };
+
+    const updateQty = (id, delta) => {
+        setCart(prev => {
+            const existing = prev[id];
+            if (!existing) return prev;
+            const newQty = existing.qty + delta;
+            if (newQty <= 0) { const { [id]: _, ...rest } = prev; return rest; }
+            return { ...prev, [id]: { ...existing, qty: newQty } };
+        });
+        setCartModified(true);
+    };
+
+    const removeItem = (id) => {
+        setCart(prev => { const n = { ...prev }; delete n[id]; return n; });
+        setCartModified(true);
+    };
+
+    // ── Utility ──────────────────────────────────────────────────────────────
+    const getMinutesElapsed = (isoString) => {
+        if (!isoString) return '0m';
+        const mins = Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 60000));
+        if (mins < 60) return `${mins}m`;
+        const hrs = Math.floor(mins / 60);
+        const remainMins = mins % 60;
+        if (hrs < 24) return `${hrs}h ${remainMins}m`;
+        const days = Math.floor(hrs / 24);
+        return `${days}d ${Math.floor(hrs % 24)}h`;
+    };
+
+    // ── sendOrderToKitchen ───────────────────────────────────────────────────
+    const sendOrderToKitchen = async () => {
+        if (Object.keys(cart).length === 0) { showToast('Cart is empty!', 'error', 'Cart Empty'); return; }
+
+        const isAddItemsFlow = activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id;
+
+        if (isAddItemsFlow) {
+            const existingOrderId = activeTableInfo.current_session.active_order_id;
+            setTablesData(prev => {
+                const update = t => t.table_number === tableId ? { ...t, status: 'Occupied', current_session: { ...t.current_session, active_order_id: existingOrderId, updated_at: new Date().toISOString(), total_items: cartItems.reduce((s, i) => s + i.qty, 0), current_total: parseFloat(grandTotal.toFixed(2)) } } : t;
+                return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+            });
+            setCartModified(false);
+            setTableCarts(prev => ({ ...prev, [tableId]: cart }));
+            setTableModified(prev => ({ ...prev, [tableId]: false }));
+            setOrderHistory(prev => prev.map(oh => String(oh.order_id) === String(existingOrderId) ? { ...oh, items: cartItems, total: parseFloat(grandTotal.toFixed(2)), status: 'PENDING' } : oh));
+            showToast(`Order #${existingOrderId} updated with ${cartItems.length} item(s).`, 'success', 'Order Updated');
+            return;
+        }
+
+        const mappedTable = activeTableInfo?.table_id ? `T-${activeTableInfo.table_id}` : tableId?.replace('#', 'T-') || 'T-none';
+        const generatedOrderId = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+
+        const orderPayload = {
+            order_meta: {
+                restaurant_id: parseInt(user?.restaurant_id || user?.restaurent_id) || 9,
+                staff_id: parseInt(user?.id) || 5,
+                staff_name: user?.username || 'Ravi',
+                order_type: orderType.toUpperCase().replace('-', '_'),
+                table_number: mappedTable,
+                table_number_id: orderType.toUpperCase().replace('-', '_') === 'DINE_IN' ? (parseInt(activeTableInfo?.table_id) || 11) : null,
+                guest_count: 4
+            },
+            items: cartItems.map(item => {
+                const parsedId = parseInt(item.item_id);
+                return {
+                    item_id: !isNaN(parsedId) ? parsedId : item.item_id,
+                    name: item.name, quantity: item.qty, unit_price: item.price,
+                    total_price: item.price * item.qty,
+                    variant_id: item.selectedVariant ? (parseInt(item.selectedVariant.id) || item.selectedVariant.id) : null,
+                    addons: item.selectedVariant ? [{ addon_id: parseInt(item.selectedVariant.id) || 1, addon_name: item.selectedVariant.name, addon_quantity: 1, addon_unit_price: parseFloat(item.selectedVariant.price || 0), addon_total_price: parseFloat(item.selectedVariant.price || 0) }] : [],
+                    notes: item.notes || null
+                };
+            }),
+            totals: { subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), service_charge: parseFloat(serviceCharge.toFixed(2)), discount_amount: 0.00, grand_total: parseFloat(grandTotal.toFixed(2)) },
+            status: 'PENDING',
+            created_at: new Date().toISOString()
+        };
+
+        const markOccupied = (oid) => {
+            setTablesData(prev => {
+                const update = t => t.table_number === tableId ? { ...t, status: 'Occupied', current_session: { active_order_id: oid, staff_id: parseInt(user?.id) || 100, staff_name: user?.username || 'Ravi', guest_count: t.capacity || 4, updated_at: new Date().toISOString(), total_items: cartItems.reduce((s, i) => s + i.qty, 0), current_total: parseFloat(grandTotal.toFixed(2)) } } : t;
+                return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+            });
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/order/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderPayload) });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+            const oid = data.data?.order_id || data.order_id || generatedOrderId;
+            markOccupied(oid);
+            setCartModified(false);
+            setTableCarts(prev => ({ ...prev, [tableId]: cart }));
+            setTableModified(prev => ({ ...prev, [tableId]: false }));
+            setOrderHistory(prev => [{ order_id: oid, table_number: tableId, type: orderType.charAt(0).toUpperCase() + orderType.slice(1).toLowerCase(), total: parseFloat(grandTotal.toFixed(2)), subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), serviceCharge: parseFloat(serviceCharge.toFixed(2)), items: cartItems, time: new Date().toISOString(), status: 'PENDING' }, ...prev]);
+            fetchOrders();
+            showToast(`Order ID: ${oid}\nStatus: PENDING\nTotal: ₹${grandTotal.toFixed(2)}`, 'success', 'Order Sent to Kitchen');
+        } catch (error) {
+            console.warn('Live API failed, using local fallback:', error.message);
+            markOccupied(generatedOrderId);
+            setCartModified(false);
+            setTableCarts(prev => ({ ...prev, [tableId]: cart }));
+            setTableModified(prev => ({ ...prev, [tableId]: false }));
+            setOrderHistory(prev => [{ order_id: generatedOrderId, table_number: tableId, type: orderType.charAt(0).toUpperCase() + orderType.slice(1).toLowerCase(), total: parseFloat(grandTotal.toFixed(2)), subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), serviceCharge: parseFloat(serviceCharge.toFixed(2)), items: cartItems, time: new Date().toISOString(), status: 'PENDING' }, ...prev]);
+            showToast(`Order ID: ${generatedOrderId}\nStatus: PENDING\nTotal: ₹${grandTotal.toFixed(2)}`, 'success', '[Mock] Order Sent to Kitchen');
+        }
+    };
+
+    // ── checkoutAndPay ───────────────────────────────────────────────────────
+    const checkoutAndPay = async () => {
+        if (Object.keys(cart).length === 0) { showToast('Cart is empty!', 'error', 'Cart Empty'); return; }
+        if (cartModified) {
+            if (!window.confirm('You have unsaved changes. Place order and process payment?')) return;
+            await sendOrderToKitchen();
+        }
+        setTablesData(prev => {
+            const session = { last_order_id: activeTableInfo?.current_session?.active_order_id || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
+            const update = t => t.table_number === tableId ? { ...t, status: 'Dirty', current_session: session } : t;
+            return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+        });
+        showToast(`Total Paid: ₹${grandTotal.toFixed(2)}\nTable marked as Dirty.`, 'success', `Payment Processed for Table ${tableId}`);
+        const activeOrd = activeTableInfo?.current_session?.active_order_id;
+        if (activeOrd) {
+            setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
+        }
+        setOrderHistory(prev => prev.map(oh => oh.table_number === tableId && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
+        fetchOrders();
+        setCart({}); setCartModified(false);
+        setTableCarts(prev => ({ ...prev, [tableId]: {} }));
+        setTableModified(prev => ({ ...prev, [tableId]: false }));
+        navigate('/tables');
+    };
+
+    // ── payNow (from Tables page) ────────────────────────────────────────────
+    const payNow = async (tNum) => {
+        const tableInfo = tablesList.find(t => t.table_number === tNum);
+        const activeOrd = tableInfo?.current_session?.active_order_id;
+        setTablesData(prev => {
+            const session = { last_order_id: activeOrd || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
+            const update = t => t.table_number === tNum ? { ...t, status: 'Dirty', current_session: session } : t;
+            return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+        });
+        if (activeOrd) {
+            setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
+            setOrderHistory(prev => prev.map(oh => oh.order_id === activeOrd ? { ...oh, status: 'PAID' } : oh));
+        } else {
+            const pendingOrder = orderHistory.find(oh => oh.table_number === tNum && oh.status === 'PENDING');
+            if (pendingOrder) {
+                setPaidOrderIds(prev => { const next = [...prev, String(pendingOrder.order_id)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
+            }
+            setOrderHistory(prev => prev.map(oh => oh.table_number === tNum && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
+        }
+        fetchOrders();
+        setCart({}); setCartModified(false);
+        setTableCarts(prev => ({ ...prev, [tNum]: {} }));
+        setTableModified(prev => ({ ...prev, [tNum]: false }));
+        showToast('Status changed to Dirty.', 'success', `Payment Processed for Table ${tNum}`);
+    };
+
+    // ── markTableAsAvailable ─────────────────────────────────────────────────
+    const markTableAsAvailable = async (tNum) => {
+        setTablesData(prev => {
+            const update = t => t.table_number === tNum ? { ...t, status: 'Available', current_session: null } : t;
+            return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+        });
+        showToast(`Table ${tNum} is now clean and available!`, 'success', 'Table Cleaned');
+    };
+
+    // ── checkInTable ─────────────────────────────────────────────────────────
+    const checkInTable = (tNum) => {
+        setTablesData(prev => {
+            const session = { active_order_id: `ORD-${Math.floor(10000 + Math.random() * 90000)}`, guest_count: 4, total_items: 0, current_total: 0 };
+            const update = t => t.table_number === tNum ? { ...t, status: 'Occupied', current_session: session } : t;
+            return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+        });
+        setTableCarts(prev => ({ ...prev, [tNum]: {} }));
+        setTableModified(prev => ({ ...prev, [tNum]: false }));
+        setTableId(tNum); setCart({}); setCartModified(false);
+        navigate('/order');
+        showToast('Starting a new order.', 'success', `Checked in to Table ${tNum}`);
+    };
+
+    // ── cancelActiveOrder ────────────────────────────────────────────────────
+    const cancelActiveOrder = async (orderId, tableNum) => {
+        if (!window.confirm(`Are you sure you want to cancel and delete Order #${orderId} and free Table ${tableNum}?`)) {
+            return;
+        }
+
+        try {
+            // 1. Call table status update API to free the table
+            try {
+                await fetch(`${API_BASE_URL}/tables/status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        table_number: tableNum,
+                        status: 'Available',
+                        current_session: null
+                    })
+                });
+            } catch (statusErr) {
+                console.warn("Table status update API failed:", statusErr.message);
+            }
+
+            // 3. Update local state
+            setTablesData(prev => {
+                const update = t => t.table_number === tableNum ? { ...t, status: 'Available', current_session: null } : t;
+                return {
+                    ...prev,
+                    sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })),
+                    tables: (prev.tables || []).map(update)
+                };
+            });
+
+            // Remove order from history
+            setOrderHistory(prev => prev.filter(oh => String(oh.order_id) !== String(orderId)));
+
+            // Clear cart
+            setCart({});
+            setCartModified(false);
+            setTableCarts(prev => ({ ...prev, [tableNum]: {} }));
+            setTableModified(prev => ({ ...prev, [tableNum]: false }));
+
+            showToast(`Order #${orderId} cancelled. Table ${tableNum} is now Available.`, 'success', 'Order Cancelled');
+        } catch (error) {
+            console.error("Failed to cancel order:", error);
+            showToast("Failed to cancel order: " + error.message, 'error', 'Cancel Failed');
+        }
+    };
+
+    // ── handleAddItems ────────────────────────────────────────────────────────
+    const handleAddItems = (tNum) => { setTableId(tNum); navigate('/order'); };
+    const handlePrintBillFromTable = (tNum) => { setTableId(tNum); navigate('/order'); setTimeout(() => window.print(), 300); };
+
+    // ── handleAddTable ────────────────────────────────────────────────────────
+    const handleAddTable = async (tableNumber, capacity) => {
+        const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+        try {
+            const response = await fetch(`${API_BASE_URL}/tables`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restaurant_id: restaurantId, table_number: tableNumber, capacity }) });
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+            showToast(data.message || 'Table created successfully.', 'success', 'Table Created');
+            fetchTables();
+        } catch (error) {
+            showToast('Failed to add table. ' + error.message, 'error', 'Add Table Failed');
+        }
+    };
+
+    // ── handleCreateReservation ───────────────────────────────────────────────
+    const handleCreateReservation = async (e) => {
+        e.preventDefault();
+        if (!resSelectedTableNum) { showToast('Please select a table.', 'error', 'Missing Table'); return; }
+        try {
+            const currentSessionObj = { active_order_id: null, staff_id: user?.id || 9, staff_name: user?.username || 'Ravi Sen', guest_count: parseInt(resGuestCount) || 4, customer_name: resCustomerName, customer_phone: resCustomerPhone, reservation_time: resTime, updated_at: new Date().toISOString(), total_items: 0, current_total: 0.00, items: [] };
+            await fetch(`${API_BASE_URL}/tables/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table_number: resSelectedTableNum, status: 'Reserved', current_session: currentSessionObj }) });
+            setTablesData(prev => {
+                const update = t => t.table_number === resSelectedTableNum ? { ...t, status: 'Reserved', current_session: currentSessionObj } : t;
+                return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
+            });
+            setShowReservationModal(false);
+            showToast(`Table ${resSelectedTableNum} reserved for ${resCustomerName}.`, 'success', 'Reservation Confirmed');
+            setResCustomerName(''); setResCustomerPhone(''); setResSelectedTableNum(''); setResGuestCount(4);
+        } catch (error) {
+            showToast('Could not save reservation: ' + error.message, 'error', 'Reservation Error');
+        }
+    };
+
+    // ── handleUpdateOrder ─────────────────────────────────────────────────────
+    const handleUpdateOrder = (updatedOrder) => {
+        setOrderHistory(prev => prev.map(o => o.order_id === updatedOrder.order_id ? updatedOrder : o));
+        const tNum = updatedOrder.table_number;
+        const activeTable = tablesList.find(t => t.table_number === tNum);
+        if (activeTable?.status === 'Occupied' && activeTable.current_session?.active_order_id === updatedOrder.order_id) {
+            const newCart = {};
+            updatedOrder.items.forEach(item => { newCart[item.id] = item; });
+            if (tableId === tNum) { setCart(newCart); setCartModified(false); }
+            setTableCarts(prev => ({ ...prev, [tNum]: newCart }));
+            setTableModified(prev => ({ ...prev, [tNum]: false }));
+            setTablesData(prev => {
+                const updateT = (list) => (list || []).map(t => t.table_number === tNum ? { ...t, current_session: { ...t.current_session, current_total: updatedOrder.total, total_items: updatedOrder.items.reduce((s, i) => s + i.qty, 0) } } : t);
+                if (prev.tables?.length > 0) return { ...prev, tables: updateT(prev.tables) };
+                return { ...prev, sections: prev.sections.map(sec => ({ ...sec, tables: updateT(sec.tables) })) };
+            });
+        }
+        showToast('Order updated successfully!', 'success', 'Order Updated');
+        navigate('/history');
+    };
+
+    // ── handlePrintKOT ────────────────────────────────────────────────────────
+    const handlePrintKOT = () => {
+        if (cartItems.length === 0) { showToast('Cart is empty!', 'error', 'Print Failed'); return; }
+        window.print();
+    };
+
+    const printDirectToPrinter = async () => {
+        if (cartItems.length === 0) { showToast('Cart is empty!', 'error', 'Print Failed'); return; }
+        if (!navigator.serial) { showToast('Web Serial not supported. Use Chrome/Edge.', 'error', 'Serial Port Error'); return; }
+        try {
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 9600 });
+            const writer = port.writable.getWriter();
+            const encoder = new TextEncoder();
+            const ESC = '\x1b', GS = '\x1d';
+            let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName}\n${ESC}E\x00${posSettings.address}\n--------------------------------\n${ESC}a\x00Table: ${tableId}    Type: ${orderType}\n--------------------------------\n`;
+            cartItems.forEach(item => {
+                const total = (item.price + parseFloat(item.selectedVariant?.price || 0)) * item.qty;
+                let name = `${item.name} x${item.qty}`, price = `Rs.${total.toFixed(0)}`;
+                receipt += name + ' '.repeat(Math.max(1, 32 - name.length - price.length)) + price + '\n';
+                if (item.selectedVariant) receipt += `  Option: ${item.selectedVariant.name}\n`;
+                if (item.notes) receipt += `  * ${item.notes}\n`;
+            });
+            receipt += `--------------------------------\nSubtotal: Rs.${subtotal.toFixed(0)}\nTax: Rs.${tax.toFixed(0)}\nService: Rs.${serviceCharge.toFixed(0)}\n${ESC}E\x01TOTAL: Rs.${grandTotal.toFixed(0)}\n${ESC}E\x00--------------------------------\n${ESC}a\x01Thank You!\n\n\n\n${GS}V\x41\x03`;
+            await writer.write(encoder.encode(receipt));
+            writer.releaseLock();
+            await port.close();
+            showToast('Print sent!', 'success', 'Print Success');
+        } catch (error) {
+            showToast('Print failed: ' + error.message, 'error', 'Print Failed');
+        }
+    };
+
+    const filteredItems = (searchQuery, selectedCategory) => menuItems.filter(item => {
+        const cat = categories.find(c => c.category_id === item.category_id)?.category_name || '';
+        return (selectedCategory === 'All' || cat === selectedCategory) && item.item_name.toLowerCase().includes((searchQuery || '').toLowerCase());
+    });
+
+    const value = {
+        // User
+        user, onLogout,
+        // Data
+        menuData, setMenuData, loading, categories, menuItems, filteredItems,
+        tablesData, setTablesData, tablesList,
+        orderHistory, setOrderHistory, paidOrderIds, setPaidOrderIds,
+        posSettings, setPosSettings, staffList, setStaffList,
+        // Cart
+        cart, setCart, cartModified, setCartModified,
+        tableId, setTableId, tableCarts, setTableCarts,
+        tableModified, setTableModified,
+        orderType, setOrderType,
+        cartItems, subtotal, tax, serviceCharge, grandTotal,
+        activeTableInfo,
+        // Variant modal
+        selectedItemForModal, setSelectedItemForModal,
+        chosenVariant, setChosenVariant,
+        // Reservation
+        showReservationModal, setShowReservationModal,
+        resCustomerName, setResCustomerName,
+        resCustomerPhone, setResCustomerPhone,
+        resSelectedTableNum, setResSelectedTableNum,
+        resGuestCount, setResGuestCount,
+        resTime, setResTime,
+        // Toast
+        toast, setToast, showToast,
+        // Detail view
+        selectedDetailOrder, setSelectedDetailOrder,
+        // Actions
+        fetchTables, fetchOrders,
+        addToCart, handleItemClick, updateQty, removeItem,
+        sendOrderToKitchen, checkoutAndPay, payNow,
+        markTableAsAvailable, checkInTable, cancelActiveOrder,
+        handleAddItems, handlePrintBillFromTable,
+        handleAddTable, handleCreateReservation,
+        handleUpdateOrder, handlePrintKOT, printDirectToPrinter,
+        getMinutesElapsed,
+    };
+
+    return <POSContext.Provider value={value}>{children}</POSContext.Provider>;
+};

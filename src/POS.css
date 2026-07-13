@@ -609,3 +609,29 @@ body {
 .list-group-item:hover {
   background-color: #f1f5f9 !important;
 }
+
+.btn-blue {
+  background-color: #2979ff !important;
+  color: white !important;
+  transition: background-color 0.2s ease;
+}
+
+.btn-blue:hover {
+  background-color: #1565c0 !important;
+}
+
+/* Custom slide-in animation for toast alerts */
+.animate-slide-in {
+    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateY(1.5rem) scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
