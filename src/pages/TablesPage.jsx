@@ -17,6 +17,7 @@ const TablesPage = () => {
     const [showModal, setShowModal] = React.useState(false);
     const [newTableNum, setNewTableNum] = React.useState('');
     const [newTableCap, setNewTableCap] = React.useState('4');
+    const [newTableFloor, setNewTableFloor] = React.useState('');
 
     return (
         <div className="dashboard-container">
@@ -51,15 +52,22 @@ const TablesPage = () => {
                                 {/* Card Body */}
                                 <div className="card-body-pos">
                                     <div className="table-title-pos">
-                                        {table.table_number} | {table.capacity} Seats
+                                        {table.table_name || table.table_number} | {table.capacity} Seats
                                     </div>
 
                                     {/* Occupied Session Info */}
                                     {table.status === 'Occupied' && session && (
                                         <div className="session-info">
                                             <div>
-                                                <div className="label">Server</div>
-                                                <div className="value">{session.staff_name || 'Ravi Sen'}</div>
+                                                <div className="label">Status</div>
+                                                <span className={`badge mt-1 ${
+                                                    session.order_status === 'COMPLETED' ? 'bg-success' :
+                                                    session.order_status === 'SERVED' ? 'bg-info text-dark' :
+                                                    session.order_status === 'CANCELLED' ? 'bg-danger' :
+                                                    'bg-warning text-dark'
+                                                }`} style={{ fontSize: '0.72rem' }}>
+                                                    {session.order_status || 'PENDING'}
+                                                </span>
                                                 <div className="time-spent" style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>{timeStr}</div>
                                             </div>
                                             <div style={{ textAlign: 'right' }}>
@@ -86,14 +94,9 @@ const TablesPage = () => {
                                     {/* Action Buttons */}
                                     <div className="card-actions-pos" style={{ flexDirection: 'column', gap: '6px' }}>
                                         {table.status === 'Available' && (
-                                            <>
-                                                <button className="btn-action-pos" onClick={() => checkInTable(table.table_number)}>
-                                                    Seat Guests
-                                                </button>
-                                                <button className="btn-action-pos" style={{ background: '#e2e8f0', color: '#1e293b' }} onClick={() => checkInTable(table.table_number)}>
-                                                    Open Tab
-                                                </button>
-                                            </>
+                                            <button className="btn-action-pos btn-green" onClick={() => checkInTable(table.table_number)}>
+                                                Take Order
+                                            </button>
                                         )}
 
                                         {table.status === 'Occupied' && (
@@ -201,22 +204,27 @@ const TablesPage = () => {
                             </div>
                             <div className="modal-body">
                                 <div className="mb-3">
-                                    <label className="form-label fw-semibold">Table Number</label>
-                                    <input type="text" className="form-control" placeholder="e.g. #4 or VIP-1" value={newTableNum} onChange={e => setNewTableNum(e.target.value)} />
+                                    <label className="form-label fw-semibold">Table Name</label>
+                                    <input type="text" className="form-control" placeholder="e.g. Table #4 or VIP-1" value={newTableNum} onChange={e => setNewTableNum(e.target.value)} />
                                 </div>
                                 <div className="mb-3">
                                     <label className="form-label fw-semibold">Capacity (seats)</label>
                                     <input type="number" className="form-control" min="1" max="50" value={newTableCap} onChange={e => setNewTableCap(e.target.value)} />
                                 </div>
+                                <div className="mb-3">
+                                    <label className="form-label fw-semibold">Floor <span className="text-muted fw-normal">(Optional)</span></label>
+                                    <input type="text" className="form-control" placeholder="e.g. Ground, First Floor" value={newTableFloor} onChange={e => setNewTableFloor(e.target.value)} />
+                                </div>
                             </div>
                             <div className="modal-footer">
                                 <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
                                 <button className="btn btn-primary" onClick={() => {
-                                    if (newTableNum) {
-                                        handleAddTable(newTableNum, parseInt(newTableCap) || 4);
+                                    if (newTableNum.trim()) {
+                                        handleAddTable(newTableNum.trim(), parseInt(newTableCap) || 4, newTableFloor.trim() || null);
                                         setShowModal(false);
                                         setNewTableNum('');
                                         setNewTableCap('4');
+                                        setNewTableFloor('');
                                     }
                                 }}>Add Table</button>
                             </div>

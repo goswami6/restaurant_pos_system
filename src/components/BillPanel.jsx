@@ -17,15 +17,19 @@ const BillPanel = () => {
     } = usePOS();
 
     return (
-        <div className="col-md-3 bill-panel" style={{ height: 'calc(100vh - 112px)' }}>
+        <div className="col-12 col-md-5 col-lg-3 bill-panel h-100 border-t lg:border-t-0 border-slate-200" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: '450px' }}>
             {/* HEADER */}
             <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
                 <div>
                     <div className="d-flex align-items-center gap-2 mb-1">
                         <span className="fw-bold text-slate-800" style={{ fontSize: '1.05rem' }}>
-                            {activeTableInfo?.section_name ? `${activeTableInfo.section_name} - ` : ''}Table {tableId}
+                            {posSettings.isEnableTables ? (
+                                <>{activeTableInfo?.section_name ? `${activeTableInfo.section_name} - ` : ''}{tableId}</>
+                            ) : (
+                                "Direct Order"
+                            )}
                         </span>
-                        {activeTableInfo && (
+                        {posSettings.isEnableTables && activeTableInfo && (
                             <span className={`badge ${
                                 activeTableInfo.status === 'Occupied' ? 'bg-danger' : 
                                 activeTableInfo.status === 'Dirty' ? 'bg-warning text-dark' : 'bg-success'
@@ -34,29 +38,33 @@ const BillPanel = () => {
                             </span>
                         )}
                     </div>
-                    {activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? (
+                    {posSettings.isEnableTables && activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? (
                         <span className="text-muted small" style={{ fontSize: '0.78rem' }}>Order #{activeTableInfo.current_session.active_order_id}</span>
-                    ) : (
+                    ) : posSettings.isEnableTables ? (
                         <span className="text-muted small" style={{ fontSize: '0.78rem' }}>New Session</span>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Table Selector Dropdown */}
-                <select
-                    className="form-select form-select-sm"
-                    style={{ width: 'auto', maxWidth: '100px', fontSize: '0.8rem', borderRadius: '6px' }}
-                    value={tableId}
-                    onChange={(e) => setTableId(e.target.value)}
-                >
-                    {tablesList.map(t => (
-                        <option key={t.table_id} value={t.table_number}>{t.table_number}</option>
-                    ))}
-                </select>
+                {posSettings.isEnableTables && (
+                    <select
+                        className="form-select form-select-sm"
+                        style={{ width: 'auto', maxWidth: '170px', fontSize: '0.8rem', borderRadius: '6px' }}
+                        value={tableId}
+                        onChange={(e) => setTableId(e.target.value)}
+                    >
+                        {tablesList.map(t => (
+                            <option key={t.table_id} value={t.table_number}>
+                                {t.table_name}{t.capacity ? ` | ${t.capacity} Seats` : ''}
+                            </option>
+                        ))}
+                    </select>
+                )}
             </div>
 
             {/* CART ITEMS LIST */}
-            <div className="cart-scroll" style={{ flex: 1, overflowY: 'auto', padding: '15px' }}>
-                {activeTableInfo?.status === 'Dirty' ? (
+            <div className="cart-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '15px' }}>
+                {posSettings.isEnableTables && activeTableInfo?.status === 'Dirty' ? (
                     <div className="text-center py-5 px-3">
                         <div className="fs-1 mb-2">🧹</div>
                         <h6 className="fw-bold text-danger">Table Needs Cleaning</h6>
@@ -68,7 +76,7 @@ const BillPanel = () => {
                             ✅ Mark as Clean
                         </button>
                     </div>
-                ) : activeTableInfo?.status === 'Available' ? (
+                ) : posSettings.isEnableTables && activeTableInfo?.status === 'Available' && cartItems.length === 0 ? (
                     <div className="text-center py-5 px-3">
                         <div className="fs-1 mb-2">🪑</div>
                         <h6 className="fw-bold text-success">Table is Available</h6>
@@ -160,14 +168,28 @@ const BillPanel = () => {
                     <span className="text-muted">Service Charge ({posSettings.serviceCharge}%)</span>
                     <span>₹{serviceCharge.toFixed(2)}</span>
                 </div>
-                <div className="d-flex justify-content-between align-items-center pt-2 mb-3" style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <strong className="fs-5 text-slate-800">Grand Total</strong>
-                    <strong className="fs-5 text-primary">₹{grandTotal.toFixed(2)}</strong>
+
+                {/* Grand Total Badge Row */}
+                <div className="d-flex justify-content-between align-items-center px-3 py-2 mb-3 rounded-3"
+                    style={{ background: '#f1f5f9', borderTop: '2px solid #e2e8f0' }}>
+                    <strong style={{ fontSize: '1.05rem', color: '#1e293b' }}>Grand Total</strong>
+                    <span style={{
+                        background: '#1e293b',
+                        color: '#fff',
+                        fontWeight: '700',
+                        fontSize: '1rem',
+                        padding: '4px 14px',
+                        borderRadius: '8px',
+                        letterSpacing: '0.02em'
+                    }}>
+                        ₹{grandTotal.toFixed(2)}
+                    </span>
                 </div>
 
-                <div className="bill-footer" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '10px', padding: '0', border: 'none', background: 'transparent' }}>
+                {/* Action Buttons — 2×2 grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                     <button
-                        className="btn btn-outline-secondary"
+                        className="btn btn-outline-secondary py-2 text-xs font-semibold"
                         onClick={async () => {
                             if (activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id) {
                                 await cancelActiveOrder(activeTableInfo.current_session.active_order_id, activeTableInfo.table_number);
@@ -180,15 +202,27 @@ const BillPanel = () => {
                     >
                         Cancel
                     </button>
-                    <button className="btn btn-dark" onClick={handlePrintKOT}>
+                    <button className="btn btn-dark py-2 text-xs font-semibold" onClick={handlePrintKOT}>
                         Browser Print
                     </button>
-                    <button className="btn !bg-blue-600 !hover:bg-blue-700 !text-white font-bold border-0 transition-colors" onClick={printDirectToPrinter}>
+                    <button
+                        className="btn py-2 text-xs font-semibold border-0 text-white"
+                        style={{ background: '#2563eb' }}
+                        onClick={printDirectToPrinter}
+                    >
                         Direct Print
                     </button>
-                    {cartItems.length > 0 && (
-                        <button className="btn btn-order-premium text-white font-bold" onClick={sendOrderToKitchen}>
+                    {cartItems.length > 0 ? (
+                        <button
+                            className="btn py-2 text-xs font-bold text-white border-0"
+                            style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+                            onClick={sendOrderToKitchen}
+                        >
                             {activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? 'Update Order' : 'Place Order'}
+                        </button>
+                    ) : (
+                        <button className="btn btn-outline-secondary py-2 text-xs font-semibold" disabled>
+                            Place Order
                         </button>
                     )}
                 </div>

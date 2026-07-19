@@ -38,7 +38,7 @@ function App() {
             <POSProvider user={user} onLogout={handleLogout}>
                 <Routes>
                     <Route path="/" element={<AppLayout />}>
-                        <Route index element={<Navigate to="/tables" replace />} />
+                        <Route index element={<Navigate to="/order" replace />} />
                         <Route path="tables" element={<TablesPage />} />
                         <Route path="order" element={<OrderPage />} />
                         <Route path="menu" element={<MenuView />} />
@@ -46,7 +46,7 @@ function App() {
                         <Route path="settings" element={<SettingsPage />} />
                         <Route path="history" element={<HistoryPage />} />
                         <Route path="history/:id" element={<OrderDetailPage />} />
-                        <Route path="*" element={<Navigate to="/tables" replace />} />
+                        <Route path="*" element={<Navigate to="/order" replace />} />
                     </Route>
                 </Routes>
             </POSProvider>

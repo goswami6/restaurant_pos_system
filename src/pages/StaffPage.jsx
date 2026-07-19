@@ -42,7 +42,7 @@ const StaffPage = () => {
     };
 
     return (
-        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, minHeight: 'calc(100vh - 112px)', overflowY: 'auto' }}>
+        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
             <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                 <div className="card-body p-4">
                     <div className="d-flex justify-content-between align-items-center mb-4">
@@ -109,7 +109,7 @@ const StaffPage = () => {
                     <div className="row g-4">
                         {staffList.map((staff) => {
                             return (
-                                <div className="col-md-4 col-lg-3" key={staff.id}>
+                                <div className="col-12 col-sm-6 col-md-4 col-lg-3" key={staff.id}>
                                     <div className={`table-card-pos ${staff.status === 'Active' ? 'available' : (staff.status === 'On Break' ? 'occupied' : 'dirty')}`} style={{ minHeight: '210px' }}>
                                         <div className="card-header-pos" style={{ textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '0.05em' }}>
                                             {staff.status === 'Active' ? 'On Duty' : staff.status}

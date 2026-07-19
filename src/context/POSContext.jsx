@@ -65,9 +65,14 @@ export const POSProvider = ({ user, onLogout, children }) => {
         restaurantName: 'Big Ben Restaurant',
         address: '1st Flr, Sun Mill Compound, Lower Parel',
         taxRate: 5.00,
+        cgst: 2.50,
+        sgst: 2.50,
         serviceCharge: 10.00,
         enableThermalPrinting: true,
-        autoCleanTables: false
+        autoCleanTables: false,
+        isRestaurantServesLiquor: false,
+        stateVatTaxRate: 0.00,
+        isEnableTables: false
     });
     const [staffList, setStaffList] = useState([
         { id: 100, name: 'Alex M.', role: 'Waiter', status: 'Active', ordersHandled: 12 },
@@ -157,14 +162,15 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
         const mapTableItem = (t) => {
             if (!t) return t;
-            const statusRaw = t.status || 'Available';
-            const statusFormatted = statusRaw.charAt(0).toUpperCase() + statusRaw.slice(1).toLowerCase();
-            let tNum = t.table_name || t.table_number || '';
-            if (tNum.startsWith('Table ')) tNum = tNum.replace('Table ', '');
-            if (!tNum.startsWith('#') && !tNum.startsWith('T-') && tNum) tNum = '#' + tNum;
+            const statusRaw = (t.status || 'Available').toUpperCase();
+            const statusMap = { 'AVAILABLE': 'Available', 'OCCUPIED': 'Occupied', 'DIRTY': 'Dirty', 'RESERVED': 'Reserved' };
+            const statusFormatted = statusMap[statusRaw] || (statusRaw.charAt(0) + statusRaw.slice(1).toLowerCase());
+            const tableId = t.table_id || t.id || String(Math.floor(1000 + Math.random() * 9000));
+            const tableName = t.table_name || t.table_number || `Table #${tableId}`;
             return {
-                table_id: t.id || t.table_id || String(Math.floor(1000 + Math.random() * 9000)),
-                table_number: tNum || `#${t.id || ''}`,
+                table_id: tableId,
+                table_name: tableName,
+                table_number: tableName,   // keep same for lookup compatibility
                 capacity: parseInt(t.capacity) || 4,
                 status: statusFormatted,
                 current_session: t.current_session || null,
@@ -208,17 +214,15 @@ export const POSProvider = ({ user, onLogout, children }) => {
                     if (apiOrder.order_type === 'TAKEAWAY') typeFormatted = 'Takeaway';
                     if (apiOrder.order_type === 'DELIVERY') typeFormatted = 'Delivery';
 
-                    let tableNum = apiOrder.table_name || apiOrder.table_number_id || 'N/A';
-                    if (tableNum.startsWith('Table ')) tableNum = tableNum.replace('Table ', '');
-                    if (!tableNum.startsWith('#') && !tableNum.startsWith('T-') && tableNum !== 'N/A') tableNum = '#' + tableNum;
+                    // Keep full table name to match tablesList.table_number (e.g. 'Table #1')
+                    const tableNum = apiOrder.table_name || apiOrder.table_number_id || 'N/A';
 
-                    const paymentStatus = apiOrder.bill?.payment_status || 'UNPAID';
-                    const isPaidLocally = paidOrderIds.includes(String(apiOrder.order_id));
-                    const statusFormatted = (paymentStatus === 'PAID' || isPaidLocally) ? 'PAID' : 'PENDING';
+                    const statusFormatted = (apiOrder.order_status || '').toUpperCase();
 
                     return {
                         order_id: String(apiOrder.order_id),
                         table_number: tableNum,
+                        table_number_id: apiOrder.table_number_id ? parseInt(apiOrder.table_number_id) : null,
                         type: typeFormatted,
                         time: apiOrder.created_at || new Date().toISOString(),
                         total: parseFloat(apiOrder.bill?.grand_total || 0),
@@ -265,27 +269,51 @@ export const POSProvider = ({ user, onLogout, children }) => {
         fetchMenus();
     }, [user?.restaurant_id, user?.restaurent_id]);
 
-    useEffect(() => {
-        const fetchSettings = async () => {
-            const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
-            try {
-                const response = await fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`);
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                const data = await response.json();
-                if (data) {
-                    setPosSettings({
-                        restaurantName: data.restaurant_info?.name || 'Big Ben Restaurant',
-                        address: data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel',
-                        taxRate: parseFloat(data.financials?.tax_rate_percentage) ?? 5.00,
-                        serviceCharge: parseFloat(data.financials?.service_charge_percentage) ?? 10.00,
-                        enableThermalPrinting: data.hardware_and_preferences?.enable_web_serial_thermal_printing ?? true,
-                        autoCleanTables: data.hardware_and_preferences?.auto_clean_dirty_tables ?? false
-                    });
-                }
-            } catch (error) {
-                console.warn('Using fallback POS settings:', error.message);
-            }
+    const fetchSettings = async () => {
+        const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+        const parseSettingNum = (val, fallback) => {
+            const parsed = parseFloat(val);
+            return isNaN(parsed) ? fallback : parsed;
         };
+        const parseSettingBool = (val, fallback) => {
+            if (val === undefined || val === null) return fallback;
+            if (typeof val === 'boolean') return val;
+            if (typeof val === 'number') return val === 1;
+            if (typeof val === 'string') {
+                const low = val.toLowerCase().trim();
+                return low === 'true' || low === '1';
+            }
+            return !!val;
+        };
+        try {
+            const response = await fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`);
+            if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+            const data = await response.json();
+            console.log("POSContext: fetched settings raw data =", JSON.stringify(data));
+            if (data) {
+                const fetchedTaxRate = parseSettingNum(data.financials?.tax_rate_percentage, 5.00);
+                const finalIsEnableTables = parseSettingBool(data.hardware_and_preferences?.is_enable_tables, false);
+                console.log("POSContext: evaluated isEnableTables =", finalIsEnableTables);
+                setPosSettings({
+                    restaurantName: data.restaurant_info?.name || 'Big Ben Restaurant',
+                    address: data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel',
+                    taxRate: fetchedTaxRate,
+                    cgst: parseSettingNum(data.financials?.cgst, fetchedTaxRate / 2),
+                    sgst: parseSettingNum(data.financials?.sgst, fetchedTaxRate / 2),
+                    serviceCharge: parseSettingNum(data.financials?.service_charge_percentage, 10.00),
+                    enableThermalPrinting: parseSettingBool(data.hardware_and_preferences?.enable_web_serial_thermal_printing, true),
+                    autoCleanTables: parseSettingBool(data.hardware_and_preferences?.auto_clean_dirty_tables, false),
+                    isRestaurantServesLiquor: parseSettingBool(data.financials?.is_restaurant_serves_liquor, false),
+                    stateVatTaxRate: parseSettingNum(data.financials?.state_vat_tax_rate, 0.00),
+                    isEnableTables: finalIsEnableTables
+                });
+            }
+        } catch (error) {
+            console.warn('Using fallback POS settings:', error.message);
+        }
+    };
+
+    useEffect(() => {
         fetchSettings();
     }, [user?.restaurant_id, user?.restaurent_id]);
 
@@ -307,9 +335,16 @@ export const POSProvider = ({ user, onLogout, children }) => {
         }
 
         return list.map(t => {
-            const activeOrder = orderHistory.find(oh => oh.table_number === t.table_number && oh.status === 'PENDING');
+            // Match by table_id (numeric) as primary key, fallback to table_number string
+            const activeOrder = orderHistory.find(oh =>
+                (oh.table_number_id && parseInt(oh.table_number_id) === parseInt(t.table_id)) ||
+                oh.table_number === t.table_number
+            ) && orderHistory.find(oh =>
+                ((oh.table_number_id && parseInt(oh.table_number_id) === parseInt(t.table_id)) ||
+                oh.table_number === t.table_number) && oh.status === 'PENDING'
+            );
             if (activeOrder && t.status === 'Occupied') {
-                return { ...t, status: 'Occupied', current_session: { active_order_id: activeOrder.order_id, staff_name: activeOrder.staff_name || user?.username || 'Alex M.', updated_at: activeOrder.time, current_total: activeOrder.total, total_items: activeOrder.items.reduce((s, i) => s + i.qty, 0), items: activeOrder.items } };
+                return { ...t, status: 'Occupied', current_session: { active_order_id: activeOrder.order_id, order_status: activeOrder.status || 'PENDING', staff_name: activeOrder.staff_name || user?.username || 'Alex M.', updated_at: activeOrder.time, current_total: activeOrder.total, total_items: activeOrder.items.reduce((s, i) => s + i.qty, 0), items: activeOrder.items } };
             }
             if (t.status === 'Occupied' && !t.current_session) {
                 return { ...t, status: 'Occupied', current_session: { active_order_id: null, staff_name: 'Unknown', updated_at: new Date().toISOString(), current_total: 0, total_items: 0, items: [] } };
@@ -369,11 +404,13 @@ export const POSProvider = ({ user, onLogout, children }) => {
             setTableModified(prev => ({ ...prev, [prevTableId]: cartModified }));
         }
         if (tableId) {
-            setCartModified(tableModified[tableId] || false);
-            if (tableCarts[tableId] !== undefined) {
+            const tableInfo = tablesList.find(t => t.table_number === tableId);
+            const isModified = tableModified[tableId] || false;
+            setCartModified(isModified);
+            
+            if (isModified && tableCarts[tableId] !== undefined) {
                 setCart(tableCarts[tableId]);
             } else {
-                const tableInfo = tablesList.find(t => t.table_number === tableId);
                 if (tableInfo?.status === 'Occupied' && tableInfo.current_session) {
                     setCart(generateSessionCart(tableInfo));
                 } else {
@@ -382,7 +419,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             }
         }
         prevTableIdRef.current = tableId;
-    }, [tableId, tablesList]);
+    }, [tableId, tablesList, tableCarts, tableModified]);
 
     // ── Derived cart calculations ────────────────────────────────────────────
     const cartItems = Object.values(cart);
@@ -455,6 +492,52 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
         if (isAddItemsFlow) {
             const existingOrderId = activeTableInfo.current_session.active_order_id;
+
+            // Build update payload matching /order/update API spec
+            const updatePayload = {
+                order_id: parseInt(existingOrderId),
+                items: cartItems.map(item => {
+                    const parsedId = parseInt(item.item_id);
+                    const unitPrice = parseFloat(item.price || 0);
+                    const qty = parseInt(item.qty || 1);
+                    return {
+                        item_id: !isNaN(parsedId) ? parsedId : item.item_id,
+                        quantity: qty,
+                        unit_price: parseFloat(unitPrice.toFixed(2)),
+                        total_price: parseFloat((unitPrice * qty).toFixed(2)),
+                        notes: item.notes || "",
+                        addons: item.selectedVariant ? [{
+                            addon_id: parseInt(item.selectedVariant.id) || 1,
+                            addon_name: item.selectedVariant.name,
+                            addon_quantity: 1,
+                            addon_unit_price: parseFloat(item.selectedVariant.price || 0),
+                            addon_total_price: parseFloat(item.selectedVariant.price || 0)
+                        }] : []
+                    };
+                }),
+                totals: {
+                    subtotal: parseFloat(subtotal.toFixed(2)),
+                    tax: parseFloat(tax.toFixed(2)),
+                    service_charge: parseFloat(serviceCharge.toFixed(2)),
+                    discount_amount: 0.00,
+                    grand_total: parseFloat(grandTotal.toFixed(2))
+                }
+            };
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/order/update`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatePayload)
+                });
+                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                // Refresh tables from backend so current_total & session are up-to-date
+                fetchTables();
+                fetchOrders();
+            } catch (err) {
+                console.warn('Order update API failed (local state still updated):', err.message);
+            }
+
             setTablesData(prev => {
                 const update = t => t.table_number === tableId ? { ...t, status: 'Occupied', current_session: { ...t.current_session, active_order_id: existingOrderId, updated_at: new Date().toISOString(), total_items: cartItems.reduce((s, i) => s + i.qty, 0), current_total: parseFloat(grandTotal.toFixed(2)) } } : t;
                 return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
@@ -474,24 +557,38 @@ export const POSProvider = ({ user, onLogout, children }) => {
             order_meta: {
                 restaurant_id: parseInt(user?.restaurant_id || user?.restaurent_id) || 9,
                 staff_id: parseInt(user?.id) || 5,
-                staff_name: user?.username || 'Ravi',
                 order_type: orderType.toUpperCase().replace('-', '_'),
-                table_number: mappedTable,
                 table_number_id: orderType.toUpperCase().replace('-', '_') === 'DINE_IN' ? (parseInt(activeTableInfo?.table_id) || 11) : null,
-                guest_count: 4
+                guest_count: orderType.toUpperCase().replace('-', '_') === 'DINE_IN' ? (activeTableInfo?.current_session?.guest_count || activeTableInfo?.capacity || 4) : 1
             },
             items: cartItems.map(item => {
                 const parsedId = parseInt(item.item_id);
+                const unitPrice = parseFloat(item.price || 0);
+                const qty = parseInt(item.qty || 1);
                 return {
                     item_id: !isNaN(parsedId) ? parsedId : item.item_id,
-                    name: item.name, quantity: item.qty, unit_price: item.price,
-                    total_price: item.price * item.qty,
+                    name: item.name,
+                    quantity: qty,
+                    unit_price: parseFloat(unitPrice.toFixed(2)),
+                    total_price: parseFloat((unitPrice * qty).toFixed(2)),
                     variant_id: item.selectedVariant ? (parseInt(item.selectedVariant.id) || item.selectedVariant.id) : null,
-                    addons: item.selectedVariant ? [{ addon_id: parseInt(item.selectedVariant.id) || 1, addon_name: item.selectedVariant.name, addon_quantity: 1, addon_unit_price: parseFloat(item.selectedVariant.price || 0), addon_total_price: parseFloat(item.selectedVariant.price || 0) }] : [],
+                    addons: item.selectedVariant ? [{
+                        addon_id: parseInt(item.selectedVariant.id) || 1,
+                        addon_name: item.selectedVariant.name,
+                        addon_quantity: 1,
+                        addon_unit_price: parseFloat(parseFloat(item.selectedVariant.price || 0).toFixed(2)),
+                        addon_total_price: parseFloat(parseFloat(item.selectedVariant.price || 0).toFixed(2))
+                    }] : [],
                     notes: item.notes || null
                 };
             }),
-            totals: { subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), service_charge: parseFloat(serviceCharge.toFixed(2)), discount_amount: 0.00, grand_total: parseFloat(grandTotal.toFixed(2)) },
+            totals: {
+                subtotal: parseFloat(subtotal.toFixed(2)),
+                tax: parseFloat(tax.toFixed(2)),
+                service_charge: parseFloat(serviceCharge.toFixed(2)),
+                discount_amount: 0.00,
+                grand_total: parseFloat(grandTotal.toFixed(2))
+            },
             status: 'PENDING',
             created_at: new Date().toISOString()
         };
@@ -533,18 +630,53 @@ export const POSProvider = ({ user, onLogout, children }) => {
             if (!window.confirm('You have unsaved changes. Place order and process payment?')) return;
             await sendOrderToKitchen();
         }
+        const activeOrd = activeTableInfo?.current_session?.active_order_id;
+        const targetStatus = posSettings.autoCleanTables ? 'Available' : 'Dirty';
+        
         setTablesData(prev => {
-            const session = { last_order_id: activeTableInfo?.current_session?.active_order_id || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
-            const update = t => t.table_number === tableId ? { ...t, status: 'Dirty', current_session: session } : t;
+            const session = { last_order_id: activeOrd || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
+            const update = t => t.table_number === tableId ? { ...t, status: targetStatus, current_session: session } : t;
             return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
         });
-        showToast(`Total Paid: ₹${grandTotal.toFixed(2)}\nTable marked as Dirty.`, 'success', `Payment Processed for Table ${tableId}`);
-        const activeOrd = activeTableInfo?.current_session?.active_order_id;
+        showToast(`Total Paid: ₹${grandTotal.toFixed(2)}\nTable marked as ${targetStatus}.`, 'success', `Payment Processed for Table ${tableId}`);
+        
         if (activeOrd) {
             setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
+            
+            // 1. PUT API call to update backend database order status
+            try {
+                const tableIdNum = activeTableInfo?.table_id ? parseInt(activeTableInfo.table_id) : null;
+                await fetch(`${API_BASE_URL}/order/update-status/${activeOrd}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_status: 'COMPLETED',
+                        table_number_id: tableIdNum
+                    })
+                });
+            } catch (err) {
+                console.warn('Failed to update status on server:', err.message);
+            }
         }
+
+        // 2. Call table status update API to set status to Dirty/Available on the server
+        try {
+            await fetch(`${API_BASE_URL}/tables/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    table_number: tableId,
+                    status: targetStatus,
+                    current_session: activeOrd ? { last_order_id: activeOrd } : null
+                })
+            });
+        } catch (statusErr) {
+            console.warn("Table status update API failed:", statusErr.message);
+        }
+
         setOrderHistory(prev => prev.map(oh => oh.table_number === tableId && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
         fetchOrders();
+        fetchTables();
         setCart({}); setCartModified(false);
         setTableCarts(prev => ({ ...prev, [tableId]: {} }));
         setTableModified(prev => ({ ...prev, [tableId]: false }));
@@ -555,59 +687,139 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const payNow = async (tNum) => {
         const tableInfo = tablesList.find(t => t.table_number === tNum);
         const activeOrd = tableInfo?.current_session?.active_order_id;
+        const targetStatus = posSettings.autoCleanTables ? 'Available' : 'Dirty';
+
         setTablesData(prev => {
             const session = { last_order_id: activeOrd || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
-            const update = t => t.table_number === tNum ? { ...t, status: 'Dirty', current_session: session } : t;
+            const update = t => t.table_number === tNum ? { ...t, status: targetStatus, current_session: session } : t;
             return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
         });
         if (activeOrd) {
             setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
             setOrderHistory(prev => prev.map(oh => oh.order_id === activeOrd ? { ...oh, status: 'PAID' } : oh));
+            
+            // 1. PUT API call to update backend database
+            try {
+                const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
+                await fetch(`${API_BASE_URL}/order/update-status/${activeOrd}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_status: 'COMPLETED',
+                        table_number_id: tableIdNum
+                    })
+                });
+            } catch (err) {
+                console.warn('Failed to update status on server:', err.message);
+            }
         } else {
             const pendingOrder = orderHistory.find(oh => oh.table_number === tNum && oh.status === 'PENDING');
             if (pendingOrder) {
                 setPaidOrderIds(prev => { const next = [...prev, String(pendingOrder.order_id)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
+                
+                // 1. PUT API call to update backend database
+                try {
+                    const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
+                    await fetch(`${API_BASE_URL}/order/update-status/${pendingOrder.order_id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_status: 'COMPLETED',
+                            table_number_id: tableIdNum
+                        })
+                    });
+                } catch (err) {
+                    console.warn('Failed to update status on server:', err.message);
+                }
             }
             setOrderHistory(prev => prev.map(oh => oh.table_number === tNum && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
         }
+
+        // 2. Call table status update API to set status to Dirty/Available on the server
+        try {
+            await fetch(`${API_BASE_URL}/tables/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    table_number: tNum,
+                    status: targetStatus,
+                    current_session: activeOrd ? { last_order_id: activeOrd } : null
+                })
+            });
+        } catch (statusErr) {
+            console.warn("Table status update API failed:", statusErr.message);
+        }
+
         fetchOrders();
+        fetchTables();
         setCart({}); setCartModified(false);
         setTableCarts(prev => ({ ...prev, [tNum]: {} }));
         setTableModified(prev => ({ ...prev, [tNum]: false }));
-        showToast('Status changed to Dirty.', 'success', `Payment Processed for Table ${tNum}`);
+        showToast(`Table marked as ${targetStatus}.`, 'success', `Payment Processed for Table ${tNum}`);
     };
 
     // ── markTableAsAvailable ─────────────────────────────────────────────────
     const markTableAsAvailable = async (tNum) => {
+        try {
+            await fetch(`${API_BASE_URL}/tables/status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    table_number: tNum,
+                    status: 'Available',
+                    current_session: null
+                })
+            });
+        } catch (statusErr) {
+            console.warn("Table status update API failed:", statusErr.message);
+        }
+
         setTablesData(prev => {
             const update = t => t.table_number === tNum ? { ...t, status: 'Available', current_session: null } : t;
             return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
         });
+        fetchTables();
         showToast(`Table ${tNum} is now clean and available!`, 'success', 'Table Cleaned');
     };
 
     // ── checkInTable ─────────────────────────────────────────────────────────
     const checkInTable = (tNum) => {
-        setTablesData(prev => {
-            const session = { active_order_id: `ORD-${Math.floor(10000 + Math.random() * 90000)}`, guest_count: 4, total_items: 0, current_total: 0 };
-            const update = t => t.table_number === tNum ? { ...t, status: 'Occupied', current_session: session } : t;
-            return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
-        });
-        setTableCarts(prev => ({ ...prev, [tNum]: {} }));
-        setTableModified(prev => ({ ...prev, [tNum]: false }));
-        setTableId(tNum); setCart({}); setCartModified(false);
+        setTableId(tNum); 
+        setCart({}); 
+        setCartModified(false);
+        if (tNum) {
+            setTableCarts(prev => ({ ...prev, [tNum]: {} }));
+            setTableModified(prev => ({ ...prev, [tNum]: false }));
+        }
         navigate('/order');
-        showToast('Starting a new order.', 'success', `Checked in to Table ${tNum}`);
+        showToast('Starting a new order.', 'success', `Taking order for Table ${tNum}`);
     };
 
     // ── cancelActiveOrder ────────────────────────────────────────────────────
     const cancelActiveOrder = async (orderId, tableNum) => {
-        if (!window.confirm(`Are you sure you want to cancel and delete Order #${orderId} and free Table ${tableNum}?`)) {
+        if (!window.confirm(`Are you sure you want to cancel Order #${orderId}?`)) {
             return;
         }
 
         try {
-            // 1. Call table status update API to free the table
+            const tableInfo = tablesList.find(t => t.table_number === tableNum);
+            const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
+
+            // 1. Update status to CANCELLED on backend
+            try {
+                await fetch(`${API_BASE_URL}/order/update-status/${orderId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_status: 'CANCELLED',
+                        table_number_id: tableIdNum
+                    })
+                });
+            } catch (err) {
+                console.warn('Failed to update status to CANCELLED on server:', err.message);
+            }
+
+            // 2. Call table status update API to free the table
             try {
                 await fetch(`${API_BASE_URL}/tables/status`, {
                     method: 'POST',
@@ -632,16 +844,21 @@ export const POSProvider = ({ user, onLogout, children }) => {
                 };
             });
 
-            // Remove order from history
-            setOrderHistory(prev => prev.filter(oh => String(oh.order_id) !== String(orderId)));
+            // Update local order history status to CANCELLED
+            setOrderHistory(prev => prev.map(oh => String(oh.order_id) === String(orderId) ? { ...oh, status: 'CANCELLED' } : oh));
 
             // Clear cart
             setCart({});
             setCartModified(false);
-            setTableCarts(prev => ({ ...prev, [tableNum]: {} }));
-            setTableModified(prev => ({ ...prev, [tableNum]: false }));
+            if (tableNum) {
+                setTableCarts(prev => ({ ...prev, [tableNum]: {} }));
+                setTableModified(prev => ({ ...prev, [tableNum]: false }));
+            }
 
-            showToast(`Order #${orderId} cancelled. Table ${tableNum} is now Available.`, 'success', 'Order Cancelled');
+            fetchOrders();
+            fetchTables();
+
+            showToast(`Order #${orderId} has been CANCELLED.`, 'success', 'Order Cancelled');
         } catch (error) {
             console.error("Failed to cancel order:", error);
             showToast("Failed to cancel order: " + error.message, 'error', 'Cancel Failed');
@@ -653,10 +870,21 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const handlePrintBillFromTable = (tNum) => { setTableId(tNum); navigate('/order'); setTimeout(() => window.print(), 300); };
 
     // ── handleAddTable ────────────────────────────────────────────────────────
-    const handleAddTable = async (tableNumber, capacity) => {
+    const handleAddTable = async (tableName, capacity, floor = null) => {
         const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
         try {
-            const response = await fetch(`${API_BASE_URL}/tables`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ restaurant_id: restaurantId, table_number: tableNumber, capacity }) });
+            const payload = {
+                restaurent_id: parseInt(restaurantId),
+                table_name: tableName,
+                capacity: parseInt(capacity)
+            };
+            if (floor) payload.floor = floor;
+
+            const response = await fetch(`${API_BASE_URL}/tables`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             const data = await response.json();
             showToast(data.message || 'Table created successfully.', 'success', 'Table Created');
@@ -686,24 +914,66 @@ export const POSProvider = ({ user, onLogout, children }) => {
     };
 
     // ── handleUpdateOrder ─────────────────────────────────────────────────────
-    const handleUpdateOrder = (updatedOrder) => {
-        setOrderHistory(prev => prev.map(o => o.order_id === updatedOrder.order_id ? updatedOrder : o));
-        const tNum = updatedOrder.table_number;
-        const activeTable = tablesList.find(t => t.table_number === tNum);
-        if (activeTable?.status === 'Occupied' && activeTable.current_session?.active_order_id === updatedOrder.order_id) {
-            const newCart = {};
-            updatedOrder.items.forEach(item => { newCart[item.id] = item; });
-            if (tableId === tNum) { setCart(newCart); setCartModified(false); }
-            setTableCarts(prev => ({ ...prev, [tNum]: newCart }));
-            setTableModified(prev => ({ ...prev, [tNum]: false }));
-            setTablesData(prev => {
-                const updateT = (list) => (list || []).map(t => t.table_number === tNum ? { ...t, current_session: { ...t.current_session, current_total: updatedOrder.total, total_items: updatedOrder.items.reduce((s, i) => s + i.qty, 0) } } : t);
-                if (prev.tables?.length > 0) return { ...prev, tables: updateT(prev.tables) };
-                return { ...prev, sections: prev.sections.map(sec => ({ ...sec, tables: updateT(sec.tables) })) };
+    const handleUpdateOrder = async (updatedOrder) => {
+        const updatePayload = {
+            order_id: parseInt(updatedOrder.order_id),
+            items: updatedOrder.items.map(item => {
+                const parsedId = parseInt(item.item_id || item.id);
+                const unitPrice = parseFloat(item.price || item.unit_price || 0);
+                const qty = parseInt(item.qty || item.quantity || 1);
+                return {
+                    item_id: !isNaN(parsedId) ? parsedId : (item.item_id || item.id),
+                    quantity: qty,
+                    unit_price: parseFloat(unitPrice.toFixed(2)),
+                    total_price: parseFloat((unitPrice * qty).toFixed(2)),
+                    notes: item.notes || "",
+                    addons: item.selectedVariant ? [{ addon_id: parseInt(item.selectedVariant.id) || 1, addon_name: item.selectedVariant.name, addon_quantity: 1, addon_unit_price: parseFloat(item.selectedVariant.price || 0), addon_total_price: parseFloat(item.selectedVariant.price || 0) }] : []
+                };
+            }),
+            totals: {
+                subtotal: parseFloat(parseFloat(updatedOrder.subtotal || subtotal).toFixed(2)),
+                tax: parseFloat(parseFloat(updatedOrder.tax || tax).toFixed(2)),
+                service_charge: parseFloat(parseFloat(updatedOrder.serviceCharge || serviceCharge).toFixed(2)),
+                discount_amount: 0.00,
+                grand_total: parseFloat(parseFloat(updatedOrder.total || updatedOrder.grand_total || grandTotal).toFixed(2))
+            }
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/order/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatePayload)
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            setOrderHistory(prev => prev.map(o => o.order_id === updatedOrder.order_id ? updatedOrder : o));
+            const tNum = updatedOrder.table_number;
+            const activeTable = tablesList.find(t => t.table_number === tNum);
+            if (activeTable?.status === 'Occupied' && activeTable.current_session?.active_order_id === updatedOrder.order_id) {
+                const newCart = {};
+                updatedOrder.items.forEach(item => { newCart[item.id] = item; });
+                if (tableId === tNum) { setCart(newCart); setCartModified(false); }
+                setTableCarts(prev => ({ ...prev, [tNum]: newCart }));
+                setTableModified(prev => ({ ...prev, [tNum]: false }));
+                setTablesData(prev => {
+                    const updateT = (list) => (list || []).map(t => t.table_number === tNum ? { ...t, current_session: { ...t.current_session, current_total: updatedOrder.total, total_items: updatedOrder.items.reduce((s, i) => s + i.qty, 0) } } : t);
+                    if (prev.tables?.length > 0) return { ...prev, tables: updateT(prev.tables) };
+                    return { ...prev, sections: prev.sections.map(sec => ({ ...sec, tables: updateT(sec.tables) })) };
+                });
+            }
+            showToast('Order updated successfully!', 'success', 'Order Updated');
+        } catch (error) {
+            console.error('Failed to update order on API:', error);
+            showToast('Failed to update order on server: ' + error.message, 'error', 'Update Failed');
         }
-        showToast('Order updated successfully!', 'success', 'Order Updated');
-        navigate('/history');
     };
 
     // ── handlePrintKOT ────────────────────────────────────────────────────────
@@ -774,7 +1044,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         // Detail view
         selectedDetailOrder, setSelectedDetailOrder,
         // Actions
-        fetchTables, fetchOrders,
+        fetchTables, fetchOrders, fetchSettings,
         addToCart, handleItemClick, updateQty, removeItem,
         sendOrderToKitchen, checkoutAndPay, payNow,
         markTableAsAvailable, checkInTable, cancelActiveOrder,

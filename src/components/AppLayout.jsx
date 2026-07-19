@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { usePOS } from '../context/POSContext';
 import VariantModal from './VariantModal';
+import Navbar from './Navbar';
 import '../POS.css';
 
 const AppLayout = () => {
@@ -27,29 +28,16 @@ const AppLayout = () => {
         setOrderType,
     } = usePOS();
 
-    const currentPath = location.pathname.replace('/', '') || 'tables';
-
     const navTo = (path) => navigate('/' + path);
 
     return (
-        <div className="min-h-screen flex flex-col">
-            {/* ── Navbar ─────────────────────────────────────── */}
-            <nav className="top-nav">
-                <ul className="nav-links">
-                    <li className={currentPath === 'menu' ? 'active' : ''} onClick={() => navTo('menu')}>☰ Menu</li>
-                    <li className={currentPath === 'order' ? 'active' : ''} onClick={() => navTo('order')}>🛒 Order</li>
-                    <li className={currentPath === 'tables' ? 'active' : ''} onClick={() => navTo('tables')}>🪟 Tables</li>
-                    <li className={currentPath === 'staff' ? 'active' : ''} onClick={() => navTo('staff')}>👤 Staff</li>
-                    <li className={currentPath === 'settings' ? 'active' : ''} onClick={() => navTo('settings')}>⚙️ Settings</li>
-                    <li className={currentPath === 'history' || currentPath.startsWith('history/') ? 'active' : ''} onClick={() => navTo('history')}>⏳ History</li>
-                </ul>
-                <button className="btn-reservation" onClick={() => setShowReservationModal(true)}>
-                    + New Reservation
-                </button>
-            </nav>
+        <div className="d-flex flex-column overflow-hidden" style={{ height: '100vh' }}>
+            <Navbar setShowReservationModal={setShowReservationModal} />
 
             {/* ── Page Content ───────────────────────────────── */}
-            <Outlet />
+            <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <Outlet />
+            </div>
 
             {/* ── Footer ─────────────────────────────────────── */}
             <footer className="bottom-bar">

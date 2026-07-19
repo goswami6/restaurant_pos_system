@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePOS } from '../context/POSContext';
+import ReceiptModal from '../components/ReceiptModal';
 
 const OrderDetailPage = () => {
-    const { selectedDetailOrder: order, categories, menuItems, loading, posSettings, handleUpdateOrder } = usePOS();
+    const { selectedDetailOrder: order, categories, menuItems, loading, posSettings, handleUpdateOrder, cancelActiveOrder } = usePOS();
     const navigate = useNavigate();
+    const [showReceiptPrint, setShowReceiptPrint] = useState(false);
     const onBack = () => navigate('/history');
     const onUpdateOrder = handleUpdateOrder;
+    const handleCancelClick = async () => {
+        if (order?.order_id) {
+            await cancelActiveOrder(order.order_id, order.table_number);
+            navigate('/history');
+        }
+    };
     const [selectedCategory, setSelectedCategory] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [tempCart, setTempCart] = useState(() => {
@@ -23,8 +31,19 @@ const OrderDetailPage = () => {
     const [selectedItemForModal, setSelectedItemForModal] = useState(null);
     const [chosenVariant, setChosenVariant] = useState(null);
 
-    const isPaid = order.status === 'PAID';
+    const isPaid = order.status === 'PAID' || order.status === 'COMPLETED' || order.status === 'CANCELLED';
     const categoriesList = ['All', ...categories.map(cat => cat.category_name)];
+
+    const getDietaryInfo = (item) => {
+        const nameLower = item.item_name.toLowerCase();
+        if (nameLower.includes('non veg') || nameLower.includes('chicken') || nameLower.includes('mutton') || nameLower.includes('fish') || nameLower.includes('prawn') || nameLower.includes('pork') || nameLower.includes('beef') || nameLower.includes('sandwich') || nameLower.includes('tikka masala') || nameLower.includes('tandoori') && !nameLower.includes('paneer')) {
+            return 'Non-Veg';
+        }
+        if (nameLower.includes('egg')) {
+            return 'Egg';
+        }
+        return item.dietary_info || 'Veg';
+    };
 
     // Filter menu items
     const filteredItems = menuItems.filter((item) => {
@@ -150,49 +169,54 @@ const OrderDetailPage = () => {
     };
 
     return (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div className="d-flex flex-column h-100" style={{ flex: 1, minHeight: 0 }}>
             {/* Header */}
-            <div className="bg-white border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
+            <div className="bg-white border-bottom px-3 py-2 d-flex justify-content-between align-items-center" style={{ flexShrink: 0 }}>
                 <div className="d-flex align-items-center gap-3">
-                    <button className="btn btn-sm btn-outline-dark fw-bold" onClick={onBack}>
-                        ← Back to History
+                    <button className="btn btn-sm btn-outline-dark fw-bold py-1 px-2.5 text-xs" style={{ borderRadius: '6px' }} onClick={onBack}>
+                        ← Back
                     </button>
                     <div>
-                        <h5 className="fw-bold mb-0 text-slate-900">
-                            Order Details: <span className="text-primary">{order.order_id}</span>
-                        </h5>
-                        <span className="text-muted small">
-                            Table {order.table_number} | Type: {order.type} | Date: {new Date(order.time).toLocaleString()}
+                        <h6 className="fw-bold mb-0 text-slate-900" style={{ fontSize: '0.92rem', lineHeight: '1.2' }}>
+                            Order Details: <span className="text-primary">#{order.order_id}</span>
+                        </h6>
+                        <span className="text-muted d-block" style={{ fontSize: '0.72rem', marginTop: '1px' }}>
+                            {order.table_number} • {order.type} • {new Date(order.time).toLocaleString()}
                         </span>
                     </div>
                 </div>
                 <div>
-                    <span className={`badge fs-6 ${isPaid ? 'bg-success' : 'bg-warning text-dark'}`}>
+                    <span className={`badge ${
+                        (String(order.status || '').toUpperCase() === 'PAID' || String(order.status || '').toUpperCase() === 'COMPLETED' || String(order.status || '').toUpperCase() === 'SERVED') ? 'bg-success text-white' :
+                        String(order.status || '').toUpperCase() === 'CANCELLED' ? 'bg-danger text-white' : 'bg-warning text-dark'
+                    } py-1 px-2.5 text-xs`} style={{ borderRadius: '6px' }}>
                         {order.status}
                     </span>
                 </div>
             </div>
 
-            <main className="container-fluid p-0" style={{ flex: 1 }}>
-                <div className="row g-0">
+            <main className="container-fluid p-0" style={{ flex: 1, minHeight: 0 }}>
+                <div className="row g-0 h-100 flex-column flex-lg-row overflow-auto lg:overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
                     {/* LEFT: CATEGORIES */}
-                    <div className="col-md-2 bg-white pt-4 px-3" style={{ height: 'calc(100vh - 175px)', borderRight: '1px solid var(--border)' }}>
-                        <p className="text-muted small fw-bold text-uppercase mb-3 px-2">Categories</p>
-                        {categoriesList.map((cat, index) => (
-                            <button 
-                                key={index} 
-                                className={`btn category-btn ${selectedCategory === cat ? 'btn-dark' : 'btn-outline-dark'}`}
-                                onClick={() => setSelectedCategory(cat)}
-                                disabled={isPaid}
-                                style={isPaid ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
-                            >
-                                {cat}
-                            </button>
-                        ))}
+                    <div className="col-12 col-lg-2 bg-white pt-3 px-3 border-r-0 border-b lg:border-b-0 lg:border-r border-slate-200" style={{ overflowX: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        <p className="text-muted small fw-bold text-uppercase mb-2 px-2 d-none d-lg-block" style={{ fontSize: '0.75rem' }}>Categories</p>
+                        <div className="d-flex flex-row flex-lg-column gap-2 overflow-auto py-1">
+                            {categoriesList.map((cat, index) => (
+                                <button 
+                                    key={index} 
+                                    className={`btn category-btn ${selectedCategory === cat ? 'btn-dark' : 'btn-outline-dark'} py-2 px-3 mb-0 lg:mb-2`}
+                                    onClick={() => setSelectedCategory(cat)}
+                                    disabled={isPaid}
+                                    style={isPaid ? { opacity: 0.6, cursor: 'not-allowed', minWidth: '100px' } : { minWidth: '100px' }}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
+                        </div>
                     </div>
 
                     {/* CENTER: MENU ITEMS */}
-                    <div className="col-md-7 pt-4 px-4 bg-slate-50" style={{ height: 'calc(100vh - 175px)', overflowY: 'auto' }}>
+                    <div className="col-12 col-md-7 col-lg-7 pt-3 px-4 bg-slate-50 h-100" style={{ overflowY: 'auto', minHeight: '400px' }}>
                         <div className="d-flex justify-content-between align-items-center mb-4">
                             <h5 className="fw-bold mb-0">{selectedCategory} Items</h5>
                             <div className="position-relative" style={{ width: '300px' }}>
@@ -226,29 +250,46 @@ const OrderDetailPage = () => {
                         ) : (
                             <div className="row g-4" style={isPaid ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
                                 {filteredItems.length > 0 ? (
-                                    filteredItems.map((item) => (
-                                        <div className="col-md-4 col-lg-3" key={item.item_id}>
-                                            <div 
-                                                className="menu-card d-flex flex-column align-items-start justify-content-between p-3"
-                                                onClick={() => handleItemClick(item)}
-                                            >
-                                                <div className="w-full d-flex justify-content-between align-items-start mb-2" style={{ width: '100%' }}>
-                                                    <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ maxWidth: '75%' }}>{item.item_name}</h6>
-                                                    <span className={`badge ${item.dietary_info === 'Veg' ? 'bg-success-subtle text-success border border-success/20' : 'bg-danger-subtle text-danger border border-danger/20'} font-normal text-[10px] py-1`}>
-                                                        {item.dietary_info}
-                                                    </span>
-                                                </div>
-                                                <div className="w-full d-flex justify-content-between align-items-center mt-2" style={{ width: '100%' }}>
-                                                    <strong className="text-amber-500 font-bold">₹{parseFloat(item.price).toFixed(2)}</strong>
-                                                    {item.variants && item.variants.length > 0 && (
-                                                        <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                                                            ✨ Customize
-                                                        </span>
-                                                    )}
+                                    filteredItems.map((item) => {
+                                        const dietary = getDietaryInfo(item);
+                                        let badgeBorderColor = '#198754'; // Veg: green
+                                        let badgeDotColor = '#198754';
+                                        if (dietary === 'Non-Veg') {
+                                            badgeBorderColor = '#dc3545'; // Non-Veg: red
+                                            badgeDotColor = '#dc3545';
+                                        } else if (dietary === 'Egg') {
+                                            badgeBorderColor = '#d97706'; // Egg: amber/orange
+                                            badgeDotColor = '#d97706';
+                                        }
+
+                                        return (
+                                            <div className="col-6 col-sm-4 col-md-4 col-lg-3" key={item.item_id}>
+                                                <div 
+                                                    className="menu-card d-flex flex-column align-items-start justify-content-between p-3"
+                                                    onClick={() => handleItemClick(item)}
+                                                >
+                                                    <div className="w-full mb-2" style={{ width: '100%' }}>
+                                                        <div className="d-flex align-items-start">
+                                                            <span className="d-inline-flex align-items-center justify-content-center me-2 mt-0.5" style={{ width: '13px', height: '13px', flexShrink: 0, border: `1px solid ${badgeBorderColor}`, padding: '1.5px' }}>
+                                                                <span className="rounded-full" style={{ width: '6px', height: '6px', backgroundColor: badgeDotColor }}></span>
+                                                            </span>
+                                                            <h6 className="m-0 text-slate-800 text-sm font-bold leading-tight" style={{ wordBreak: 'break-word' }}>
+                                                                {item.item_name}
+                                                            </h6>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-full d-flex justify-content-between align-items-center mt-2" style={{ width: '100%' }}>
+                                                        <strong className="text-amber-500 font-bold">₹{parseFloat(item.price).toFixed(2)}</strong>
+                                                        {item.variants && item.variants.length > 0 && (
+                                                            <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                ✨ Customize
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    ))
+                                        );
+                                    })
                                 ) : (
                                     <div className="col-12 text-center py-5">
                                         <div className="fs-1 mb-2">🤷‍♂️</div>
@@ -260,21 +301,21 @@ const OrderDetailPage = () => {
                     </div>
 
                     {/* RIGHT: BILL SIDE PANEL */}
-                    <div className="col-md-3 bill-panel" style={{ height: 'calc(100vh - 175px)' }}>
-                        <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
+                    <div className="col-12 col-md-5 col-lg-3 bill-panel h-100 border-t lg:border-t-0 border-slate-200" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: '450px' }}>
+                        <div className="py-2 px-3 border-bottom d-flex justify-content-between align-items-center" style={{ flexShrink: 0 }}>
                             <div>
-                                <h6 className="fw-bold mb-0">Order Bill summary</h6>
-                                <span className="text-muted small">Status: {order.status}</span>
+                                <h6 className="fw-bold mb-0 text-slate-800" style={{ fontSize: '0.9rem' }}>Order Bill summary</h6>
+                                <span className="text-muted" style={{ fontSize: '0.72rem' }}>Status: {order.status}</span>
                             </div>
                             {isPaid ? (
-                                <span className="badge bg-success text-white">Closed</span>
+                                <span className="badge bg-success text-white py-1 px-2 text-[10px]" style={{ borderRadius: '4px' }}>Closed</span>
                             ) : (
-                                <span className="badge bg-warning text-dark">Editable</span>
+                                <span className="badge bg-warning text-dark py-1 px-2 text-[10px]" style={{ borderRadius: '4px' }}>Editable</span>
                             )}
                         </div>
 
                         {/* ITEMS LIST */}
-                        <div className="cart-scroll" style={{ flex: 1, overflowY: 'auto' }}>
+                        <div className="cart-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '15px' }}>
                             {tempCartItems.length === 0 ? (
                                 <div className="text-center py-5">
                                     <div className="fs-1 opacity-20">🛒</div>
@@ -356,24 +397,47 @@ const OrderDetailPage = () => {
                                 <strong className="fs-6 text-primary">₹{grandTotal.toFixed(2)}</strong>
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                {!isPaid ? (
-                                    <>
-                                        <button className="btn btn-dark w-100 fw-bold py-2" onClick={handleSave}>
-                                            Save & Update Order
-                                        </button>
-                                        <button className="btn btn-outline-secondary w-100 py-1.5 small text-[11px]" onClick={resetChanges}>
-                                            Discard Changes
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="text-center">
-                                        <div className="text-success small fw-bold mb-2">🔒 Receipt Locked (Paid)</div>
-                                        <button className="btn btn-outline-dark w-100 fw-bold py-2" onClick={onBack}>
-                                            Return to History
-                                        </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {isPaid && (
+                                    <div className="text-center text-danger small fw-bold mb-1">
+                                        🔒 Order Closed ({order.status}) - Cannot Edit
                                     </div>
                                 )}
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    <button 
+                                        className="btn btn-outline-secondary py-2.5 text-xs font-bold" 
+                                        onClick={resetChanges}
+                                        disabled={isPaid}
+                                    >
+                                        Discard Changes
+                                    </button>
+                                    <button 
+                                        className="btn btn-dark py-2.5 text-xs font-bold text-white" 
+                                        onClick={handleSave}
+                                        disabled={isPaid}
+                                    >
+                                        Update Order
+                                    </button>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                    <button 
+                                        type="button" 
+                                        className="btn btn-blue w-100 py-2.5 text-xs font-bold" 
+                                        onClick={() => setShowReceiptPrint(true)}
+                                    >
+                                        🖨️ {isPaid ? 'Print Receipt' : 'Print Bill / KOT'}
+                                    </button>
+                                    {order.status !== 'CANCELLED' && (
+                                        <button 
+                                            type="button" 
+                                            className="btn btn-danger w-100 py-2.5 text-xs font-bold text-white" 
+                                            onClick={handleCancelClick}
+                                            disabled={isPaid}
+                                        >
+                                            🚫 Cancel Order
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -466,6 +530,18 @@ const OrderDetailPage = () => {
                     </div>
                 </div>
             )}
+            <ReceiptModal 
+                selectedHistoryOrder={showReceiptPrint ? {
+                    ...order,
+                    items: tempCartItems,
+                    subtotal: parseFloat(subtotal.toFixed(2)),
+                    tax: parseFloat(tax.toFixed(2)),
+                    serviceCharge: parseFloat(serviceCharge.toFixed(2)),
+                    total: parseFloat(grandTotal.toFixed(2))
+                } : null}
+                setSelectedHistoryOrder={(val) => setShowReceiptPrint(!!val)}
+                posSettings={posSettings}
+            />
         </div>
     );
 };

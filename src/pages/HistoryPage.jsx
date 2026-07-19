@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReceiptModal from '../components/ReceiptModal';
 import { usePOS } from '../context/POSContext';
+import { API_BASE_URL } from '../config';
 
 const HistoryPage = () => {
-    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder } = usePOS();
+    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders } = usePOS();
     const navigate = useNavigate();
     const onViewDetailOrder = (order) => { setSelectedDetailOrder(order); navigate(`/history/${order.order_id}`); };
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState(null);
@@ -24,7 +25,7 @@ const HistoryPage = () => {
     });
 
     return (
-        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, minHeight: 'calc(100vh - 112px)', paddingLeft: '24px', paddingRight: '24px' }}>
+        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto', paddingLeft: '24px', paddingRight: '24px' }}>
             <div className="row g-4">
                 <div className={activeOrderSummary ? "col-lg-8 col-md-7" : "col-12"}>
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
@@ -72,7 +73,7 @@ const HistoryPage = () => {
                                     <thead className="table-light text-secondary">
                                         <tr>
                                             <th>Order ID</th>
-                                            <th>Table / Ref</th>
+                                            {posSettings.isEnableTables && <th>Table / Ref</th>}
                                             <th>Type</th>
                                             <th>Date/Time</th>
                                             <th>Grand Total</th>
@@ -95,13 +96,18 @@ const HistoryPage = () => {
                                                             {order.order_id}
                                                         </span>
                                                     </td>
-                                                    <td>Table {order.table_number}</td>
+                                                    {posSettings.isEnableTables && <td>{order.table_number}</td>}
                                                     <td>{order.type}</td>
                                                     <td className="small text-muted">{new Date(order.time).toLocaleString()}</td>
                                                     <td className="fw-bold text-slate-800">₹{parseFloat(order.total).toFixed(2)}</td>
                                                     <td>
-                                                        <span className={`badge ${isPaid ? 'bg-success' : 'bg-warning text-dark'}`}>
-                                                            {order.status}
+                                                        <span className={`badge ${
+                                                            order.status === 'PAID' || order.status === 'COMPLETED' ? 'bg-success' : 
+                                                            order.status === 'CANCELLED' ? 'bg-danger text-white' : 
+                                                            order.status === 'PENDING' ? 'bg-warning text-dark' : 
+                                                            order.status ? 'bg-info text-dark' : 'bg-secondary text-white'
+                                                        }`}>
+                                                            {order.status || 'N/A'}
                                                         </span>
                                                     </td>
                                                     <td className="text-end">
@@ -117,15 +123,39 @@ const HistoryPage = () => {
                                                         >
                                                             Print
                                                         </button>
-                                                        {!isPaid && (
+                                                        {(order.status === 'PENDING' || order.status === 'SERVED') && (
                                                             <button 
                                                                 className="btn btn-sm btn-success text-white"
-                                                                onClick={() => {
-                                                                    setOrderHistory(prev => prev.map(o => o.order_id === order.order_id ? { ...o, status: 'PAID' } : o));
-                                                                    if (activeOrderSummary?.order_id === order.order_id) {
-                                                                        setActiveOrderSummary(prev => prev ? { ...prev, status: 'PAID' } : null);
+                                                                onClick={async () => {
+                                                                    const nextPaidIds = JSON.parse(localStorage.getItem('pos_paid_order_ids') || '[]');
+                                                                    if (!nextPaidIds.includes(String(order.order_id))) {
+                                                                        nextPaidIds.push(String(order.order_id));
+                                                                        localStorage.setItem('pos_paid_order_ids', JSON.stringify(nextPaidIds));
                                                                     }
-                                                                    alert(`Order ${order.order_id} marked as PAID.`);
+                                                                    
+                                                                    // PUT API call to update status in backend database to COMPLETED
+                                                                    try {
+                                                                        const tableIdNum = order.table_number_id ? parseInt(order.table_number_id) : null;
+                                                                        await fetch(`${API_BASE_URL}/order/update-status/${order.order_id}`, {
+                                                                            method: 'PUT',
+                                                                            headers: { 'Content-Type': 'application/json' },
+                                                                            body: JSON.stringify({
+                                                                                order_status: 'COMPLETED',
+                                                                                table_number_id: tableIdNum
+                                                                            })
+                                                                        });
+                                                                    } catch (err) {
+                                                                        console.warn('Failed to update status on server:', err.message);
+                                                                    }
+                                                                    
+                                                                    await fetchOrders();
+                                                                    setActiveOrderSummary(prev => {
+                                                                        if (prev?.order_id === order.order_id) {
+                                                                            return { ...prev, status: 'COMPLETED' };
+                                                                        }
+                                                                        return prev;
+                                                                    });
+                                                                    alert(`Order ${order.order_id} marked as COMPLETED.`);
                                                                 }}
                                                             >
                                                                 Mark Paid
@@ -137,7 +167,7 @@ const HistoryPage = () => {
                                         })}
                                         {filteredHistory.length === 0 && (
                                             <tr>
-                                                <td colSpan="7" className="text-center py-4 text-muted">No orders found matching the filter.</td>
+                                                <td colSpan={posSettings.isEnableTables ? 7 : 6} className="text-center py-4 text-muted">No orders found matching the filter.</td>
                                             </tr>
                                         )}
                                     </tbody>
@@ -151,20 +181,28 @@ const HistoryPage = () => {
                     <div className="col-lg-4 col-md-5">
                         <div className="card shadow-sm border-0 rounded-3 bg-white" style={{ position: 'sticky', top: '24px' }}>
                             <div className="card-body p-0 d-flex flex-column" style={{ maxHeight: 'calc(100vh - 175px)', minHeight: '450px' }}>
-                                <div className="p-3 border-bottom d-flex justify-content-between align-items-center bg-light rounded-top-3">
-                                    <div>
+                                <div className="p-3 border-bottom bg-light rounded-top-3">
+                                    <div className="d-flex justify-content-between align-items-center mb-2">
                                         <h6 className="fw-bold mb-0 text-slate-900">Order Bill summary</h6>
-                                        <span className="text-muted small">Status: {activeOrderSummary.status}</span>
-                                    </div>
-                                    <div className="d-flex align-items-center gap-2">
-                                        <span className={`badge ${activeOrderSummary.status === 'PAID' ? 'bg-success' : 'bg-warning text-dark'}`}>
-                                            {activeOrderSummary.status === 'PAID' ? 'Closed' : 'Pending'}
-                                        </span>
                                         <button 
                                             className="btn-close" 
                                             onClick={() => setActiveOrderSummary(null)}
                                             style={{ fontSize: '0.8rem' }}
                                         ></button>
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2 align-items-center text-xs text-muted">
+                                        <span><strong>Order ID:</strong> #{activeOrderSummary.order_id}</span>
+                                        <span className="text-secondary">|</span>
+                                        <span><strong>Table:</strong> {activeOrderSummary.table_number || 'N/A'}</span>
+                                        <span className="text-secondary">|</span>
+                                        <span><strong>Type:</strong> {activeOrderSummary.type}</span>
+                                        <span className="text-secondary">|</span>
+                                        <span className={`badge ${
+                                            activeOrderSummary.status === 'COMPLETED' || activeOrderSummary.status === 'PAID' ? 'bg-success' : 
+                                            activeOrderSummary.status === 'SERVED' ? 'bg-info text-dark' : 'bg-warning text-dark'
+                                        }`} style={{ fontSize: '0.65rem' }}>
+                                            {activeOrderSummary.status}
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -215,7 +253,7 @@ const HistoryPage = () => {
                                         <strong className="text-primary fs-5">₹{parseFloat(activeOrderSummary.total || 0).toFixed(2)}</strong>
                                     </div>
                                     
-                                    {activeOrderSummary.status !== 'PAID' ? (
+                                    {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
                                         <button 
                                             className="btn btn-dark w-100 fw-bold py-2 mt-2" 
                                             onClick={() => onViewDetailOrder(activeOrderSummary)}

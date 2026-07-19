@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { usePOS } from '../context/POSContext';
+import { API_BASE_URL } from '../config';
 
 const MenuView = () => {
-    const { categories, menuItems, setMenuData, posSettings } = usePOS();
+    const { categories, menuItems, setMenuData, posSettings, user } = usePOS();
     const [newCatName, setNewCatName] = useState('');
     const [showAddItemForm, setShowAddItemForm] = useState(false);
     const [newItemData, setNewItemData] = useState({
@@ -12,55 +13,114 @@ const MenuView = () => {
         category_id: ''
     });
 
-    const handleAddCategory = () => {
+    const handleAddCategory = async () => {
         if (!newCatName.trim()) return;
-        const nextId = String(categories.length + 5);
-        setMenuData(prev => ({
-            ...prev,
-            categories: [...(prev.categories || []), { category_id: nextId, category_name: newCatName, items: [] }]
-        }));
-        setNewCatName('');
+        const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/categories`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    restaurant_id: parseInt(restaurantId),
+                    category_name: newCatName.trim(),
+                    status: 1
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const resData = await response.json();
+            if (resData.status) {
+                const createdCat = resData.data || resData;
+                const categoryId = String(createdCat.category_id);
+                setMenuData(prev => ({
+                    ...prev,
+                    categories: [...(prev.categories || []), { category_id: categoryId, category_name: createdCat.category_name, items: [] }]
+                }));
+                setNewCatName('');
+                alert("Category created successfully!");
+            } else {
+                throw new Error(resData.message || "Failed to create category.");
+            }
+        } catch (error) {
+            console.error("Failed to create category:", error);
+            alert("Failed to create category: " + error.message);
+        }
     };
 
-    const handleAddNewItem = (e) => {
+    const handleAddNewItem = async (e) => {
         e.preventDefault();
         if (!newItemData.item_name || !newItemData.price || !newItemData.category_id) {
             alert("Please fill all required fields!");
             return;
         }
-        const item_id = String(menuItems.length + 100);
-        const newItem = {
-            item_id,
-            category_id: newItemData.category_id,
-            item_name: newItemData.item_name,
-            price: parseFloat(newItemData.price).toFixed(2),
-            tax_percentage: String(posSettings.taxRate),
-            dietary_info: newItemData.dietary_info,
-            variants: [],
-            addons: []
-        };
 
-        setMenuData(prev => {
-            const categoriesCopy = (prev.categories || []).map(cat => {
-                if (cat.category_id === newItem.category_id) {
-                    return {
-                        ...cat,
-                        items: [...(cat.items || []), newItem]
-                    };
-                }
-                return cat;
+        try {
+            const response = await fetch(`${API_BASE_URL}/menus`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    category_id: parseInt(newItemData.category_id),
+                    item_name: newItemData.item_name,
+                    price: parseFloat(newItemData.price),
+                    dietary_info: newItemData.dietary_info,
+                    status: 1
+                })
             });
-            return { ...prev, categories: categoriesCopy };
-        });
 
-        setNewItemData({
-            item_name: '',
-            price: '',
-            dietary_info: 'Veg',
-            category_id: ''
-        });
-        setShowAddItemForm(false);
-        alert("Menu item added successfully!");
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+
+            const resData = await response.json();
+            if (resData.status && resData.data) {
+                const createdItem = resData.data;
+                const newItem = {
+                    item_id: String(createdItem.item_id),
+                    category_id: String(createdItem.category_id),
+                    item_name: createdItem.item_name,
+                    price: parseFloat(createdItem.price).toFixed(2),
+                    tax_percentage: String(posSettings.taxRate),
+                    dietary_info: createdItem.dietary_info,
+                    variants: [],
+                    addons: []
+                };
+
+                setMenuData(prev => {
+                    const categoriesCopy = (prev.categories || []).map(cat => {
+                        if (String(cat.category_id) === String(newItem.category_id)) {
+                            return {
+                                ...cat,
+                                items: [...(cat.items || []), newItem]
+                            };
+                        }
+                        return cat;
+                    });
+                    return { ...prev, categories: categoriesCopy };
+                });
+
+                setNewItemData({
+                    item_name: '',
+                    price: '',
+                    dietary_info: 'Veg',
+                    category_id: ''
+                });
+                setShowAddItemForm(false);
+                alert("Menu item created successfully!");
+            } else {
+                throw new Error(resData.message || "Failed to create menu item.");
+            }
+        } catch (error) {
+            console.error("Failed to create menu item:", error);
+            alert("Failed to create menu item: " + error.message);
+        }
     };
 
     const deleteMenuItem = (itemId, catId) => {
@@ -80,9 +140,9 @@ const MenuView = () => {
     };
 
     return (
-        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, minHeight: 'calc(100vh - 112px)', overflowY: 'auto' }}>
+        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
             <div className="row g-4">
-                <div className="col-md-3">
+                <div className="col-12 col-md-3">
                     <div className="card shadow-sm border-0 rounded-3 bg-white">
                         <div className="card-body p-4">
                             <h6 className="fw-bold mb-3">Menu Categories</h6>
@@ -195,7 +255,7 @@ const MenuView = () => {
                                 {menuItems.map((item) => {
                                     const catName = categories.find(c => c.category_id === item.category_id)?.category_name || 'Unassigned';
                                     return (
-                                        <div className="col-md-4 col-lg-3" key={item.item_id}>
+                                        <div className="col-6 col-sm-4 col-md-4 col-lg-3" key={item.item_id}>
                                             <div className="menu-card d-flex flex-column align-items-start justify-content-between p-3 position-relative" style={{ minHeight: '135px' }}>
                                                 <div className="w-full d-flex justify-content-between align-items-start mb-2" style={{ width: '100%' }}>
                                                     <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ maxWidth: '75%' }}>{item.item_name}</h6>
