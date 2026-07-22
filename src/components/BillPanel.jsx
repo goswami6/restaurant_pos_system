@@ -142,7 +142,7 @@ const BillPanel = () => {
                 )}
 
                 {/* Active order info display */}
-                {activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id && (
+                {posSettings.isEnableTables && activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id && (
                     <div className="alert alert-info py-2 px-3 mb-0 mt-3 d-flex justify-content-between align-items-center small" style={{ borderRadius: '8px' }}>
                         <span>
                             Active Order: <strong>#{activeTableInfo.current_session.active_order_id}</strong>

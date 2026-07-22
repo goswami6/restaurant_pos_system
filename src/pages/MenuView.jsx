@@ -139,6 +139,18 @@ const MenuView = () => {
         });
     };
 
+    const getDietaryInfo = (item) => {
+        const dietary = (item.dietary_info || '').toLowerCase();
+        const nameLower = (item.item_name || '').toLowerCase();
+        if (dietary.includes('non') || nameLower.includes('non veg') || nameLower.includes('chicken') || nameLower.includes('mutton') || nameLower.includes('fish') || nameLower.includes('prawn') || nameLower.includes('pork') || (nameLower.includes('tandoori') && !nameLower.includes('paneer')) || nameLower.includes('tikka masala') && !nameLower.includes('paneer')) {
+            return 'Non-Veg';
+        }
+        if (dietary.includes('egg') || nameLower.includes('egg')) {
+            return 'Egg';
+        }
+        return 'Veg';
+    };
+
     return (
         <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
             <div className="row g-4">
@@ -254,24 +266,46 @@ const MenuView = () => {
                             <div className="row g-4">
                                 {menuItems.map((item) => {
                                     const catName = categories.find(c => c.category_id === item.category_id)?.category_name || 'Unassigned';
+                                    const dietary = getDietaryInfo(item);
                                     return (
                                         <div className="col-6 col-sm-4 col-md-4 col-lg-3" key={item.item_id}>
                                             <div className="menu-card d-flex flex-column align-items-start justify-content-between p-3 position-relative" style={{ minHeight: '135px' }}>
                                                 <div className="w-full d-flex justify-content-between align-items-start mb-2" style={{ width: '100%' }}>
-                                                    <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ maxWidth: '75%' }}>{item.item_name}</h6>
-                                                    <span className={`badge ${item.dietary_info === 'Veg' ? 'bg-success-subtle text-success border border-success/20' : 'bg-danger-subtle text-danger border border-danger/20'} font-normal text-[10px] py-1`}>
-                                                        {item.dietary_info}
-                                                    </span>
+                                                    <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ maxWidth: '80%' }}>{item.item_name}</h6>
+                                                    <button 
+                                                        className="btn btn-sm text-danger p-0 border-0" 
+                                                        style={{ fontSize: '12px', lineHeight: 1 }}
+                                                        title="Delete item"
+                                                        onClick={() => deleteMenuItem(item.item_id, item.category_id)}
+                                                    >
+                                                        🗑️
+                                                    </button>
                                                 </div>
                                                 <div className="w-full text-slate-500 text-xs mb-2">{catName}</div>
                                                 <div className="w-full d-flex justify-content-between align-items-center mt-auto" style={{ width: '100%' }}>
                                                     <strong className="text-amber-500 font-bold">₹{parseFloat(item.price).toFixed(2)}</strong>
-                                                    <button 
-                                                        className="btn btn-sm btn-outline-danger py-0.5 px-2 text-[10px] fw-bold"
-                                                        onClick={() => deleteMenuItem(item.item_id, item.category_id)}
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                    {dietary === 'Non-Veg' ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: '6px' }}>
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #dc2626', borderRadius: '2px', padding: '1px' }}>
+                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#dc2626', borderRadius: '50%' }}></span>
+                                                            </span>
+                                                            Non-Veg
+                                                        </span>
+                                                    ) : dietary === 'Egg' ? (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#d97706', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', padding: '2px 8px', borderRadius: '6px' }}>
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #d97706', borderRadius: '2px', padding: '1px' }}>
+                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#d97706', borderRadius: '50%' }}></span>
+                                                            </span>
+                                                            Egg
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px' }}>
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #16a34a', borderRadius: '2px', padding: '1px' }}>
+                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#16a34a', borderRadius: '50%' }}></span>
+                                                            </span>
+                                                            Veg
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>

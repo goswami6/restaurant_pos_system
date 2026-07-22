@@ -353,10 +353,17 @@ export const POSProvider = ({ user, onLogout, children }) => {
         });
     }, [tablesData, orderHistory, user?.username]);
 
-    // ── Default first table ──────────────────────────────────────────────────
+    // ── Default available table selection ──────────────────────────────────
     useEffect(() => {
-        if (tablesList.length > 0 && !tableId) setTableId(tablesList[0].table_number);
-    }, [tablesList]);
+        if (posSettings.isEnableTables && tablesList.length > 0) {
+            if (!tableId) {
+                const availableTable = tablesList.find(t => t.status === 'Available');
+                setTableId(availableTable ? availableTable.table_number : tablesList[0].table_number);
+            }
+        } else if (!posSettings.isEnableTables && tableId) {
+            setTableId('');
+        }
+    }, [tablesList, posSettings.isEnableTables, tableId]);
 
     // ── activeTableInfo ──────────────────────────────────────────────────────
     const activeTableInfo = useMemo(() => {
@@ -403,7 +410,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             setTableCarts(prev => ({ ...prev, [prevTableId]: cart }));
             setTableModified(prev => ({ ...prev, [prevTableId]: cartModified }));
         }
-        if (tableId) {
+        if (posSettings.isEnableTables && tableId) {
             const tableInfo = tablesList.find(t => t.table_number === tableId);
             const isModified = tableModified[tableId] || false;
             setCartModified(isModified);
@@ -419,7 +426,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             }
         }
         prevTableIdRef.current = tableId;
-    }, [tableId, tablesList, tableCarts, tableModified]);
+    }, [tableId, tablesList, tableCarts, tableModified, posSettings.isEnableTables]);
 
     // ── Derived cart calculations ────────────────────────────────────────────
     const cartItems = Object.values(cart);
@@ -606,20 +613,36 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const data = await response.json();
             const oid = data.data?.order_id || data.order_id || generatedOrderId;
             markOccupied(oid);
-            setCartModified(false);
-            setTableCarts(prev => ({ ...prev, [tableId]: cart }));
-            setTableModified(prev => ({ ...prev, [tableId]: false }));
             setOrderHistory(prev => [{ order_id: oid, table_number: tableId, type: orderType.charAt(0).toUpperCase() + orderType.slice(1).toLowerCase(), total: parseFloat(grandTotal.toFixed(2)), subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), serviceCharge: parseFloat(serviceCharge.toFixed(2)), items: cartItems, time: new Date().toISOString(), status: 'PENDING' }, ...prev]);
             fetchOrders();
             showToast(`Order ID: ${oid}\nStatus: PENDING\nTotal: ₹${grandTotal.toFixed(2)}`, 'success', 'Order Sent to Kitchen');
+            setCart({});
+            setCartModified(false);
+            if (tableId) {
+                setTableCarts(prev => ({ ...prev, [tableId]: {} }));
+                setTableModified(prev => ({ ...prev, [tableId]: false }));
+            }
+            prevTableIdRef.current = null;
+            setTableId('');
+            if (posSettings.isEnableTables) {
+                navigate('/tables');
+            }
         } catch (error) {
             console.warn('Live API failed, using local fallback:', error.message);
             markOccupied(generatedOrderId);
-            setCartModified(false);
-            setTableCarts(prev => ({ ...prev, [tableId]: cart }));
-            setTableModified(prev => ({ ...prev, [tableId]: false }));
             setOrderHistory(prev => [{ order_id: generatedOrderId, table_number: tableId, type: orderType.charAt(0).toUpperCase() + orderType.slice(1).toLowerCase(), total: parseFloat(grandTotal.toFixed(2)), subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), serviceCharge: parseFloat(serviceCharge.toFixed(2)), items: cartItems, time: new Date().toISOString(), status: 'PENDING' }, ...prev]);
-            showToast(`Order ID: ${generatedOrderId}\nStatus: PENDING\nTotal: ₹${grandTotal.toFixed(2)}`, 'success', '[Mock] Order Sent to Kitchen');
+            showToast(`Order ID: ${generatedOrderId}\nStatus: PENDING\nTotal: ₹${generatedOrderId}\nOrder Sent to Kitchen`, 'success', '[Mock] Order Sent to Kitchen');
+            setCart({});
+            setCartModified(false);
+            if (tableId) {
+                setTableCarts(prev => ({ ...prev, [tableId]: {} }));
+                setTableModified(prev => ({ ...prev, [tableId]: false }));
+            }
+            prevTableIdRef.current = null;
+            setTableId('');
+            if (posSettings.isEnableTables) {
+                navigate('/tables');
+            }
         }
     };
 
