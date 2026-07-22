@@ -270,42 +270,36 @@ const MenuView = () => {
                                     return (
                                         <div className="col-6 col-sm-4 col-md-4 col-lg-3" key={item.item_id}>
                                             <div className="menu-card d-flex flex-column align-items-start justify-content-between p-3 position-relative" style={{ minHeight: '135px' }}>
-                                                <div className="w-full d-flex justify-content-between align-items-start mb-2" style={{ width: '100%' }}>
-                                                    <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ maxWidth: '80%' }}>{item.item_name}</h6>
-                                                    <button 
-                                                        className="btn btn-sm text-danger p-0 border-0" 
-                                                        style={{ fontSize: '12px', lineHeight: 1 }}
-                                                        title="Delete item"
-                                                        onClick={() => deleteMenuItem(item.item_id, item.category_id)}
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                <div className="w-full d-flex align-items-center mb-2 gap-2" style={{ width: '100%' }}>
+                                                    {dietary === 'Non-Veg' ? (
+                                                        <span title="Non-Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #dc2626', borderRadius: '3px', padding: '2px', flexShrink: 0 }}>
+                                                            <span style={{ width: '5px', height: '5px', backgroundColor: '#dc2626', borderRadius: '50%' }}></span>
+                                                        </span>
+                                                    ) : dietary === 'Egg' ? (
+                                                        <span title="Egg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #d97706', borderRadius: '3px', padding: '2px', flexShrink: 0 }}>
+                                                            <span style={{ width: '5px', height: '5px', backgroundColor: '#d97706', borderRadius: '50%' }}></span>
+                                                        </span>
+                                                    ) : (
+                                                        <span title="Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #16a34a', borderRadius: '3px', padding: '2px', flexShrink: 0 }}>
+                                                            <span style={{ width: '5px', height: '5px', backgroundColor: '#16a34a', borderRadius: '50%' }}></span>
+                                                        </span>
+                                                    )}
+                                                    <h6 className="m-0 text-slate-800 text-sm font-bold text-truncate" style={{ flex: 1 }}>{item.item_name}</h6>
                                                 </div>
                                                 <div className="w-full text-slate-500 text-xs mb-2">{catName}</div>
                                                 <div className="w-full d-flex justify-content-between align-items-center mt-auto" style={{ width: '100%' }}>
                                                     <strong className="text-amber-500 font-bold">₹{parseFloat(item.price).toFixed(2)}</strong>
-                                                    {dietary === 'Non-Veg' ? (
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#dc2626', backgroundColor: '#fef2f2', border: '1px solid #fecaca', padding: '2px 8px', borderRadius: '6px' }}>
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #dc2626', borderRadius: '2px', padding: '1px' }}>
-                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#dc2626', borderRadius: '50%' }}></span>
-                                                            </span>
-                                                            Non-Veg
-                                                        </span>
-                                                    ) : dietary === 'Egg' ? (
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#d97706', backgroundColor: '#fffbeb', border: '1px solid #fef3c7', padding: '2px 8px', borderRadius: '6px' }}>
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #d97706', borderRadius: '2px', padding: '1px' }}>
-                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#d97706', borderRadius: '50%' }}></span>
-                                                            </span>
-                                                            Egg
-                                                        </span>
-                                                    ) : (
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '600', color: '#16a34a', backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '2px 8px', borderRadius: '6px' }}>
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid #16a34a', borderRadius: '2px', padding: '1px' }}>
-                                                                <span style={{ width: '5px', height: '5px', backgroundColor: '#16a34a', borderRadius: '50%' }}></span>
-                                                            </span>
-                                                            Veg
-                                                        </span>
-                                                    )}
+                                                    <button 
+                                                        className="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center p-1"
+                                                        style={{ width: '28px', height: '28px', borderRadius: '6px' }}
+                                                        title="Delete Item"
+                                                        onClick={() => deleteMenuItem(item.item_id, item.category_id)}
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                            <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                             </div>
                                         </div>
