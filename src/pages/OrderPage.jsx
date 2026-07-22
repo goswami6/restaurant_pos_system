@@ -35,7 +35,7 @@ const OrderPage = () => {
         <main className="container-fluid p-0 h-100" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
             <div className="row g-0 h-100 flex-column flex-lg-row overflow-auto lg:overflow-hidden" style={{ flex: 1, minHeight: 0 }}>
                 {/* LEFT: CATEGORIES */}
-                <div className="col-12 col-lg-2 bg-white pt-3 px-3 border-r-0 border-b lg:border-b-0 lg:border-r border-slate-200" style={{ overflowX: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <div className="col-12 col-lg-2 bg-white pt-3 px-3 pb-4 border-r-0 border-b lg:border-b-0 lg:border-r border-slate-200" style={{ overflowX: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>
                     <p className="text-muted small fw-bold text-uppercase mb-2 px-2 d-none d-lg-block" style={{ fontSize: '0.75rem' }}>Categories</p>
                     <div className="d-flex flex-row flex-lg-column gap-2 overflow-auto py-1">
                         {categoriesList.map((cat, index) => (
@@ -52,7 +52,7 @@ const OrderPage = () => {
                 </div>
 
                 {/* CENTER: MENU ITEMS */}
-                <div className="col-12 col-md-7 col-lg-7 pt-4 px-4 bg-slate-50 h-100" style={{ overflowY: 'auto', minHeight: '400px' }}>
+                <div className="col-12 col-md-7 col-lg-7 pt-4 px-4 pb-5 bg-slate-50 h-100" style={{ overflowY: 'auto', minHeight: '400px', paddingBottom: '3rem' }}>
                     <div className="d-flex justify-content-between align-items-center mb-4">
                         <h5 className="fw-bold mb-0">{selectedCategory} Items</h5>
                         <div className="position-relative" style={{ width: '300px' }}>

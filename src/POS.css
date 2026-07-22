@@ -62,7 +62,14 @@ body {
 
 /* Menu Card */
 .menu-card {
-  @apply bg-white border border-slate-200 rounded-xl p-5 cursor-pointer transition-all duration-200 flex flex-col items-start justify-between min-h-[120px] hover:border-amber-500 hover:shadow-lg hover:-translate-y-0.5;
+  @apply bg-white border border-slate-200 rounded-xl p-4 cursor-pointer flex flex-col items-start justify-between min-h-[120px];
+  transition: all 0.2s ease-in-out !important;
+}
+
+.menu-card:hover {
+  border-color: #f59e0b !important;
+  box-shadow: 0 10px 20px -3px rgba(245, 158, 11, 0.2), 0 4px 6px -4px rgba(245, 158, 11, 0.1) !important;
+  transform: translateY(-2px);
 }
 
 .menu-card h6 {
