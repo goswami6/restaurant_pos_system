@@ -77,12 +77,20 @@ const OrderNumberPage: React.FC = () => {
         </div>
       </div>
 
-      <Link 
-        to="/" 
-        className="checkout-btn fixed bottom-[2.5vh] ml-[2.5vw] flex h-[6vh] w-[95vw] items-center justify-center rounded-[10px] bg-[#0077b6] text-center text-white no-underline shadow-md transition-opacity hover:opacity-90 cursor-pointer"
-      >
-        Order More Items
-      </Link>
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 flex justify-center shadow-lg gap-3 max-w-xl mx-auto">
+        <Link 
+          to="/history" 
+          className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs text-center transition-all shadow-sm"
+        >
+          View History
+        </Link>
+        <Link 
+          to="/" 
+          className="flex-1 py-3 px-4 rounded-xl bg-[#0077b6] hover:bg-[#005f92] text-white font-bold text-xs text-center transition-all shadow-md"
+        >
+          Order More Items
+        </Link>
+      </div>
     </div>
   );
 };

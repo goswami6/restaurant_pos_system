@@ -1,24 +1,44 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 
 const OrderInfoPage: React.FC = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
-  const [restaurantNote, setRestaurantNote] = useState('');
+  const [guestName, setGuestName] = useState(() => {
+    const savedUser = localStorage.getItem('emenu_user');
+    if (!savedUser) return '';
+    try {
+      const parsed = JSON.parse(savedUser);
+      return parsed.name || parsed.guest_name || 'Guest';
+    } catch {
+      return '';
+    }
+  });
+  const [phone, setPhone] = useState(() => {
+    const savedUser = localStorage.getItem('emenu_user');
+    if (!savedUser) return '';
+    try {
+      const parsed = JSON.parse(savedUser);
+      return parsed.phone || '';
+    } catch {
+      return '';
+    }
+  });
   const [loading, setLoading] = useState(false);
 
   const [tableIdFromUrl] = useState(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const urlTable = queryParams.get('table') || queryParams.get('table_number') || '';
     if (urlTable) {
-      sessionStorage.setItem('emenu_table', urlTable);
-      return urlTable;
+      const clean = String(urlTable).replace(/[^0-9]/g, '');
+      sessionStorage.setItem('emenu_table', clean || urlTable);
+      return clean || urlTable;
     }
-    return sessionStorage.getItem('emenu_table') || '';
+    const stored = sessionStorage.getItem('emenu_table') || '';
+    const cleanStored = String(stored).replace(/[^0-9]/g, '');
+    return cleanStored || stored;
   });
 
   const [tables, setTables] = useState<any[]>([]);
@@ -32,9 +52,36 @@ const OrderInfoPage: React.FC = () => {
 
     const fetchTables = async () => {
       try {
-        const response = await fetch('/api/tables/9');
-        if (!response.ok) throw new Error('Failed to fetch tables');
-        const data = await response.json();
+        const savedUser = localStorage.getItem('emenu_user');
+        const userObj = savedUser ? JSON.parse(savedUser) : null;
+        const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
+
+        // Fetch tables and active orders in parallel to accurately calculate availability
+        const [tablesRes, ordersRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/tables/${restaurantId}`),
+          fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null)
+        ]);
+
+        if (!tablesRes.ok) throw new Error('Failed to fetch tables');
+        const data = await tablesRes.json();
+
+        let activeOrders: any[] = [];
+        if (ordersRes && ordersRes.ok) {
+          try {
+            const ordersData = await ordersRes.json();
+            const rawOrders = Array.isArray(ordersData) 
+              ? ordersData 
+              : (ordersData && Array.isArray(ordersData.data) ? ordersData.data : []);
+            
+            activeOrders = rawOrders.filter((o: any) => {
+              const isUnpaid = o.bill?.payment_status?.toUpperCase() !== 'PAID';
+              const isPending = o.order_status?.toUpperCase() === 'PENDING';
+              return isUnpaid && isPending;
+            });
+          } catch (e) {
+            console.warn("Failed to parse orders in OrderInfoPage:", e);
+          }
+        }
         
         let list: any[] = [];
         if (data && data.status === true && Array.isArray(data.data)) {
@@ -56,27 +103,48 @@ const OrderInfoPage: React.FC = () => {
           }
         }
 
-        if (list.length === 0) {
-          list = [
-            { table_id: 1, table_number: "T-1", status: "Available" },
-            { table_id: 2, table_number: "T-2", status: "Available" },
-            { table_id: 3, table_number: "T-3", status: "Available" }
-          ];
+        // Map live status based on active backend orders
+        const mappedList = list.map((item: any) => {
+          let normalizedStatus: 'Available' | 'Occupied' | 'Dirty' | 'Reserved' = 'Available';
+          const statusUpper = (item.status || '').toUpperCase();
+          if (statusUpper === 'OCCUPIED') normalizedStatus = 'Occupied';
+          else if (statusUpper === 'DIRTY') normalizedStatus = 'Dirty';
+          else if (statusUpper === 'RESERVED') normalizedStatus = 'Reserved';
+
+          const tableNumStr = item.table_name || item.table_number || `#${item.table_id}`;
+          const cleanTableNum = String(tableNumStr).replace(/[^0-9]/g, '');
+
+          const hasActiveOrder = activeOrders.some((o: any) => {
+            const cleanOrderTable = String(o.table_name || o.table_number || '').replace(/[^0-9]/g, '');
+            return (String(o.table_number_id) === String(item.table_id)) ||
+                   (cleanOrderTable !== '' && cleanOrderTable === cleanTableNum);
+          });
+
+          if (hasActiveOrder) {
+            normalizedStatus = 'Occupied';
+          }
+
+          return {
+            ...item,
+            table_number: cleanTableNum || item.table_number || item.table_id,
+            status: normalizedStatus
+          };
+        });
+
+        // Filter to only include tables that are TRULY Available
+        const availableTables = mappedList.filter((t: any) => t.status === 'Available');
+
+        const finalTables = availableTables.length > 0 ? availableTables : mappedList;
+        setTables(finalTables);
+
+        if (finalTables.length > 0) {
+          const firstTableNum = finalTables[0].table_number || finalTables[0].table_name || `#${finalTables[0].table_id}`;
+          const cleanFirst = String(firstTableNum).replace(/[^0-9]/g, '') || firstTableNum;
+          setSelectedTable(cleanFirst);
         }
-        
-        setTables(list);
-        if (list.length > 0) {
-          setSelectedTable(list[0].table_number);
-        }
-      } catch (err) {
-        console.warn('Failed to fetch tables, using fallbacks:', err);
-        const fallbackList = [
-          { table_id: 1, table_number: "T-1", status: "Available" },
-          { table_id: 2, table_number: "T-2", status: "Available" },
-          { table_id: 3, table_number: "T-3", status: "Available" }
-        ];
-        setTables(fallbackList);
-        setSelectedTable(fallbackList[0].table_number);
+      } catch (err: any) {
+        console.error('Failed to fetch tables:', err.message);
+        setTables([]);
       }
     };
 
@@ -116,27 +184,39 @@ const OrderInfoPage: React.FC = () => {
 
     setLoading(true);
 
-    const payloadItems = cartItems.map(item => ({
-      item_id: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      unit_price: item.price,
-      total_price: item.price * item.quantity,
-      modifiers: [],
-      notes: item.notes || ""
-    }));
+    const savedUser = localStorage.getItem('emenu_user');
+    const userObj = savedUser ? JSON.parse(savedUser) : null;
+    const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-    const mappedTable = selectedTable.startsWith("#") 
-      ? selectedTable.replace("#", "T-") 
-      : (selectedTable.startsWith("Table ") ? selectedTable.replace("Table ", "T-") : selectedTable);
+    const matchingTableObj = tables.find(t => t.table_number === selectedTable);
+    const tableNumberId = matchingTableObj ? (parseInt(matchingTableObj.table_id) || null) : null;
+
+    const payloadItems = cartItems.map(item => {
+      const parsedId = parseInt(item.id);
+      return {
+        item_id: !isNaN(parsedId) ? parsedId : item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        variant_id: null,
+        addons: [],
+        notes: item.notes || ""
+      };
+    });
 
     const orderPayload = {
       order_meta: {
-        location_id: "LOC-9921",
-        terminal_id: "EMENU-01",
-        staff_id: "CUSTOMER",
-        order_type: "Dine-In",
-        table_number: mappedTable || "T-12",
+        restaurant_id: restaurantId,
+        staff_id: 5,
+        staff_name: guestName || "E-Menu Customer",
+        order_type: "DINE_IN",
+        table_number: (() => {
+          const raw = selectedTable || tableIdFromUrl;
+          const cleanNum = String(raw).replace(/[^0-9]/g, '');
+          return cleanNum ? `Table #${cleanNum}` : (raw || "Table #1");
+        })(),
+        table_number_id: tableNumberId,
         guest_count: 1
       },
       items: payloadItems,
@@ -147,12 +227,12 @@ const OrderInfoPage: React.FC = () => {
         discount_amount: 0.00,
         grand_total: parseFloat(total.toFixed(2))
       },
-      status: "pending",
+      status: "PENDING",
       created_at: new Date().toISOString()
     };
 
     try {
-      const response = await fetch('/api/place-order', {
+      const response = await fetch(`${API_BASE_URL}/order/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -164,7 +244,8 @@ const OrderInfoPage: React.FC = () => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const orderNum = `#${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      const data = await response.json();
+      const orderNum = data.data?.order_id || data.order_id || `#${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
       localStorage.setItem('emenu_last_order', JSON.stringify({
         order_id: orderNum,
@@ -177,160 +258,176 @@ const OrderInfoPage: React.FC = () => {
       localStorage.removeItem('emenu_cart');
       setShowModal(true);
     } catch (error: any) {
-      console.warn("Live API place-order failed, simulating success. Error:", error.message);
-      
-      const orderNum = `#${Math.floor(1000000000 + Math.random() * 9000000000)}`;
-      localStorage.setItem('emenu_last_order', JSON.stringify({
-        order_id: orderNum,
-        items: cartItems,
-        subTotal,
-        tax,
-        total
-      }));
-
-      localStorage.removeItem('emenu_cart');
-      setShowModal(true);
+      console.error("Order creation failed:", error.message);
+      alert("Failed to place order: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="infobody min-h-screen bg-[#f8f8f8]">
-      <div className="header-info sticky top-0 z-50 flex h-[10vh] w-full items-center bg-white px-[3%] py-[1.5%] shadow-md">
-        <button onClick={() => navigate(-1)} className="back-arrow mr-[4%] text-[20px] text-black cursor-pointer">
-          <ArrowLeft size={24} />
+    <div className="infobody min-h-screen bg-[#f8f9fa] font-sans pb-32">
+      {/* Top Header */}
+      <div className="header-info sticky top-0 z-50 flex h-16 w-full items-center bg-white px-4 md:px-8 shadow-sm border-b border-gray-150">
+        <button 
+          onClick={() => navigate(-1)} 
+          className="back-arrow mr-4 p-2 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={20} />
         </button>
-        <h2 className="text-[20px] font-bold text-black">Order Information</h2>
+        <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Order Information</h2>
       </div>
 
-      <div className="bodymiddle flex justify-center px-[2.5vw]">
-        <div className="info-container mb-[10vh] mt-[3vh] w-full max-w-[600px] rounded-[10px] bg-white p-[20px] shadow-lg">
-          <div className="restaurant-info mb-4">
-            <h2 className="mb-2 text-left text-[20px] font-bold text-black">BIG BEN RESTAURANT</h2>
-            <p className="my-1 text-[16px] text-[#666]">
-              📍 <b> Location:</b> 1st Flr, A Wing, Todi Estate, Sun Mill Compound, Lower Parel (west)
+      <div className="bodymiddle flex justify-center px-4 py-6">
+        <div className="info-container w-full max-w-[550px] rounded-2xl bg-white p-6 shadow-sm border border-gray-200/80 space-y-6">
+          
+          {/* Restaurant Header Info */}
+          <div className="restaurant-info bg-gray-50/80 rounded-xl p-4 border border-gray-100">
+            <h2 className="text-lg font-black text-gray-900 mb-1 tracking-tight">BIG BEN RESTAURANT</h2>
+            <p className="text-xs text-gray-600 flex items-start gap-1.5 my-1">
+              <span>📍</span> <span>1st Flr, A Wing, Todi Estate, Sun Mill Compound, Lower Parel (west)</span>
             </p>
-            <p className="my-1 text-[16px] text-[#666]">
-              📞 <b> Phone:</b> +91-9876543212
+            <p className="text-xs text-gray-600 flex items-center gap-1.5 my-1">
+              <span>📞</span> <span>+91-9876543212</span>
             </p>
           </div>
 
-          <div className="order-type my-4">
-            <label className="block font-bold">Order Type</label>
-            <div className="order-box mt-1 rounded-[5px] border border-[#0077b6] bg-[#d1efff] p-[10px] text-center font-bold text-[#0077b6]">
-              <span>🍽️ DINE-IN</span>
+          {/* Order Type & Table Badges */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Order Type
+              </label>
+              <div className="rounded-xl border border-sky-200/60 bg-sky-50/70 p-3 text-center text-xs font-bold text-[#0077b6] flex items-center justify-center gap-1.5">
+                <span>🍽️</span> DINE-IN
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                Table Number *
+              </label>
+              {tableIdFromUrl ? (
+                <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/70 p-3 text-center text-xs font-bold text-emerald-600 flex items-center justify-center gap-1">
+                  <span>📋</span> Table #{tableIdFromUrl.replace(/[^0-9]/g, '')}
+                </div>
+              ) : (
+                <select 
+                  value={selectedTable}
+                  onChange={(e) => setSelectedTable(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 p-2.5 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-xs font-semibold text-gray-900 bg-white"
+                >
+                  {tables.map((t: any) => {
+                    const num = String(t.table_number || t.table_name || t.table_id).replace(/[^0-9]/g, '') || t.table_number;
+                    return (
+                      <option key={t.table_id || num} value={num}>
+                        Table #{num} (Available)
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
             </div>
           </div>
 
-          <div className="table-selection my-4">
-            <label className="block font-bold">Table Number *</label>
-            {tableIdFromUrl ? (
-              <div className="mt-1 rounded-[5px] border border-[#2ecc71] bg-[#e8f8f0] p-[10px] text-center font-semibold text-[#2ecc71]">
-                Table {tableIdFromUrl} (Pre-selected)
-              </div>
-            ) : (
-              <select 
-                value={selectedTable}
-                onChange={(e) => setSelectedTable(e.target.value)}
-                className="mt-1 w-full rounded-[5px] border border-[#333] p-[10px] outline-none focus:border-[#0077b6] text-black"
-                style={{ backgroundColor: '#fff', color: '#000' }}
-              >
-                <option value="">Select Table</option>
-                {tables.map((t: any) => (
-                  <option key={t.table_id} value={t.table_number}>
-                    Table {t.table_number} ({t.status})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          <div className="personal-info">
-            <div className="mt-4">
-              <label className="block font-bold">Guest Name *</label>
+          {/* Personal Information */}
+          <div className="personal-info space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Guest Name *
+              </label>
               <input 
                 type="text" 
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Guest Name" 
-                className="mt-1 w-full rounded-[5px] border border-[#333] p-[10px] outline-none focus:border-[#0077b6]"
+                placeholder="Enter Guest Name" 
+                className="w-full rounded-xl border border-gray-300 p-3 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-sm font-medium text-gray-900 transition-all"
               />
             </div>
 
-            <div className="mt-4">
-              <label className="block font-bold">Phone *</label>
+            <div>
+              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Phone Number *
+              </label>
               <input 
                 type="text" 
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone" 
-                className="mt-1 w-full rounded-[5px] border border-[#333] p-[10px] outline-none focus:border-[#0077b6]"
+                placeholder="Enter Phone Number" 
+                className="w-full rounded-xl border border-gray-300 p-3 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-sm font-medium text-gray-900 transition-all"
               />
-            </div>
-
-            <div className="mt-4">
-              <label className="block font-bold">Email Address</label>
-              <input 
-                type="email" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address" 
-                className="mt-1 w-full rounded-[5px] border border-[#333] p-[10px] outline-none focus:border-[#0077b6]"
-              />
-            </div>
-
-            <div className="mt-4">
-              <label className="block font-bold">Write instruction for the restaurant</label>
-              <textarea 
-                value={restaurantNote}
-                onChange={(e) => setRestaurantNote(e.target.value)}
-                placeholder="Write instruction for the restaurant" 
-                className="mt-1 min-h-[100px] w-full rounded-[5px] border border-[#333] p-[10px] outline-none focus:border-[#0077b6]"
-              ></textarea>
             </div>
           </div>
 
-          <div className="summary mt-5 text-[16px]">
-            <p className="my-1 flex justify-between">Sub Total: <span>{subTotal.toFixed(2)} Rs</span></p>
-            <p className="my-1 flex justify-between">Tax (5%): <span>{tax.toFixed(2)} Rs</span></p>
-            <hr className="my-[10px] h-px border-0 bg-[#ddd]" />
-            <p className="total flex justify-between font-bold text-[#0077b6]">
-              Total: <span>{total.toFixed(2)} Rs</span>
-            </p>
+          {/* Billing Summary Box */}
+          <div className="summary bg-gray-50 rounded-xl p-4 border border-gray-200/60 text-sm space-y-2">
+            <div className="flex justify-between text-gray-600 font-medium">
+              <span>Sub Total</span>
+              <span className="font-semibold text-gray-900">₹{subTotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600 font-medium">
+              <span>Tax (5%)</span>
+              <span className="font-semibold text-gray-900">₹{tax.toFixed(2)}</span>
+            </div>
+            <hr className="border-gray-200 my-2" />
+            <div className="total flex justify-between font-black text-base text-[#0077b6] pt-1">
+              <span>Grand Total</span>
+              <span>₹{total.toFixed(2)}</span>
+            </div>
           </div>
+
         </div>
       </div>
 
-      <button 
-        onClick={handlePlaceOrder}
-        disabled={loading}
-        className="info-footer fixed bottom-0 left-[2.5vw] mb-[15px] flex w-[95vw] items-center justify-center rounded-[10px] bg-[#0077b6] p-[15px] shadow-md transition-opacity hover:opacity-90 cursor-pointer disabled:opacity-50"
-      >
-        <div className="cart-button text-center text-[16px] text-white">
-          {loading ? "Placing Order..." : "Place Order"}
-        </div>
-      </button>
+      {/* Floating Bottom Place Order Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 flex justify-center shadow-lg">
+        <button 
+          onClick={handlePlaceOrder}
+          disabled={loading}
+          className="w-full max-w-[550px] py-3.5 px-6 rounded-xl bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.99] text-white font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+              <span>Placing Order...</span>
+            </>
+          ) : (
+            <span>Place Order (₹{total.toFixed(2)})</span>
+          )}
+        </button>
+      </div>
 
       {/* Confirmation Modal */}
       {showModal && (
-        <div className="confirmationmodal fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="confirmationmodal-content w-full max-w-[400px] rounded-[10px] bg-white p-[20px] text-center shadow-xl">
-            <div className="confirmationcheck-icon mx-auto flex h-[70px] w-[70px] items-center justify-center rounded-full bg-[#2ecc71] text-[40px] text-white">
-              <CheckCircle2 size={40} />
+        <div className="confirmationmodal fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="confirmationmodal-content w-full max-w-[380px] rounded-2xl bg-white p-6 text-center shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="confirmationcheck-icon mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+              <CheckCircle2 size={36} />
             </div>
-            <div className="confirmationmenu-text mt-[7%] text-[20px] font-normal text-black">
-              Your order has been placed<br />successfully.
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Order Successful!</h3>
+              <p className="text-xs text-gray-500 mt-1">Your order has been placed and sent to the kitchen.</p>
             </div>
-            <button 
-              onClick={() => {
-                setShowModal(false);
-                navigate('/order-number');
-              }}
-              className="confirmationmenu-btn mt-[15%] w-full max-w-[240px] rounded-[5px] bg-[#0077b6] p-[10px_30px] text-[16px] text-white hover:opacity-90 cursor-pointer"
-            >
-              View Order Bill
-            </button>
+            <div className="space-y-2.5 pt-1">
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  navigate('/history');
+                }}
+                className="w-full py-3 rounded-xl bg-[#0077b6] hover:bg-[#005f92] text-sm font-bold text-white transition-all cursor-pointer shadow-md"
+              >
+                View Order History
+              </button>
+              <button 
+                onClick={() => {
+                  setShowModal(false);
+                  navigate('/order-number');
+                }}
+                className="w-full py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all cursor-pointer"
+              >
+                View Order Receipt
+              </button>
+            </div>
           </div>
         </div>
       )}

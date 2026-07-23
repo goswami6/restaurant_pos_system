@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, RotateCw, Users, Receipt, Plus, CreditCard, Check, Clock } from 'lucide-react';
-import './TablesPage.css';
+import { API_BASE_URL } from '../config';
+import Header from '../components/Header';
 
 interface TableSession {
   active_order_id?: string;
@@ -34,12 +35,41 @@ const TablesPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch('/api/tables/9');
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      const savedUser = localStorage.getItem('emenu_user');
+      const userObj = savedUser ? JSON.parse(savedUser) : null;
+      const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
+
+      // Fetch both tables and orders in parallel to merge active sessions
+      const [tablesRes, ordersRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/tables/${restaurantId}`),
+        fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null)
+      ]);
+
+      if (!tablesRes.ok) {
+        throw new Error(`HTTP error! Status: ${tablesRes.status}`);
       }
-      const data = await response.json();
       
+      const data = await tablesRes.json();
+      
+      let activeOrders: any[] = [];
+      if (ordersRes && ordersRes.ok) {
+        try {
+          const ordersData = await ordersRes.json();
+          const rawOrders = Array.isArray(ordersData) 
+            ? ordersData 
+            : (ordersData && Array.isArray(ordersData.data) ? ordersData.data : []);
+          
+          // Match unpaid/pending orders using backend schema fields
+          activeOrders = rawOrders.filter((o: any) => {
+            const isUnpaid = o.bill?.payment_status?.toUpperCase() !== 'PAID';
+            const isPending = o.order_status?.toUpperCase() === 'PENDING';
+            return isUnpaid && isPending;
+          });
+        } catch (e) {
+          console.warn("Failed to parse orders response:", e);
+        }
+      }
+
       let list: any[] = [];
       if (data && data.status === true && Array.isArray(data.data)) {
         const hasSections = data.data.length > 0 && data.data[0].tables;
@@ -60,123 +90,56 @@ const TablesPage: React.FC = () => {
         }
       }
 
-      if (list.length === 0) {
-        // Fallback mock tables matching the POS layout
-        list = [
-          {
-            table_id: 1,
-            table_number: '#1',
-            capacity: 5,
-            status: 'Available',
-            current_session: null,
-            updated_at: '2026-05-31T18:15:00Z'
-          },
-          {
-            table_id: 2,
-            table_number: '#2',
-            capacity: 6,
-            status: 'Occupied',
-            current_session: {
-              active_order_id: 'ORD-99211',
-              staff_id: 9,
-              staff_name: 'Alex M.',
-              guest_count: 3,
-              updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-              total_items: 5,
-              current_total: 551.92
-            },
-            updated_at: '2026-05-31T18:15:00Z'
-          },
-          {
-            table_id: 3,
-            table_number: '#3',
-            capacity: 6,
-            status: 'Dirty',
-            current_session: {
-              last_order_id: 'ORD-99180',
-              updated_at: '2026-05-31T19:05:00Z'
-            },
-            updated_at: '2026-05-31T19:05:00Z'
-          },
-          {
-            table_id: 9,
-            table_number: '#9',
-            capacity: 8,
-            status: 'Reserved',
-            current_session: {
-              reservation_id: 15,
-              customer_name: 'Sarah Jenkins',
-              updated_at: '2026-05-31T19:30:00Z'
-            },
-            updated_at: '2026-05-31T19:30:00Z'
-          }
-        ];
-      }
 
-      // Map API statuses cleanly if needed
-      const mappedList: Table[] = list.map((item: any) => ({
-        table_id: item.table_id || item.table_number,
-        table_number: item.table_number,
-        capacity: item.capacity || 4,
-        status: item.status || 'Available',
-        current_session: item.current_session || null,
-        updated_at: item.updated_at
-      }));
+
+      // Map API statuses cleanly and merge live active orders for Occupied tables
+      const mappedList: Table[] = list.map((item: any) => {
+        let normalizedStatus: 'Available' | 'Occupied' | 'Dirty' | 'Reserved' = 'Available';
+        const statusUpper = (item.status || '').toUpperCase();
+        if (statusUpper === 'OCCUPIED') normalizedStatus = 'Occupied';
+        else if (statusUpper === 'DIRTY') normalizedStatus = 'Dirty';
+        else if (statusUpper === 'RESERVED') normalizedStatus = 'Reserved';
+        else normalizedStatus = 'Available';
+
+        const tableNumStr = item.table_name || item.table_number || `#${item.table_id}`;
+        
+        // Find active order matching this table ID or table name
+        const activeOrder = activeOrders.find((o: any) => {
+          return String(o.table_number_id) === String(item.table_id) || 
+                 String(o.table_name).trim().toLowerCase() === String(tableNumStr).trim().toLowerCase();
+        });
+
+        let currentSession: TableSession | null = null;
+        if (activeOrder) {
+          currentSession = {
+            active_order_id: activeOrder.order_id,
+            staff_name: activeOrder.staff_name || 'Waiter',
+            current_total: Number(activeOrder.bill?.grand_total || activeOrder.bill?.total || 0),
+            updated_at: activeOrder.created_at || new Date().toISOString()
+          };
+        } else if (normalizedStatus === 'Occupied') {
+          currentSession = {
+            staff_name: 'Staff',
+            current_total: 0,
+            updated_at: new Date().toISOString()
+          };
+        }
+
+        return {
+          table_id: item.table_id || item.table_number,
+          table_number: tableNumStr,
+          capacity: Number(item.capacity) || 4,
+          status: normalizedStatus,
+          current_session: currentSession,
+          updated_at: item.updated_at
+        };
+      });
 
       setTables(mappedList);
     } catch (err: any) {
-      console.error('Failed to fetch live tables data, using fallback:', err);
-      // Hard fallback
-      const fallbackList: Table[] = [
-        {
-          table_id: 1,
-          table_number: '#1',
-          capacity: 5,
-          status: 'Available',
-          current_session: null,
-          updated_at: '2026-05-31T18:15:00Z'
-        },
-        {
-          table_id: 2,
-          table_number: '#2',
-          capacity: 6,
-          status: 'Occupied',
-          current_session: {
-            active_order_id: 'ORD-99211',
-            staff_id: 9,
-            staff_name: 'Alex M.',
-            guest_count: 3,
-            updated_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-            total_items: 5,
-            current_total: 551.92
-          },
-          updated_at: '2026-05-31T18:15:00Z'
-        },
-        {
-          table_id: 3,
-          table_number: '#3',
-          capacity: 6,
-          status: 'Dirty',
-          current_session: {
-            last_order_id: 'ORD-99180',
-            updated_at: '2026-05-31T19:05:00Z'
-          },
-          updated_at: '2026-05-31T19:05:00Z'
-        },
-        {
-          table_id: 9,
-          table_number: '#9',
-          capacity: 8,
-          status: 'Reserved',
-          current_session: {
-            reservation_id: 15,
-            customer_name: 'Sarah Jenkins',
-            updated_at: '2026-05-31T19:30:00Z'
-          },
-          updated_at: '2026-05-31T19:30:00Z'
-        }
-      ];
-      setTables(fallbackList);
+      console.error('Failed to fetch live tables data:', err);
+      setError(err.message || 'Failed to load tables.');
+      setTables([]);
     } finally {
       setLoading(false);
     }
@@ -186,199 +149,242 @@ const TablesPage: React.FC = () => {
     fetchTables();
   }, []);
 
-  const handleSeatGuests = (tableNumber: string) => {
-    alert(`Seating guests at table ${tableNumber}`);
-    setTables(prev => prev.map(t => {
-      if (t.table_number === tableNumber) {
-        return {
-          ...t,
-          status: 'Occupied',
-          current_session: {
-            staff_name: 'Staff',
-            current_total: 0,
-            updated_at: new Date().toISOString()
-          }
-        };
-      }
-      return t;
-    }));
+  const handleTableSelect = (tableNumber: string) => {
+    const cleanNum = String(tableNumber).replace(/[^0-9]/g, '');
+    sessionStorage.setItem('emenu_table', cleanNum || tableNumber);
+    localStorage.removeItem('emenu_cart');
+    navigate(`/?table=${cleanNum || encodeURIComponent(tableNumber)}`);
   };
 
-  const handleOpenTab = (tableNumber: string) => {
-    alert(`Opening tab for table ${tableNumber}`);
-    setTables(prev => prev.map(t => {
-      if (t.table_number === tableNumber) {
-        return {
-          ...t,
+  const handleSeatGuests = async (tableNumber: string) => {
+    const session = {
+      staff_name: 'Staff',
+      current_total: 0,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      await fetch(`${API_BASE_URL}/tables/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: tableNumber,
           status: 'Occupied',
-          current_session: {
-            staff_name: 'Staff',
-            current_total: 0,
-            updated_at: new Date().toISOString()
-          }
-        };
-      }
-      return t;
-    }));
+          current_session: session
+        })
+      });
+      fetchTables();
+    } catch (e) {
+      console.warn("Failed to update table status on backend:", e);
+    }
+  };
+
+  const handleOpenTab = async (tableNumber: string) => {
+    const session = {
+      staff_name: 'Staff',
+      current_total: 0,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      await fetch(`${API_BASE_URL}/tables/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: tableNumber,
+          status: 'Occupied',
+          current_session: session
+        })
+      });
+      fetchTables();
+    } catch (e) {
+      console.warn("Failed to update table status on backend:", e);
+    }
   };
 
   const handleAddItems = (tableNumber: string) => {
-    alert(`Adding items to table ${tableNumber}`);
-    sessionStorage.setItem('emenu_table', tableNumber);
-    navigate(`/?table=${tableNumber}`);
+    const cleanNum = String(tableNumber).replace(/[^0-9]/g, '');
+    sessionStorage.setItem('emenu_table', cleanNum || tableNumber);
+    localStorage.removeItem('emenu_cart');
+    navigate(`/?table=${cleanNum || encodeURIComponent(tableNumber)}`);
   };
 
-  const handlePayNow = (tableNumber: string) => {
-    alert(`Processing payment for table ${tableNumber}`);
-    setTables(prev => prev.map(t => {
-      if (t.table_number === tableNumber) {
-        return {
-          ...t,
+  const handlePayNow = async (tableNumber: string) => {
+    const tableObj = tables.find(t => t.table_number === tableNumber);
+    const lastOrderId = tableObj?.current_session?.active_order_id || `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+    const session = {
+      last_order_id: lastOrderId,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      await fetch(`${API_BASE_URL}/tables/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: tableNumber,
           status: 'Dirty',
-          current_session: null
-        };
-      }
-      return t;
-    }));
+          current_session: session
+        })
+      });
+      fetchTables();
+    } catch (e) {
+      console.warn("Failed to update table status on backend:", e);
+    }
   };
 
-  const handleMarkCleaned = (tableNumber: string) => {
-    setTables(prev => prev.map(t => {
-      if (t.table_number === tableNumber) {
-        return {
-          ...t,
+  const handleMarkCleaned = async (tableNumber: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/tables/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: tableNumber,
           status: 'Available',
           current_session: null
-        };
-      }
-      return t;
-    }));
-    alert(`Table ${tableNumber} marked as cleaned`);
+        })
+      });
+      fetchTables();
+    } catch (e) {
+      console.warn("Failed to update table status on backend:", e);
+    }
   };
 
-  const handleMarkArrived = (tableNumber: string) => {
-    setTables(prev => prev.map(t => {
-      if (t.table_number === tableNumber) {
-        return {
-          ...t,
+  const handleMarkArrived = async (tableNumber: string) => {
+    const session = {
+      staff_name: 'Staff',
+      current_total: 0,
+      updated_at: new Date().toISOString()
+    };
+    try {
+      await fetch(`${API_BASE_URL}/tables/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table_number: tableNumber,
           status: 'Occupied',
-          current_session: {
-            staff_name: 'Alex M.',
-            current_total: 0,
-            updated_at: new Date().toISOString()
-          }
-        };
-      }
-      return t;
-    }));
-    alert(`Table ${tableNumber} guest has arrived`);
+          current_session: session
+        })
+      });
+      fetchTables();
+    } catch (e) {
+      console.warn("Failed to update table status on backend:", e);
+    }
   };
 
-  const getMinutesElapsed = (isoString?: string) => {
-    if (!isoString) return '0m';
-    const diffMs = Date.now() - new Date(isoString).getTime();
+  const getMinutesElapsed = (dateString?: string) => {
+    if (!dateString) return '0m';
+    // Replace space with T for browser compatibility with SQL datetimes
+    const formattedString = dateString.includes(' ') ? dateString.replace(' ', 'T') : dateString;
+    const date = new Date(formattedString);
+    if (isNaN(date.getTime())) return '0m';
+    const diffMs = Date.now() - date.getTime();
     const mins = Math.max(0, Math.floor(diffMs / 60000));
-    return `${mins}m`;
+    if (mins < 60) return `${mins}m`;
+    const hrs = Math.floor(mins / 60);
+    const remainMins = mins % 60;
+    return `${hrs}h ${remainMins}m`;
   };
 
   return (
-    <div className="tables-body min-h-screen bg-[#f8f8f8]">
-      <nav className="navbar">
-        <div className="logo-section">
-          <div className="logo">🏠</div>
-          <div className="shop-name">BIG BEN RESTAURANT</div>
-        </div>
-        <div className="icons">
-          <Link to="/" title="Back to Menu"><ArrowLeft size={20} /></Link>
-          <a href="#" onClick={(e) => { e.preventDefault(); fetchTables(); }} title="Refresh">
-            <RotateCw size={20} />
-          </a>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50 font-sans pb-[3vh]">
+      <Header />
 
-      <main className="tables-main">
-        <h2 className="section-heading">Table Status</h2>
+      <div className="mt-5 px-[3%] py-5 max-w-[1400px] mx-auto box-border">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-800 m-0">Table Status</h2>
+          <button 
+            onClick={fetchTables} 
+            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-[8px] shadow-sm hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-all active:scale-95 cursor-pointer"
+          >
+            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
 
-        {loading ? (
+        {error ? (
+          <div className="text-center py-10 font-bold text-red-500">{error}</div>
+        ) : loading ? (
           <div className="text-center py-10 font-bold text-[#0077b6]">Loading tables...</div>
         ) : (
-          <div className="tables-grid">
+          <div className="grid gap-5 py-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
             {tables.map((table) => {
-              const cardClass = `table-card ${table.status.toLowerCase()}`;
+              // Map badge color based on status
+              let badgeColor = 'bg-green-600';
+              if (table.status === 'Occupied') badgeColor = 'bg-amber-500';
+              else if (table.status === 'Dirty') badgeColor = 'bg-gray-500';
+              else if (table.status === 'Reserved') badgeColor = 'bg-blue-500';
+
               return (
-                <div key={table.table_id} className={cardClass}>
-                  <div className="table-status-badge">{table.status}</div>
-                  <div className="table-number">{table.table_number}</div>
-                  <div className="table-seats">{table.capacity} Seats</div>
+                <div 
+                  key={table.table_id} 
+                  className="relative bg-white rounded-xl p-5 shadow-sm hover:shadow-md border border-gray-200 flex flex-col gap-3 transition-all duration-200 cursor-pointer"
+                  onClick={() => handleTableSelect(table.table_number)}
+                >
+                  <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${badgeColor}`}>
+                    {table.status}
+                  </div>
+                  <div className="text-3xl font-bold text-black mt-2.5 text-left">{table.table_number}</div>
+                  <div className="text-sm text-gray-500 mb-2 text-left">{table.capacity} Seats</div>
 
                   {table.status === 'Occupied' && table.current_session && (
-                    <div className="table-details">
-                      <div className="server-info">
-                        <span className="label">Server:</span>
-                        <span className="value">{table.current_session.staff_name || 'Staff'}</span>
+                    <div className="flex flex-col gap-2 py-2.5 border-t border-b border-gray-100">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Server:</span>
+                        <span className="font-medium text-black">{table.current_session.staff_name || 'Staff'}</span>
                       </div>
-                      <div className="time-info">
-                        <Clock size={14} className="inline mr-1" />
-                        <span className="time-value">
-                          {getMinutesElapsed(table.current_session.updated_at)}
-                        </span>
+                      <div className="flex justify-between items-center text-sm text-orange-500 font-medium">
+                        <span className="flex items-center"><Clock size={14} className="inline mr-1" /> Elapsed:</span>
+                        <span>{getMinutesElapsed(table.current_session.updated_at)}</span>
                       </div>
-                      <div className="total-info">
-                        <span className="label">Current total:</span>
-                        <span className="total-value">
-                          ${(table.current_session.current_total || 0).toFixed(2)}
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-500">Current total:</span>
+                        <span className="font-bold text-green-600 text-base">
+                          ₹{(table.current_session.current_total || 0).toFixed(2)}
                         </span>
                       </div>
                     </div>
                   )}
 
                   {table.status === 'Dirty' && (
-                    <div className="table-message">Needs Cleaning</div>
+                    <div className="text-sm text-red-500 font-medium my-2 text-left">Needs Cleaning</div>
                   )}
 
                   {table.status === 'Reserved' && table.current_session && (
-                    <div className="table-details">
-                      <div className="reservation-time">
+                    <div className="flex flex-col gap-2 py-2.5 border-t border-b border-gray-100">
+                      <div className="flex items-center gap-2 text-sm text-gray-700">
                         <Clock size={14} className="inline mr-1" />
                         <span>7:30 PM</span>
                       </div>
-                      <div className="guest-name">
+                      <div className="flex items-center gap-2 text-sm text-gray-750 font-medium">
                         <span>{table.current_session.customer_name || 'Sarah Jenkins'}</span>
                       </div>
                     </div>
                   )}
 
-                  <div className="table-actions">
+                  <div className="flex gap-2.5 flex-wrap mt-auto" onClick={(e) => e.stopPropagation()}>
                     {table.status === 'Available' && (
-                      <>
-                        <button className="table-btn seat-guests-btn" onClick={() => handleSeatGuests(table.table_number)}>
-                          <Users size={14} /> SEAT GUESTS
-                        </button>
-                        <button className="table-btn open-tab-btn" onClick={() => handleOpenTab(table.table_number)}>
-                          <Receipt size={14} /> OPEN TAB
-                        </button>
-                      </>
+                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-green-600 text-white hover:bg-green-700 w-full" onClick={() => handleAddItems(table.table_number)}>
+                        <Receipt size={14} /> OPEN TAB
+                      </button>
                     )}
 
                     {table.status === 'Occupied' && (
                       <>
-                        <button className="table-btn action-btn add-items" onClick={() => handleAddItems(table.table_number)}>
+                        <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92]" onClick={() => handleAddItems(table.table_number)}>
                           <Plus size={14} /> ADD ITEMS
                         </button>
-                        <button className="table-btn action-btn pay-now" onClick={() => handlePayNow(table.table_number)}>
+                        <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92]" onClick={() => handlePayNow(table.table_number)}>
                           <CreditCard size={14} /> PAY NOW
                         </button>
                       </>
                     )}
 
                     {table.status === 'Dirty' && (
-                      <button className="table-btn clean-btn" onClick={() => handleMarkCleaned(table.table_number)}>
+                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-gray-500 text-white hover:bg-gray-600 w-full" onClick={() => handleMarkCleaned(table.table_number)}>
                         <Check size={14} /> TABLE CLEANED
                       </button>
                     )}
 
                     {table.status === 'Reserved' && (
-                      <button className="table-btn arrived-btn" onClick={() => handleMarkArrived(table.table_number)}>
+                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92] w-full" onClick={() => handleMarkArrived(table.table_number)}>
                         <Check size={14} /> ARRIVED
                       </button>
                     )}
@@ -388,7 +394,7 @@ const TablesPage: React.FC = () => {
             })}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
