@@ -278,8 +278,8 @@ const OrderInfoPage: React.FC = () => {
         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Order Information</h2>
       </div>
 
-      <div className="bodymiddle flex justify-center px-4 py-6">
-        <div className="info-container w-full max-w-[550px] rounded-2xl bg-white p-6 shadow-sm border border-gray-200/80 space-y-6">
+      <div className="bodymiddle flex justify-center px-0 sm:px-4 py-2 sm:py-6">
+        <div className="info-container w-full max-w-[550px] bg-white rounded-none sm:rounded-2xl p-4 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-5 sm:space-y-6">
           
           {/* Restaurant Header Info */}
           <div className="restaurant-info bg-gray-50/80 rounded-xl p-4 border border-gray-100">
