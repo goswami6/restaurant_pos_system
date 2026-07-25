@@ -122,57 +122,89 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         </div>
       </div>
 
-      {/* MOBILE MENU DRAWER */}
+      {/* MOBILE RIGHT SLIDE-OVER DRAWER */}
       {isMobileMenuOpen && user && !user.isGuest && (
-        <div className="md:hidden bg-gray-50 border-t border-gray-200 p-3 space-y-2.5 animate-in slide-in-from-top-2 duration-150">
-          <div className="grid grid-cols-3 gap-2 text-center text-xs font-bold">
-            <Link 
-              to={table ? `/?table=${table}` : "/"} 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`p-2 rounded-lg transition-all ${
-                currentPath === '/' 
-                  ? 'bg-[#0077b6] text-white shadow-xs' 
-                  : 'bg-white text-gray-700 border border-gray-200'
-              }`}
-            >
-              🍔 Menu
-            </Link>
-            <Link 
-              to="/tables" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`p-2 rounded-lg transition-all ${
-                currentPath === '/tables' 
-                  ? 'bg-[#0077b6] text-white shadow-xs' 
-                  : 'bg-white text-gray-700 border border-gray-200'
-              }`}
-            >
-              📋 Tables
-            </Link>
-            <Link 
-              to="/history" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className={`p-2 rounded-lg transition-all ${
-                currentPath === '/history' 
-                  ? 'bg-[#0077b6] text-white shadow-xs' 
-                  : 'bg-white text-gray-700 border border-gray-200'
-              }`}
-            >
-              ⏳ History
-            </Link>
-          </div>
+        <div className="fixed inset-0 z-50 md:hidden flex justify-end">
+          {/* Backdrop Blur Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
 
-          <div className="flex items-center justify-between pt-2 border-t border-gray-200 text-xs">
-            <span className="text-gray-600 font-semibold">
-              📱 {user.phone}
-            </span>
-            {onLogout && (
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); onLogout(); }}
-                className="font-bold text-red-600 hover:text-red-800 bg-red-50 border border-red-200 px-3 py-1 rounded-md transition-colors"
-              >
-                Logout
-              </button>
-            )}
+          {/* Right Slide Drawer Panel */}
+          <div className="relative w-[280px] max-w-[80vw] h-full bg-white shadow-2xl z-50 flex flex-col justify-between p-5 transform transition-transform duration-300 ease-out animate-in slide-in-from-right">
+            {/* Drawer Header */}
+            <div>
+              <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🏠</span>
+                  <span className="text-sm font-extrabold text-[#0077b6]">Navigation</span>
+                </div>
+                <button 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <div className="py-4 space-y-2">
+                <Link 
+                  to={table ? `/?table=${table}` : "/"} 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    currentPath === '/' 
+                      ? 'bg-[#0077b6] text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base">🍔</span> Menu
+                </Link>
+
+                <Link 
+                  to="/tables" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    currentPath === '/tables' 
+                      ? 'bg-[#0077b6] text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base">📋</span> Tables
+                </Link>
+
+                <Link 
+                  to="/history" 
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
+                    currentPath === '/history' 
+                      ? 'bg-[#0077b6] text-white shadow-md' 
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="text-base">⏳</span> History
+                </Link>
+              </div>
+            </div>
+
+            {/* Drawer Footer */}
+            <div className="pt-4 border-t border-gray-100 space-y-3">
+              {user.phone && (
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                  <span>📱</span> Phone: <span className="text-gray-800 font-bold">{user.phone}</span>
+                </div>
+              )}
+
+              {onLogout && (
+                <button 
+                  onClick={() => { setIsMobileMenuOpen(false); onLogout(); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 transition-all cursor-pointer"
+                >
+                  🚪 Logout Account
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -96,24 +96,24 @@ const HistoryPage: React.FC = () => {
     <div className="min-h-screen bg-[#f3f4f6] font-sans pb-10">
       <Header />
       
-      <main className="max-w-[95%] xl:max-w-7xl mx-auto px-4 py-8">
+      <main className="w-full max-w-7xl mx-auto px-2 sm:px-6 py-4 sm:py-8">
         {/* Title Bar */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link to="/" className="p-2.5 bg-white rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 text-gray-700 transition-all">
-              <ArrowLeft size={20} />
+        <div className="flex items-center justify-between mb-4 sm:mb-8 px-1">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Link to="/" className="p-2 sm:p-2.5 bg-white rounded-xl shadow-xs hover:shadow-md hover:bg-gray-50 text-gray-700 transition-all border border-gray-200">
+              <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
             </Link>
             <div>
-              <h1 className="text-2xl font-black text-gray-900 tracking-tight">Order Registry</h1>
-              <p className="text-xs text-gray-500 font-medium">Responsive tabular layout with detailed billing summaries</p>
+              <h1 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight">Order Registry</h1>
+              <p className="text-[11px] sm:text-xs text-gray-500 font-medium hidden sm:block">Tabular history & detailed billing logs</p>
             </div>
           </div>
           <button 
             onClick={fetchOrderHistory} 
-            className="p-3 bg-white rounded-xl shadow-sm hover:shadow-md hover:bg-gray-50 text-gray-700 transition-all active:scale-95 border border-gray-100 cursor-pointer"
+            className="p-2 sm:p-3 bg-white rounded-xl shadow-xs hover:shadow-md hover:bg-gray-50 text-gray-700 transition-all active:scale-95 border border-gray-200 cursor-pointer"
             title="Refresh logs"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin text-[#0077b6]' : ''} />
+            <RefreshCw size={16} className={`sm:w-4 sm:h-4 ${loading ? 'animate-spin text-[#0077b6]' : ''}`} />
           </button>
         </div>
 
@@ -140,24 +140,23 @@ const HistoryPage: React.FC = () => {
             <p className="text-xs text-gray-400 mt-2 max-w-xs mx-auto">There are currently no bills registered for this restaurant database.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto no-scrollbar">
+              <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-200/80">
                   <tr>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider">Order ID</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Table</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider">Items Summary</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider">Grand Total</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-black text-gray-500 uppercase tracking-wider text-right">Details</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider">ID</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Table</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider">Items</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">Total</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider text-right">Details</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {orders.map((order) => {
                     const isExpanded = !!expandedOrders[order.order_id];
-                    const itemsCount = order.items?.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0) || 0;
                     const itemsSummary = (order.items || []).map(i => `${i.name} x${i.quantity}`).join(', ');
                     
                     const cleanDate = order.created_at 
@@ -173,34 +172,34 @@ const HistoryPage: React.FC = () => {
                           }`}
                           onClick={() => toggleExpand(order.order_id)}
                         >
-                          <td className="px-6 py-4 text-sm font-extrabold text-gray-900">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-extrabold text-gray-900">
                             #{order.order_id}
                           </td>
-                          <td className="px-6 py-4 text-sm font-bold text-[#0077b6] whitespace-nowrap">
-                            <span className="bg-[#0077b6]/5 px-2.5 py-1 rounded-md text-xs">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold text-[#0077b6] whitespace-nowrap">
+                            <span className="bg-[#0077b6]/5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs">
                               {order.table_name || 'Walk-In'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-500 font-medium whitespace-nowrap">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-[11px] sm:text-xs text-gray-500 font-medium whitespace-nowrap">
                             {cleanDate}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-600 font-medium max-w-xs truncate" title={itemsSummary}>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs text-gray-600 font-medium max-w-[130px] sm:max-w-xs truncate" title={itemsSummary}>
                             {itemsSummary}
                           </td>
-                          <td className="px-6 py-4 text-sm font-black text-gray-900">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-black text-gray-900 whitespace-nowrap">
                             ₹{Number(order.bill?.grand_total || 0).toFixed(2)}
                           </td>
-                          <td className="px-6 py-4">
-                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider border ${getStatusBadgeClass(order.resolved_status)}`}>
+                          <td className="px-3 sm:px-5 py-3 sm:py-4">
+                            <span className={`text-[9px] sm:text-[10px] font-black px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-full uppercase tracking-wider border whitespace-nowrap ${getStatusBadgeClass(order.resolved_status)}`}>
                               {order.resolved_status || 'N/A'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
                             <button 
-                              className="p-1.5 hover:bg-gray-200/50 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                              className="p-1 hover:bg-gray-200/50 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
                               onClick={(e) => { e.stopPropagation(); toggleExpand(order.order_id); }}
                             >
-                              {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </button>
                           </td>
                         </tr>
@@ -208,7 +207,7 @@ const HistoryPage: React.FC = () => {
                         {/* Expandable Sub-Row (Receipt details) */}
                         {isExpanded && (
                           <tr className="bg-gray-50/30">
-                            <td colSpan={7} className="px-6 py-5 border-t border-b border-gray-100">
+                            <td colSpan={7} className="px-3 sm:px-6 py-4 border-t border-b border-gray-100">
                               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                                 {/* Left Side: Items Detail */}
                                 <div>
