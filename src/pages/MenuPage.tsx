@@ -277,7 +277,7 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       />
 
       {/* Filter Toggle Buttons */}
-      <div className="flex items-center gap-2 px-[2.5vw] mt-3 overflow-x-auto pb-1 select-none">
+      <div className="flex items-center gap-2 px-[2.5vw] mt-3 overflow-x-auto select-none no-scrollbar py-1">
         <button
           onClick={() => { setDietaryFilter('ALL'); setSpecialFilter('ALL'); }}
           className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
