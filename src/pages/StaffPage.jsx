@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { usePOS } from '../context/POSContext';
 
 const StaffPage = () => {
@@ -23,7 +24,7 @@ const StaffPage = () => {
         setStaffList(prev => [...prev, newStaff]);
         setNewStaffData({ name: '', role: 'Waiter', status: 'Active' });
         setShowAddStaffForm(false);
-        alert("Staff member registered successfully!");
+        toast.success("Staff member registered successfully!");
     };
 
     const toggleStaffStatus = (id) => {
@@ -45,7 +46,7 @@ const StaffPage = () => {
         <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
             <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                 <div className="card-body p-4">
-                    <div className="d-flex justify-content-between align-items-center mb-4">
+                    <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
                         <div>
                             <h5 className="fw-bold text-slate-900 mb-1">Staff Directory</h5>
                             <p className="text-muted small mb-0">Manage floor servers, kitchen chefs, and terminal operators</p>

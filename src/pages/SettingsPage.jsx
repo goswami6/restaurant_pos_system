@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../config';
 import { usePOS } from '../context/POSContext';
 
@@ -21,6 +22,11 @@ const SettingsPage = () => {
                     restaurant_id: restaurantId,
                     restaurant_name: posSettings.restaurantName,
                     restaurant_address: posSettings.address,
+                    city: posSettings.city || '',
+                    state: posSettings.state || '',
+                    pincode: posSettings.pincode || '',
+                    gstin: posSettings.gstin || '',
+                    fssai_no: posSettings.fssaiNo || '',
                     tax_rate: posSettings.taxRate,
                     cgst: posSettings.cgst ?? (posSettings.taxRate / 2),
                     sgst: posSettings.sgst ?? (posSettings.taxRate / 2),
@@ -39,32 +45,34 @@ const SettingsPage = () => {
 
             const data = await response.json();
             await fetchSettings();
-            alert(data.message || "POS settings updated successfully.");
+            toast.success(data.message || "POS settings updated successfully.");
         } catch (error) {
             console.error("Failed to update POS settings:", error);
-            alert("Failed to update settings. " + error.message);
+            toast.error("Failed to update settings. " + error.message);
         } finally {
             setSaving(false);
         }
     };
 
     return (
-        <div className="container py-5 bg-slate-50/50" style={{ flex: 1, overflowY: 'auto', fontFamily: 'Inter, sans-serif' }}>
+        <div className="container py-3 py-sm-5 px-3 px-sm-4 bg-slate-50/50" style={{ flex: 1, overflowY: 'auto', fontFamily: 'Inter, sans-serif' }}>
             <div className="mx-auto" style={{ maxWidth: '650px' }}>
                 {/* Header Banner */}
-                <div className="d-flex align-items-center gap-3 mb-4 ps-2">
-                    <div className="d-flex align-items-center justify-content-center bg-dark text-white rounded-3 fs-3" style={{ width: '48px', height: '48px', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
-                        ⚙️
+                <div className="d-flex align-items-center gap-2.5 sm:gap-3 mb-3 mb-sm-4 ps-1">
+                    <div className="d-flex align-items-center justify-content-center bg-dark text-white rounded-3 fs-4 fs-sm-3 flex-shrink-0" style={{ boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
+                        <span className="d-none d-sm-inline" style={{ width: '48px', height: '48px', lineHeight: '48px', textAlign: 'center', fontSize: '1.75rem' }}>⚙️</span>
+                        <span className="d-inline d-sm-none" style={{ width: '40px', height: '40px', lineHeight: '40px', textAlign: 'center', fontSize: '1.25rem' }}>⚙️</span>
                     </div>
                     <div>
-                        <h4 className="fw-bold text-slate-900 mb-0">POS System Control Settings</h4>
-                        <p className="text-muted small mb-0">Configure branding, print protocols, and taxations</p>
+                        <h4 className="fw-bold text-slate-900 mb-0 d-none d-sm-block">POS System Control Settings</h4>
+                        <h6 className="fw-bold text-slate-900 mb-0 d-block d-sm-none" style={{ fontSize: '0.95rem' }}>POS System Control Settings</h6>
+                        <p className="text-muted text-xs sm:text-sm mb-0">Configure branding, print protocols, and taxations</p>
                     </div>
                 </div>
 
                 <form onSubmit={handleSaveSettings} className="space-y-4">
                     {/* Card 1: Restaurant Identity */}
-                    <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div className="card border-0 shadow-sm rounded-4 p-3 p-sm-4 bg-white mb-3 mb-sm-4">
                         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <span className="fs-5">🏢</span>
                             <h6 className="fw-bold text-slate-800 mb-0">Restaurant Identity</h6>
@@ -73,39 +81,100 @@ const SettingsPage = () => {
                             <label className="form-label small fw-semibold text-slate-600">Restaurant Name</label>
                             <input 
                                 type="text" 
-                                className="form-control form-control-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
+                                className="form-control form-control-sm form-control-sm-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
                                 style={{ fontSize: '0.95rem' }}
                                 required 
-                                value={posSettings.restaurantName}
+                                value={posSettings.restaurantName || ''}
                                 onChange={(e) => setPosSettings(prev => ({ ...prev, restaurantName: e.target.value }))}
                             />
                         </div>
-                        <div>
+                        <div className="mb-3">
                             <label className="form-label small fw-semibold text-slate-600">Restaurant Address</label>
                             <textarea 
                                 className="form-control border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
                                 rows="2" 
-                                style={{ fontSize: '0.95rem' }}
+                                style={{ fontSize: '0.95rem', minHeight: '60px' }}
                                 required 
-                                value={posSettings.address}
+                                value={posSettings.address || ''}
                                 onChange={(e) => setPosSettings(prev => ({ ...prev, address: e.target.value }))}
                             ></textarea>
                         </div>
-                    </div>
+                            <div className="row g-2 mb-3">
+                                <div className="col-12 col-sm-4">
+                                    <label className="form-label small fw-semibold text-slate-600">City</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-control form-control-sm border-slate-200 focus:border-dark rounded-3 text-slate-900" 
+                                        style={{ fontSize: '0.88rem' }}
+                                        placeholder="Mumbai"
+                                        value={posSettings.city || ''}
+                                        onChange={(e) => setPosSettings(prev => ({ ...prev, city: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="col-6 col-sm-4">
+                                    <label className="form-label small fw-semibold text-slate-600">State</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-control form-control-sm border-slate-200 focus:border-dark rounded-3 text-slate-900" 
+                                        style={{ fontSize: '0.88rem' }}
+                                        placeholder="Maharashtra"
+                                        value={posSettings.state || ''}
+                                        onChange={(e) => setPosSettings(prev => ({ ...prev, state: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="col-6 col-sm-4">
+                                    <label className="form-label small fw-semibold text-slate-600">Pincode</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-control form-control-sm border-slate-200 focus:border-dark rounded-3 text-slate-900" 
+                                        style={{ fontSize: '0.88rem' }}
+                                        placeholder="400013"
+                                        value={posSettings.pincode || ''}
+                                        onChange={(e) => setPosSettings(prev => ({ ...prev, pincode: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* GSTIN and FSSAI Row */}
+                            <div className="row g-2">
+                                <div className="col-12 col-sm-6">
+                                    <label className="form-label small fw-semibold text-slate-600">GSTIN No.</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-control form-control-sm border-slate-200 focus:border-dark rounded-3 text-slate-900 uppercase" 
+                                        style={{ fontSize: '0.88rem' }}
+                                        placeholder="27AAAAA0000A1Z5"
+                                        value={posSettings.gstin || ''}
+                                        onChange={(e) => setPosSettings(prev => ({ ...prev, gstin: e.target.value }))}
+                                    />
+                                </div>
+                                <div className="col-12 col-sm-6">
+                                    <label className="form-label small fw-semibold text-slate-600">FSSAI License No.</label>
+                                    <input 
+                                        type="text" 
+                                        className="form-control form-control-sm border-slate-200 focus:border-dark rounded-3 text-slate-900" 
+                                        style={{ fontSize: '0.88rem' }}
+                                        placeholder="10019022009876"
+                                        value={posSettings.fssaiNo || ''}
+                                        onChange={(e) => setPosSettings(prev => ({ ...prev, fssaiNo: e.target.value }))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
 
                     {/* Card 2: Financials & Taxes */}
-                    <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div className="card border-0 shadow-sm rounded-4 p-3 p-sm-4 bg-white mb-3 mb-sm-4">
                         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <span className="fs-5">💸</span>
                             <h6 className="fw-bold text-slate-800 mb-0">Taxes & Financial Settings</h6>
                         </div>
-                        <div className="row">
-                            <div className="col-md-6 mb-3">
+                        <div className="row g-3">
+                            <div className="col-12 col-md-6 mb-2 mb-md-3">
                                 <label className="form-label small fw-semibold text-slate-600">Default Tax Rate (%)</label>
                                 <input 
                                     type="number" 
                                     step="0.01" 
-                                    className="form-control form-control-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
+                                    className="form-control form-control-sm form-control-sm-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
                                     style={{ fontSize: '0.95rem' }}
                                     required 
                                     value={posSettings.taxRate}
@@ -119,17 +188,17 @@ const SettingsPage = () => {
                                         }));
                                     }}
                                 />
-                                <div className="d-flex gap-2 mt-2 px-1">
+                                <div className="d-flex flex-wrap gap-1.5 mt-2 px-1">
                                     <span className="bg-slate-100 text-slate-700 border border-slate-200/80 rounded px-2.5 py-1 text-[11px] font-semibold">CGST: {(posSettings.cgst ?? (posSettings.taxRate / 2)).toFixed(2)}%</span>
                                     <span className="bg-slate-100 text-slate-700 border border-slate-200/80 rounded px-2.5 py-1 text-[11px] font-semibold">SGST: {(posSettings.sgst ?? (posSettings.taxRate / 2)).toFixed(2)}%</span>
                                 </div>
                             </div>
-                            <div className="col-md-6 mb-3">
+                            <div className="col-12 col-md-6 mb-2 mb-md-3">
                                 <label className="form-label small fw-semibold text-slate-600">Service Charge (%)</label>
                                 <input 
                                     type="number" 
                                     step="0.01" 
-                                    className="form-control form-control-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
+                                    className="form-control form-control-sm form-control-sm-lg border-slate-200 focus:border-dark focus:ring-0 rounded-3 text-slate-900" 
                                     style={{ fontSize: '0.95rem' }}
                                     required 
                                     value={posSettings.serviceCharge}
@@ -140,11 +209,11 @@ const SettingsPage = () => {
 
                         <div className="mt-3 p-3 bg-slate-50 rounded-3 border border-slate-100">
                             <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 mb-3">
-                                <label className="form-check-label text-slate-700 fw-semibold mb-0" htmlFor="servesLiquorCheck" style={{ cursor: 'pointer' }}>
+                                <label className="form-check-label text-slate-700 fw-semibold mb-0 text-xs sm:text-sm" htmlFor="servesLiquorCheck" style={{ cursor: 'pointer' }}>
                                     🍹 Restaurant Serves Liquor
                                 </label>
                                 <input 
-                                    className="form-check-input ms-0" 
+                                    className="form-check-input ms-0 flex-shrink-0" 
                                     type="checkbox" 
                                     id="servesLiquorCheck" 
                                     style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
@@ -178,20 +247,20 @@ const SettingsPage = () => {
                     </div>
 
                     {/* Card 3: System Preferences */}
-                    <div className="card border-0 shadow-sm rounded-4 p-4 bg-white mb-4">
+                    <div className="card border-0 shadow-sm rounded-4 p-3 p-sm-4 bg-white mb-3 mb-sm-4">
                         <div className="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
                             <span className="fs-5">⚙️</span>
                             <h6 className="fw-bold text-slate-800 mb-0">System Preferences & Hardware</h6>
                         </div>
                         
                         <div className="space-y-3">
-                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 border-bottom border-slate-100 pb-3">
+                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 border-bottom border-slate-100 pb-3 gap-2">
                                 <div>
-                                    <label className="form-check-label text-slate-700 fw-semibold mb-0" htmlFor="serialPrinterCheck" style={{ cursor: 'pointer' }}>🖨️ Thermal Printing</label>
-                                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>Enable Web Serial Direct Thermal Printing</div>
+                                    <label className="form-check-label text-slate-700 fw-semibold mb-0 text-xs sm:text-sm" htmlFor="serialPrinterCheck" style={{ cursor: 'pointer' }}>🖨️ Thermal Printing</label>
+                                    <div className="text-muted small">Enable Web Serial Direct Thermal Printing</div>
                                 </div>
                                 <input 
-                                    className="form-check-input ms-0" 
+                                    className="form-check-input ms-0 flex-shrink-0" 
                                     type="checkbox" 
                                     id="serialPrinterCheck" 
                                     style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
@@ -200,13 +269,13 @@ const SettingsPage = () => {
                                 />
                             </div>
 
-                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 border-bottom border-slate-100 pb-3">
+                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 border-bottom border-slate-100 pb-3 gap-2">
                                 <div>
-                                    <label className="form-check-label text-slate-700 fw-semibold mb-0" htmlFor="autoCleanCheck" style={{ cursor: 'pointer' }}>🧹 Auto-Clean Tables</label>
-                                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>Automatically clean tables when marked Dirty</div>
+                                    <label className="form-check-label text-slate-700 fw-semibold mb-0 text-xs sm:text-sm" htmlFor="autoCleanCheck" style={{ cursor: 'pointer' }}>🧹 Auto-Clean Tables</label>
+                                    <div className="text-muted small">Automatically clean tables when marked Dirty</div>
                                 </div>
                                 <input 
-                                    className="form-check-input ms-0" 
+                                    className="form-check-input ms-0 flex-shrink-0" 
                                     type="checkbox" 
                                     id="autoCleanCheck" 
                                     style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}
@@ -215,13 +284,13 @@ const SettingsPage = () => {
                                 />
                             </div>
 
-                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 pb-1">
+                            <div className="form-check form-switch d-flex align-items-center justify-content-between p-0 pb-1 gap-2">
                                 <div>
-                                    <label className="form-check-label text-slate-700 fw-semibold mb-0" htmlFor="enableTablesCheck" style={{ cursor: 'pointer' }}>🪟 Seating & Reservations</label>
-                                    <div className="text-muted small" style={{ fontSize: '0.78rem' }}>Enable Table Seating & Cleaning System across the POS</div>
+                                    <label className="form-check-label text-slate-700 fw-semibold mb-0 text-xs sm:text-sm" htmlFor="enableTablesCheck" style={{ cursor: 'pointer' }}>🪟 Seating & Reservations</label>
+                                    <div className="text-muted small">Enable Table Seating & Cleaning System across POS</div>
                                 </div>
                                 <input 
-                                    className="form-check-input ms-0" 
+                                    className="form-check-input ms-0 flex-shrink-0" 
                                     type="checkbox" 
                                     id="enableTablesCheck" 
                                     style={{ width: '2.5rem', height: '1.25rem', cursor: 'pointer' }}

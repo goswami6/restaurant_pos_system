@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 import { usePOS } from '../context/POSContext';
 import { API_BASE_URL } from '../config';
 
@@ -87,7 +88,7 @@ const MenuView = () => {
             }));
             setEditingCategory(null);
             setNewCatName('');
-            alert("Category updated successfully!");
+            toast.success("Category updated successfully!");
         } else {
             try {
                 const response = await fetch(`${API_BASE_URL}/categories`, {
@@ -110,7 +111,7 @@ const MenuView = () => {
                         categories: [...(prev.categories || []), { category_id: categoryId, category_name: createdCat.category_name, items: [] }]
                     }));
                     setNewCatName('');
-                    alert("Category created successfully!");
+                    toast.success("Category created successfully!");
                 } else {
                     throw new Error(resData.message || "Failed to create category.");
                 }
@@ -122,7 +123,7 @@ const MenuView = () => {
                     categories: [...(prev.categories || []), { category_id: mockId, category_name: newCatName.trim(), items: [] }]
                 }));
                 setNewCatName('');
-                alert("Category created successfully!");
+                toast.success("Category created successfully!");
             }
         }
     };
@@ -145,13 +146,13 @@ const MenuView = () => {
             setEditingCategory(null);
             setNewCatName('');
         }
-        alert("Category deleted successfully!");
+        toast.success("Category deleted successfully!");
     };
 
     const handleAddNewItem = async (e) => {
         e.preventDefault();
         if (!newItemData.item_name || !newItemData.price || !newItemData.category_id) {
-            alert("Please fill all required fields!");
+            toast.error("Please fill all required fields!");
             return;
         }
 
@@ -208,13 +209,13 @@ const MenuView = () => {
                     category_id: ''
                 });
                 setShowAddItemForm(false);
-                alert("Menu item created successfully!");
+                toast.success("Menu item created successfully!");
             } else {
                 throw new Error(resData.message || "Failed to create menu item.");
             }
         } catch (error) {
             console.error("Failed to create menu item:", error);
-            alert("Failed to create menu item: " + error.message);
+            toast.error("Failed to create menu item: " + error.message);
         }
     };
 
@@ -232,6 +233,7 @@ const MenuView = () => {
             });
             return { ...prev, categories: categoriesCopy };
         });
+        toast.success("Menu item deleted successfully!");
     };
 
     const [editingItem, setEditingItem] = useState(null);
@@ -279,13 +281,13 @@ const MenuView = () => {
         });
 
         setEditingItem(null);
-        alert("Menu item updated successfully!");
+        toast.success("Menu item updated successfully!");
     };
 
     return (
-        <div className="container-fluid py-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
-            <div className="row g-4">
-                <div className="col-12 col-md-3" style={{ position: 'sticky', top: '1rem', alignSelf: 'flex-start', zIndex: 10 }}>
+        <div className="container-fluid px-2 px-sm-3 py-3 py-sm-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
+            <div className="row g-2.5 g-sm-4">
+                <div className="col-12 col-md-3 sticky-sidebar-mobile">
                     <div className="card shadow-sm border-0 rounded-3 bg-white">
                         <div className="card-body p-4">
                             {showStats ? (
@@ -520,44 +522,44 @@ const MenuView = () => {
                                     </div>
                                 </div>
 
-                                <div className="col-12 col-md-6 d-flex justify-content-md-end gap-1.5 flex-wrap">
+                                <div className="col-12 col-md-6 d-flex justify-content-md-end gap-1 sm:gap-1.5 overflow-x-auto no-scrollbar flex-nowrap py-1">
                                     <button 
                                         type="button"
-                                        className={`btn btn-sm ${dietaryFilter === 'All' ? 'btn-dark' : 'btn-outline-secondary'} fw-bold px-3`}
-                                        style={{ borderRadius: '6px', height: '38px', minWidth: '45px' }}
+                                        className={`btn btn-sm ${dietaryFilter === 'All' ? 'btn-dark' : 'btn-outline-secondary'} fw-bold px-2.5 sm:px-3`}
+                                        style={{ borderRadius: '6px', height: '36px', minWidth: '40px', whiteSpace: 'nowrap' }}
                                         onClick={() => setDietaryFilter('All')}
                                     >
                                         All
                                     </button>
                                     <button 
                                         type="button"
-                                        className={`btn btn-sm ${dietaryFilter === 'Veg' ? 'btn-success text-white' : 'btn-outline-success'} fw-bold px-3 d-flex align-items-center gap-1.5`}
-                                        style={{ borderRadius: '6px', height: '38px' }}
+                                        className={`btn btn-sm ${dietaryFilter === 'Veg' ? 'btn-success text-white' : 'btn-outline-success'} fw-bold px-2.5 sm:px-3 d-flex align-items-center gap-1`}
+                                        style={{ borderRadius: '6px', height: '36px', whiteSpace: 'nowrap' }}
                                         onClick={() => setDietaryFilter('Veg')}
                                     >
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '12px', height: '12px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
                                             <span style={{ width: '4px', height: '4px', backgroundColor: 'currentColor', borderRadius: '50%' }}></span>
                                         </span>
                                         Veg
                                     </button>
                                     <button 
                                         type="button"
-                                        className={`btn btn-sm ${dietaryFilter === 'Non-Veg' ? 'btn-danger text-white' : 'btn-outline-danger'} fw-bold px-3 d-flex align-items-center gap-1.5`}
-                                        style={{ borderRadius: '6px', height: '38px' }}
+                                        className={`btn btn-sm ${dietaryFilter === 'Non-Veg' ? 'btn-danger text-white' : 'btn-outline-danger'} fw-bold px-2.5 sm:px-3 d-flex align-items-center gap-1`}
+                                        style={{ borderRadius: '6px', height: '36px', whiteSpace: 'nowrap' }}
                                         onClick={() => setDietaryFilter('Non-Veg')}
                                     >
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '12px', height: '12px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
                                             <span style={{ width: '4px', height: '4px', backgroundColor: 'currentColor', borderRadius: '50%' }}></span>
                                         </span>
                                         Non-Veg
                                     </button>
                                     <button 
                                         type="button"
-                                        className={`btn btn-sm ${dietaryFilter === 'Egg' ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'} fw-bold px-3 d-flex align-items-center gap-1.5`}
-                                        style={{ borderRadius: '6px', height: '38px' }}
+                                        className={`btn btn-sm ${dietaryFilter === 'Egg' ? 'btn-warning text-dark' : 'btn-outline-warning text-dark'} fw-bold px-2.5 sm:px-3 d-flex align-items-center gap-1`}
+                                        style={{ borderRadius: '6px', height: '36px', whiteSpace: 'nowrap' }}
                                         onClick={() => setDietaryFilter('Egg')}
                                     >
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '13px', height: '13px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '12px', height: '12px', border: '1.5px solid currentColor', borderRadius: '3px', padding: '1px' }}>
                                             <span style={{ width: '4px', height: '4px', backgroundColor: 'currentColor', borderRadius: '50%' }}></span>
                                         </span>
                                         Egg
@@ -569,8 +571,8 @@ const MenuView = () => {
 
                     {/* SECOND MAIN CARD: MENU DIRECTORY */}
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
-                        <div className="card-body p-4">
-                            <div className="d-flex justify-content-between align-items-center mb-4">
+                        <div className="card-body p-2.5 p-sm-4">
+                            <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
                                 <div>
                                     <h5 className="fw-bold text-slate-900 mb-1">Menu Directory</h5>
                                     <p className="text-muted small mb-0">Manage items, pricing, and configurations</p>
@@ -637,9 +639,9 @@ const MenuView = () => {
                                                 value={newItemData.dietary_info}
                                                 onChange={(e) => setNewItemData(prev => ({ ...prev, dietary_info: e.target.value }))}
                                             >
-                                                <option value="Veg">Veg (Green)</option>
-                                                <option value="Non-Veg">Non-Veg (Red)</option>
-                                                <option value="Vegan">Vegan (Leaf)</option>
+                                                <option value="Veg">Veg</option>
+                                                <option value="Non-Veg">Non-Veg</option>
+                                                <option value="Egg">Egg</option>
                                             </select>
                                         </div>
                                         <div className="col-12 d-flex gap-2 justify-content-end mt-4">
@@ -650,14 +652,14 @@ const MenuView = () => {
                                 </form>
                             )}
 
-                            <div className="row g-4">
+                            <div className="row g-3 g-sm-4 gy-3 gy-sm-4">
                                 {filteredMenuItems.map((item) => {
                                     const catName = categories.find(c => String(c.category_id) === String(item.category_id))?.category_name || 'Unassigned';
                                     const dietary = getDietaryInfo(item);
                                     return (
-                                        <div className="col-6 col-sm-4 col-md-4 col-lg-3" key={item.item_id}>
+                                        <div className="col-6 col-sm-4 col-md-4 col-lg-3 mb-3 mb-sm-4" key={item.item_id}>
                                             <div 
-                                                className="menu-card d-flex flex-column align-items-start justify-content-between p-3 position-relative bg-white shadow-sm border" 
+                                                className="menu-card d-flex flex-column align-items-start justify-content-between p-2.5 p-sm-3 position-relative bg-white shadow-sm border" 
                                                 style={{ minHeight: '135px', cursor: 'pointer', borderRadius: '12px' }}
                                                 onClick={() => setEditingItem({
                                                     item_id: item.item_id,
@@ -667,27 +669,27 @@ const MenuView = () => {
                                                     dietary_info: dietary
                                                 })}
                                             >
-                                                <div className="w-full d-flex align-items-center mb-1.5 gap-2" style={{ width: '100%' }}>
+                                                <div className="w-full d-flex align-items-start mb-1.5 gap-1.5" style={{ width: '100%' }}>
                                                     {dietary === 'Non-Veg' ? (
-                                                        <span title="Non-Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #dc2626', borderRadius: '3px', padding: '1px', flexShrink: 0 }}>
+                                                        <span title="Non-Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #dc2626', borderRadius: '3px', padding: '1px', flexShrink: 0, marginTop: '2px' }}>
                                                             <span style={{ width: '5px', height: '5px', backgroundColor: '#dc2626', borderRadius: '50%' }}></span>
                                                         </span>
                                                     ) : dietary === 'Egg' ? (
-                                                        <span title="Egg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #d97706', borderRadius: '3px', padding: '1px', flexShrink: 0 }}>
+                                                        <span title="Egg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #d97706', borderRadius: '3px', padding: '1px', flexShrink: 0, marginTop: '2px' }}>
                                                             <span style={{ width: '5px', height: '5px', backgroundColor: '#d97706', borderRadius: '50%' }}></span>
                                                         </span>
                                                     ) : (
-                                                        <span title="Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #16a34a', borderRadius: '3px', padding: '1px', flexShrink: 0 }}>
+                                                        <span title="Veg" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '15px', height: '15px', border: '1.5px solid #16a34a', borderRadius: '3px', padding: '1px', flexShrink: 0, marginTop: '2px' }}>
                                                             <span style={{ width: '5px', height: '5px', backgroundColor: '#16a34a', borderRadius: '50%' }}></span>
                                                         </span>
                                                     )}
-                                                    <h6 className="m-0 text-slate-900 text-sm font-bold text-truncate" style={{ flex: 1, fontSize: '13.5px' }}>{item.item_name}</h6>
+                                                    <h6 className="m-0 text-slate-900 text-xs sm:text-sm font-bold leading-snug" style={{ flex: 1, wordBreak: 'break-word' }}>{item.item_name}</h6>
                                                 </div>
                                                 <div className="w-full mb-2">
                                                     <span className="badge" style={{ backgroundColor: '#f1f5f9', color: '#64748b', fontSize: '10.5px', fontWeight: 500 }}>{catName}</span>
                                                 </div>
                                                 <div className="w-full d-flex justify-content-between align-items-center mt-auto" style={{ width: '100%' }}>
-                                                    <strong style={{ color: '#f59e0b', fontSize: '1.05rem', fontWeight: 700 }}>₹{parseFloat(item.price).toFixed(2)}</strong>
+                                                    <strong className="text-amber-500 font-bold text-sm sm:text-base" style={{ fontSize: '1.05rem' }}>₹{parseFloat(item.price).toFixed(2)}</strong>
                                                     <button 
                                                         className="btn btn-sm text-danger p-0 d-flex align-items-center justify-content-center border-0"
                                                         style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#fff1f2', color: '#e11d48' }}
@@ -772,9 +774,9 @@ const MenuView = () => {
                                             value={editingItem.dietary_info || 'Veg'}
                                             onChange={(e) => setEditingItem(prev => ({ ...prev, dietary_info: e.target.value }))}
                                         >
-                                            <option value="Veg">🟢 Veg</option>
-                                            <option value="Non-Veg">🔴 Non-Veg</option>
-                                            <option value="Egg">🟠 Egg</option>
+                                            <option value="Veg">Veg</option>
+                                            <option value="Non-Veg">Non-Veg</option>
+                                            <option value="Egg">Egg</option>
                                         </select>
                                     </div>
                                 </div>

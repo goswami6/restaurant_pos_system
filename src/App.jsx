@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { POSProvider } from './context/POSContext';
 import Login from './Login';
 
@@ -35,6 +36,7 @@ function App() {
 
     return (
         <BrowserRouter>
+            <Toaster position="top-right" reverseOrder={false} />
             <POSProvider user={user} onLogout={handleLogout}>
                 <Routes>
                     <Route path="/" element={<AppLayout />}>

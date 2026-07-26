@@ -3,100 +3,133 @@ import React from 'react';
 const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettings }) => {
     if (!selectedHistoryOrder) return null;
 
+    const items = selectedHistoryOrder.items || [];
+    const totalQty = items.reduce((acc, item) => acc + (item.qty || 1), 0);
+    const taxRate = posSettings?.taxRate || 5;
+    const serviceChargeRate = posSettings?.serviceCharge || 10;
+    const subtotal = selectedHistoryOrder.subtotal ?? (selectedHistoryOrder.total / (1 + (taxRate + serviceChargeRate) / 100));
+    const halfTaxRate = (taxRate / 2).toFixed(1);
+    const taxTotal = selectedHistoryOrder.tax ?? (subtotal * (taxRate / 100));
+    const cgstAmt = taxTotal / 2;
+    const sgstAmt = taxTotal / 2;
+    const serviceAmt = selectedHistoryOrder.serviceCharge ?? (subtotal * (serviceChargeRate / 100));
+    const grandTotal = selectedHistoryOrder.total ?? (subtotal + taxTotal + serviceAmt);
+
+    const formattedDate = selectedHistoryOrder.time ? new Date(selectedHistoryOrder.time).toLocaleDateString('en-GB') + ' ' + new Date(selectedHistoryOrder.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString();
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
-            <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-4" style={{ color: '#000' }}>
+            <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl p-4 text-black" style={{ fontFamily: 'monospace, monospace' }}>
                 <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
-                    <h6 className="fw-bold mb-0">Receipt: {selectedHistoryOrder.order_id}</h6>
+                    <h6 className="fw-bold mb-0 font-sans">Receipt Preview</h6>
                     <button className="btn-close" onClick={() => setSelectedHistoryOrder(null)}></button>
                 </div>
                 
-                <div style={{ textAlign: 'center', marginBottom: '10px' }}>
-                    <h5 style={{ margin: '0 0 5px 0', fontWeight: 'bold' }}>{posSettings.restaurantName}</h5>
-                    <p style={{ margin: '0', fontSize: '11px', color: '#555' }}>{posSettings.address}</p>
-                    <h6 style={{ margin: '10px 0 5px 0', borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '5px 0', fontWeight: 'bold' }}>
-                        PAST ORDER RECEIPT
-                    </h6>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '5px' }}>
-                    <span><strong>Table:</strong> {selectedHistoryOrder.table_number || 'N/A'}</span>
-                    <span><strong>Type:</strong> {selectedHistoryOrder.type}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '15px' }}>
-                    <span><strong>Status:</strong> {selectedHistoryOrder.status}</span>
-                    <span><strong>Date:</strong> {new Date(selectedHistoryOrder.time).toLocaleString()}</span>
-                </div>
-
-                {/* Detailed Items list */}
-                {selectedHistoryOrder.items && selectedHistoryOrder.items.length > 0 ? (
-                    <div style={{ borderTop: '1px dashed #000', borderBottom: '1px dashed #000', padding: '8px 0', margin: '10px 0' }}>
-                        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
-                            <thead>
-                                <tr style={{ borderBottom: '1px dashed #000' }}>
-                                    <th style={{ textAlign: 'left', paddingBottom: '5px' }}>Item</th>
-                                    <th style={{ textAlign: 'center', paddingBottom: '5px', width: '40px' }}>Qty</th>
-                                    <th style={{ textAlign: 'right', paddingBottom: '5px', width: '70px' }}>Price</th>
-                                    <th style={{ textAlign: 'right', paddingBottom: '5px', width: '70px' }}>Total</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {selectedHistoryOrder.items.map((item, idx) => {
-                                    const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
-                                    const itemTotal = unitPrice * item.qty;
-                                    return (
-                                        <tr key={idx}>
-                                            <td style={{ padding: '4px 0', textAlign: 'left', verticalAlign: 'top' }}>
-                                                <div style={{ fontWeight: '500' }}>{item.name}</div>
-                                                {item.selectedVariant && (
-                                                    <div style={{ fontSize: '9px', color: '#888' }}>Option: {item.selectedVariant.name}</div>
-                                                )}
-                                                {item.notes && (
-                                                    <div style={{ fontSize: '9px', color: '#666', fontStyle: 'italic' }}>Note: "{item.notes}"</div>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: '4px 0', textAlign: 'center', verticalAlign: 'top' }}>{item.qty}</td>
-                                            <td style={{ padding: '4px 0', textAlign: 'right', verticalAlign: 'top' }}>₹{unitPrice.toFixed(2)}</td>
-                                            <td style={{ padding: '4px 0', textAlign: 'right', verticalAlign: 'top' }}>₹{itemTotal.toFixed(2)}</td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div className="border-top border-bottom py-3 my-2 shadow-inner bg-light p-2 rounded" style={{ borderStyle: 'dashed' }}>
-                        <div className="d-flex justify-content-between fw-bold mb-2" style={{ fontSize: '11px' }}>
-                            <span>SUMMARY OF ORDER</span>
-                            <span>₹{selectedHistoryOrder.total.toFixed(2)}</span>
+                {/* ── Receipt Content Container ── */}
+                <div className="bg-white p-2 text-black" style={{ fontSize: '11px', lineHeight: '1.3' }}>
+                    {/* Header */}
+                    <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{posSettings?.restaurantName || 'Big Ben Restaurant'}</div>
+                        <div style={{ fontSize: '10px' }}>{posSettings?.address}</div>
+                        <div style={{ fontSize: '10px' }}>
+                            {[posSettings?.city, posSettings?.state, posSettings?.pincode].filter(Boolean).join(', ')}
                         </div>
-                        <p className="text-muted small mb-0" style={{ fontSize: '10px' }}>
-                            This order has been archived. Subtotal, tax, and service charges were included in the total.
-                        </p>
+                        {posSettings?.gstin && <div style={{ fontSize: '10px' }}>GSTIN: {posSettings.gstin}</div>}
+                        {posSettings?.fssaiNo && <div style={{ fontSize: '10px' }}>FSSAI NO: {posSettings.fssaiNo}</div>}
                     </div>
-                )}
 
-                {/* Detailed Bill Calculations */}
-                <div style={{ padding: '4px 0', fontSize: '11px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#555' }}>Subtotal</span>
-                        <span>₹{(selectedHistoryOrder.subtotal ?? (selectedHistoryOrder.total / 1.15)).toFixed(2)}</span>
+                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+                    {/* Customer Info if available */}
+                    {selectedHistoryOrder.customer_name && (
+                        <>
+                            <div>Customer Name: {selectedHistoryOrder.customer_name} {selectedHistoryOrder.customer_phone ? `(${selectedHistoryOrder.customer_phone})` : ''}</div>
+                            <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+                        </>
+                    )}
+
+                    {/* Bill Meta */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                        <span>Bill No: {selectedHistoryOrder.order_id}</span>
+                        <span>Date: {formattedDate}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#555' }}>Tax ({posSettings?.taxRate || 5}%)</span>
-                        <span>₹{(selectedHistoryOrder.tax ?? ((selectedHistoryOrder.total / 1.15) * 0.05)).toFixed(2)}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                        <span>{selectedHistoryOrder.table_number ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type}`}</span>
+                        <span>{(posSettings?.isEnableTables || Boolean(selectedHistoryOrder.table_number) || selectedHistoryOrder.type === 'DINE-IN') ? 'Waiter' : 'Cashier'}: {selectedHistoryOrder.server || 'Ravi'}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                        <span style={{ color: '#555' }}>Service Charge ({posSettings?.serviceCharge || 10}%)</span>
-                        <span>₹{(selectedHistoryOrder.serviceCharge ?? ((selectedHistoryOrder.total / 1.15) * 0.10)).toFixed(2)}</span>
+
+                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+                    {/* Table Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '10px' }}>
+                        <span style={{ flex: 1, textAlign: 'left' }}>Item</span>
+                        <span style={{ width: '32px', textAlign: 'center' }}>Qty.</span>
+                        <span style={{ width: '55px', textAlign: 'right' }}>Price</span>
+                        <span style={{ width: '60px', textAlign: 'right' }}>Amount</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '13px', marginTop: '8px', borderTop: '1px dashed #000', paddingTop: '8px' }}>
-                        <span>Grand Total</span>
-                        <span>₹{selectedHistoryOrder.total.toFixed(2)}</span>
+
+                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+                    {/* Items List */}
+                    {items.length > 0 ? (
+                        items.map((item, idx) => {
+                            const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
+                            const itemAmount = unitPrice * item.qty;
+                            return (
+                                <div key={idx} style={{ marginBottom: '3px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                        <span style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word' }}>{item.name}</span>
+                                        <span style={{ width: '32px', textAlign: 'center' }}>{item.qty}</span>
+                                        <span style={{ width: '55px', textAlign: 'right' }}>{unitPrice.toFixed(2)}</span>
+                                        <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
+                                    </div>
+                                    {item.selectedVariant && <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>Opt: {item.selectedVariant.name}</div>}
+                                    {item.notes && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
+                                </div>
+                            );
+                        })
+                    ) : (
+                        <div style={{ textAlign: 'center', padding: '6px 0', fontSize: '10px', color: '#666' }}>
+                            Summary Amount: ₹{selectedHistoryOrder.total.toFixed(2)}
+                        </div>
+                    )}
+
+                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+                    {/* Totals Section */}
+                    <div style={{ fontSize: '10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+                            <span>Total Qty: {totalQty}</span>
+                            <span>Sub Total &nbsp;&nbsp;{subtotal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+                            <span>CGST {halfTaxRate}% &nbsp;&nbsp;{cgstAmt.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+                            <span>SGST {halfTaxRate}% &nbsp;&nbsp;{sgstAmt.toFixed(2)}</span>
+                        </div>
+                        {serviceChargeRate > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+                                <span>Service Charge {serviceChargeRate}% &nbsp;&nbsp;{serviceAmt.toFixed(2)}</span>
+                            </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px', marginTop: '4px' }}>
+                            <span>Grand Total (INR)</span>
+                            <span>{grandTotal.toFixed(2)}</span>
+                        </div>
                     </div>
+
+                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0 4px 0' }}></div>
+
+                    {/* Footer Greeting */}
+                    <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '500', padding: '2px 0' }}>
+                        Thank you & Visit Again
+                    </div>
+
+                    <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }}></div>
                 </div>
 
-                <div className="d-flex gap-2 justify-content-end mt-4">
+                <div className="d-flex gap-2 justify-content-end mt-3 font-sans">
                     <button className="btn btn-sm btn-outline-secondary" onClick={() => setSelectedHistoryOrder(null)}>Close</button>
                     <button 
                         className="btn btn-sm btn-dark text-white" 
@@ -104,7 +137,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                             window.print();
                         }}
                     >
-                        Print Receipt
+                        🖨️ Print Receipt
                     </button>
                 </div>
             </div>

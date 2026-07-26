@@ -64,6 +64,11 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const [posSettings, setPosSettings] = useState({
         restaurantName: 'Big Ben Restaurant',
         address: '1st Flr, Sun Mill Compound, Lower Parel',
+        city: 'Mumbai',
+        state: 'Maharashtra',
+        pincode: '400013',
+        gstin: '27AAAAA0000A1Z5',
+        fssaiNo: '10019022009876',
         taxRate: 5.00,
         cgst: 2.50,
         sgst: 2.50,
@@ -297,6 +302,11 @@ export const POSProvider = ({ user, onLogout, children }) => {
                 setPosSettings({
                     restaurantName: data.restaurant_info?.name || 'Big Ben Restaurant',
                     address: data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel',
+                    city: data.restaurant_info?.city || 'Mumbai',
+                    state: data.restaurant_info?.state || 'Maharashtra',
+                    pincode: data.restaurant_info?.pincode || '400013',
+                    gstin: data.restaurant_info?.gstin || data.restaurant_info?.gst_number || '27AAAAA0000A1Z5',
+                    fssaiNo: data.restaurant_info?.fssai_no || data.restaurant_info?.fssai_number || '10019022009876',
                     taxRate: fetchedTaxRate,
                     cgst: parseSettingNum(data.financials?.cgst, fetchedTaxRate / 2),
                     sgst: parseSettingNum(data.financials?.sgst, fetchedTaxRate / 2),
@@ -435,8 +445,9 @@ export const POSProvider = ({ user, onLogout, children }) => {
         return sum + cost * item.qty;
     }, 0);
     const tax = cartItems.reduce((sum, item) => {
-        const menuItem = menuItems.find(mi => mi.item_id === item.item_id);
-        const taxPct = menuItem ? parseFloat(menuItem.tax_percentage || posSettings.taxRate) : posSettings.taxRate;
+        const menuItem = menuItems.find(mi => String(mi.item_id) === String(item.item_id));
+        const parsedItemTax = menuItem ? parseFloat(menuItem.tax_percentage) : NaN;
+        const taxPct = (!isNaN(parsedItemTax) && parsedItemTax > 0) ? parsedItemTax : posSettings.taxRate;
         const cost = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
         return sum + cost * item.qty * taxPct / 100;
     }, 0);
@@ -1014,15 +1025,50 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const writer = port.writable.getWriter();
             const encoder = new TextEncoder();
             const ESC = '\x1b', GS = '\x1d';
-            let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName}\n${ESC}E\x00${posSettings.address}\n--------------------------------\n${ESC}a\x00Table: ${tableId}    Type: ${orderType}\n--------------------------------\n`;
+
+            const totalQty = cartItems.reduce((acc, item) => acc + item.qty, 0);
+            const halfTaxRate = (posSettings.taxRate / 2).toFixed(1);
+            const cgstAmt = tax / 2;
+            const sgstAmt = tax / 2;
+            const formattedDate = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName}\n${ESC}E\x00${posSettings.address}\n`;
+            if (posSettings.city || posSettings.state || posSettings.pincode) {
+                receipt += `${[posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ')}\n`;
+            }
+            if (posSettings.gstin) receipt += `GSTIN: ${posSettings.gstin}\n`;
+            if (posSettings.fssaiNo) receipt += `FSSAI NO: ${posSettings.fssaiNo}\n`;
+
+            const staffRole = (posSettings?.isEnableTables || Boolean(tableId) || orderType === 'DINE-IN') ? 'Waiter' : 'Cashier';
+            receipt += `--------------------------------\n${ESC}a\x00`;
+            receipt += `Bill No: #${tableId ? `TBL-${tableId}` : '1001'}  Date: ${formattedDate}\n`;
+            receipt += `Dine In: ${tableId || 'N/A'}     ${staffRole}: ${user?.username || user?.name || 'Ravi'}\n`;
+            receipt += `--------------------------------\n`;
+            receipt += `Item              Qty.  Price    Amount\n`;
+            receipt += `--------------------------------\n`;
+
             cartItems.forEach(item => {
-                const total = (item.price + parseFloat(item.selectedVariant?.price || 0)) * item.qty;
-                let name = `${item.name} x${item.qty}`, price = `Rs.${total.toFixed(0)}`;
-                receipt += name + ' '.repeat(Math.max(1, 32 - name.length - price.length)) + price + '\n';
-                if (item.selectedVariant) receipt += `  Option: ${item.selectedVariant.name}\n`;
+                const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
+                const itemAmount = unitPrice * item.qty;
+                const nameStr = item.name.padEnd(16, ' ').slice(0, 16);
+                const qtyStr = String(item.qty).padStart(4, ' ');
+                const priceStr = unitPrice.toFixed(2).padStart(7, ' ');
+                const amtStr = itemAmount.toFixed(2).padStart(9, ' ');
+                receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;
+                if (item.selectedVariant) receipt += `  Opt: ${item.selectedVariant.name}\n`;
                 if (item.notes) receipt += `  * ${item.notes}\n`;
             });
-            receipt += `--------------------------------\nSubtotal: Rs.${subtotal.toFixed(0)}\nTax: Rs.${tax.toFixed(0)}\nService: Rs.${serviceCharge.toFixed(0)}\n${ESC}E\x01TOTAL: Rs.${grandTotal.toFixed(0)}\n${ESC}E\x00--------------------------------\n${ESC}a\x01Thank You!\n\n\n\n${GS}V\x41\x03`;
+
+            receipt += `--------------------------------\n`;
+            receipt += `Total Qty: ${totalQty}   Sub Total   ${subtotal.toFixed(2).padStart(8, ' ')}\n`;
+            receipt += `             CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2).padStart(8, ' ')}\n`;
+            receipt += `             SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2).padStart(8, ' ')}\n`;
+            if (posSettings.serviceCharge > 0) {
+                receipt += `      Service Charge ${posSettings.serviceCharge}%   ${serviceCharge.toFixed(2).padStart(8, ' ')}\n`;
+            }
+            receipt += `${ESC}E\x01Grand Total (INR)         ${grandTotal.toFixed(2).padStart(8, ' ')}\n${ESC}E\x00`;
+            receipt += `--------------------------------\n${ESC}a\x01Thank you & Visit Again\n--------------------------------\n\n\n\n${GS}V\x41\x03`;
+
             await writer.write(encoder.encode(receipt));
             writer.releaseLock();
             await port.close();

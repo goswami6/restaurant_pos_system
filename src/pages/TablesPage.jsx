@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePOS } from '../context/POSContext';
 
 const TablesPage = () => {
@@ -14,20 +14,38 @@ const TablesPage = () => {
         handleAddTable,
     } = usePOS();
 
-    const [showModal, setShowModal] = React.useState(false);
-    const [newTableNum, setNewTableNum] = React.useState('');
-    const [newTableCap, setNewTableCap] = React.useState('4');
-    const [newTableFloor, setNewTableFloor] = React.useState('');
+    const [showModal, setShowModal] = useState(false);
+    const [showSidebarDrawer, setShowSidebarDrawer] = useState(false);
+    const [newTableNum, setNewTableNum] = useState('');
+    const [newTableCap, setNewTableCap] = useState('4');
+    const [newTableFloor, setNewTableFloor] = useState('');
 
     return (
         <div className="dashboard-container">
             {/* Tables Grid Floor Plan Layout */}
             <main className="floor-view">
+                {/* Mobile Top Stats & Add Table Trigger */}
+                <div className="d-flex justify-content-between align-items-center bg-white py-2 px-3 border-bottom d-lg-none mb-3 rounded-2 border shadow-sm w-100 flex-nowrap gap-2" style={{ gridColumn: '1 / -1' }}>
+                    <div className="d-flex align-items-center gap-1.5" style={{ minWidth: 0 }}>
+                        <span className="fw-bold text-slate-800" style={{ fontSize: '0.82rem', whiteSpace: 'nowrap' }}>📊 Metrics</span>
+                        <span className="badge bg-emerald-600 text-white font-bold" style={{ fontSize: '0.68rem', padding: '3px 7px', whiteSpace: 'nowrap' }}>
+                            {tablesList.filter(t => t.status === 'Occupied').length}/{tablesList.length} Active
+                        </span>
+                    </div>
+                    <button
+                        className="btn btn-primary btn-sm fw-bold px-2.5 py-1.5 shadow-sm ms-auto"
+                        style={{ borderRadius: '6px', fontSize: '0.75rem', whiteSpace: 'nowrap', flexShrink: 0 }}
+                        onClick={() => setShowSidebarDrawer(true)}
+                    >
+                        + Add / Stats ❯
+                    </button>
+                </div>
+
                 {tablesList.length === 0 ? (
                     <div style={{ padding: '60px 20px', textAlign: 'center', gridColumn: '1 / -1', color: '#64748b' }}>
                         <div style={{ fontSize: '3.5rem', marginBottom: '15px' }}>🪑</div>
                         <h4 style={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '8px' }}>No Tables Configured Yet</h4>
-                        <p style={{ fontSize: '0.95rem', margin: '0' }}>Use the "+ Add Table" button in the sidebar to create restaurant tables.</p>
+                        <p style={{ fontSize: '0.95rem', margin: '0' }}>Use the "+ Add Table" button to create restaurant tables.</p>
                     </div>
                 ) : (
                     tablesList.map((table) => {
@@ -134,8 +152,8 @@ const TablesPage = () => {
                 )}
             </main>
 
-            {/* Right Sidebar */}
-            <aside className="sidebar">
+            {/* Desktop Right Sidebar */}
+            <aside className="sidebar d-none d-lg-flex">
                 <div className="sidebar-section">
                     <button className="btn btn-primary w-100 mb-3" style={{ fontWeight: '600', padding: '10px' }} onClick={() => setShowModal(true)}>
                         + Add Table
@@ -192,6 +210,82 @@ const TablesPage = () => {
                     </ul>
                 </div>
             </aside>
+
+            {/* Mobile Side Drawer Overlay */}
+            {showSidebarDrawer && (
+                <div className="d-lg-none">
+                    <div 
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity" 
+                        onClick={() => setShowSidebarDrawer(false)}
+                        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1040 }}
+                    />
+                    <div 
+                        className="fixed top-0 right-0 bottom-0 bg-white z-55 shadow-2xl flex flex-col overflow-y-auto p-4"
+                        style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: '85%', maxWidth: '340px', backgroundColor: '#ffffff', zIndex: 1050 }}
+                    >
+                        <div className="d-flex justify-content-between align-items-center pb-3 border-bottom mb-3">
+                            <h6 className="fw-bold mb-0 text-slate-900">📊 Table Metrics & Stats</h6>
+                            <button className="btn-close" onClick={() => setShowSidebarDrawer(false)}></button>
+                        </div>
+
+                        <div className="sidebar-section p-0 mb-4 border-0">
+                            <button className="btn btn-primary w-100 py-2.5 fw-bold shadow-sm" style={{ borderRadius: '10px' }} onClick={() => { setShowSidebarDrawer(false); setShowModal(true); }}>
+                                + Add New Table
+                            </button>
+                        </div>
+
+                        <div className="sidebar-section p-3 bg-slate-50 rounded-2xl mb-4 border border-slate-200">
+                            <div className="sidebar-title text-slate-700">Live Metrics</div>
+                            <div className="metric-group">
+                                <div className="metric-label">Active Tables</div>
+                                <div className="metric-value text-blue-600">
+                                    {tablesList.filter(t => t.status === 'Occupied').length}/{tablesList.length}
+                                </div>
+                            </div>
+                            <div className="metric-group">
+                                <div className="metric-label">Avg. Prep Time</div>
+                                <div className="metric-value text-slate-800">11m</div>
+                            </div>
+                            <div className="metric-group mb-0">
+                                <div className="metric-label">Open Balance</div>
+                                <div className="metric-value text-amber-600" style={{ fontSize: '1.2rem' }}>
+                                    ₹{tablesList.filter(t => t.status === 'Occupied').reduce((sum, t) => sum + (t.current_session?.current_total || 0), 0).toFixed(2)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="notifications-header rounded-t-xl">
+                                <span>Notifications</span>
+                                <span>▲</span>
+                            </div>
+                            <ul className="notification-list border border-slate-200 border-t-0 rounded-b-xl">
+                                {tablesList.filter(t => t.status === 'Dirty').map(t => (
+                                    <li key={t.table_id} className="notification-item">
+                                        🧹 {t.table_number} needs cleaning
+                                        <span className="time">Now</span>
+                                    </li>
+                                ))}
+                                {tablesList.filter(t => t.status === 'Reserved').map(t => (
+                                    <li key={t.table_id} className="notification-item">
+                                        📅 {t.table_number} reserved for {t.current_session?.customer_name || 'guest'}
+                                        <span className="time">{t.current_session?.reservation_time ? new Date(t.current_session.reservation_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                                    </li>
+                                ))}
+                                {tablesList.filter(t => t.status === 'Occupied').map(t => (
+                                    <li key={t.table_id} className="notification-item">
+                                        New online reservation
+                                        <span className="time">{getMinutesElapsed(t.current_session?.updated_at)} ago</span>
+                                    </li>
+                                ))}
+                                {tablesList.length === 0 && (
+                                    <li className="notification-item" style={{ color: '#94a3b8' }}>No active notifications</li>
+                                )}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add Table Modal */}
             {showModal && (

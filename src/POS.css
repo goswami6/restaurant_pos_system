@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-@reference "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --primary: #f59e0b; /* Amber 500 */
@@ -36,7 +36,7 @@ body {
 
 /* Category Buttons */
 .category-btn {
-  @apply w-full mb-2 py-3 px-4 rounded-xl font-medium text-left border border-transparent transition-all duration-200 text-sm;
+  @apply w-auto lg:w-full shrink-0 flex-shrink-0 whitespace-nowrap mb-0 lg:mb-2 py-2 px-3.5 rounded-xl font-medium text-center lg:text-left border border-transparent transition-all duration-200 text-sm;
 }
 
 .category-btn.btn-outline-dark {
@@ -113,7 +113,18 @@ body {
   @apply bg-amber-500 text-white border-0 hover:bg-amber-600;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar & No-Scrollbar Utility */
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 ::-webkit-scrollbar {
   @apply w-1.5;
 }
@@ -132,34 +143,72 @@ body {
 
 /* Top Navigation Bar */
 .top-nav {
-  @apply bg-slate-900 text-white py-3.5 px-4 sm:py-4 sm:px-6 flex justify-between items-center;
+  @apply bg-slate-900 text-white py-2 px-3 sm:py-3 sm:px-6 flex justify-between items-center border-b border-slate-800 shadow-sm w-full;
 }
 
 .nav-links {
-  @apply flex gap-2.5 sm:gap-5 list-none m-0 p-0;
+  @apply flex gap-1 sm:gap-2 list-none m-0 p-0 items-center overflow-x-auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav-links::-webkit-scrollbar {
+  display: none;
 }
 
 .nav-links li {
-  @apply text-sm font-semibold cursor-pointer opacity-80 flex items-center gap-1.5 uppercase;
+  @apply text-xs sm:text-sm font-semibold cursor-pointer text-slate-300 flex items-center gap-1.5 py-2 px-2.5 sm:px-3.5 transition-all duration-200 uppercase whitespace-nowrap border-b-2 border-transparent;
+}
+
+.nav-links li:hover {
+  @apply text-white border-slate-600;
 }
 
 .nav-links li.active {
-  @apply opacity-100 border-b-2 border-blue-500 pb-0.5;
+  @apply text-white font-bold border-b-2 border-blue-500 bg-transparent shadow-none;
 }
 
 .btn-reservation {
-  @apply bg-green-600 text-white border-0 py-2 px-4 rounded font-bold cursor-pointer uppercase text-xs;
+  @apply bg-emerald-600 hover:bg-emerald-500 text-white border-0 py-1.5 px-3 sm:py-2 sm:px-4 rounded-lg font-bold cursor-pointer uppercase text-xs transition-all flex-shrink-0 ms-auto shadow-sm;
+}
+
+.btn-hamburger {
+  @apply bg-slate-800 text-white border border-slate-700 py-1.5 px-3 rounded-lg font-bold text-xs cursor-pointer flex items-center transition-all hover:bg-slate-700 active:scale-95 flex-shrink-0;
+}
+
+.mobile-nav-dropdown {
+  @apply bg-slate-900 border-b border-slate-800 text-white p-3 flex flex-col gap-1 shadow-2xl z-50;
+}
+
+.mobile-nav-item {
+  @apply flex items-center gap-3 p-3 rounded-xl font-semibold text-sm cursor-pointer text-slate-300 transition-all hover:bg-slate-800 hover:text-white;
+}
+
+.mobile-nav-item.active {
+  @apply bg-blue-600 text-white font-bold;
 }
 
 /* Main Dashboard Layout */
 .dashboard-container {
-  @apply flex-1 flex flex-col lg:flex-row overflow-auto lg:overflow-hidden h-full;
+  @apply flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden h-full w-full;
 }
 
 /* Left Side View: Table Grid Floor Layout */
 .floor-view {
-  @apply flex-1 p-5 overflow-y-auto grid gap-5 content-start;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  @apply flex-1 p-3 sm:p-5 overflow-y-visible lg:overflow-y-auto grid gap-3 sm:gap-5 content-start w-full flex-shrink-0;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .floor-view {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 992px) {
+  .floor-view {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }
 
 /* Table Cards */
@@ -238,7 +287,7 @@ body {
 
 /* Right Sidebar (Metrics & Stream Logs) */
 .sidebar {
-  @apply w-full lg:w-[280px] bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col;
+  @apply w-full lg:w-[280px] bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col mt-4 lg:mt-0 shadow-sm rounded-t-xl lg:rounded-none;
 }
 
 .sidebar-section {
@@ -299,7 +348,7 @@ body {
 }
 
 /* KOT PRINT STYLING */
-#print-receipt-kot {
+#print-receipt-kot, .printable-receipt {
   display: none;
 }
 
@@ -311,12 +360,13 @@ body {
     box-shadow: none !important;
   }
   
-  /* Display only the print receipt */
-  #print-receipt-kot, #print-receipt-kot * {
+  /* Display only the active print receipt */
+  #print-receipt-kot, #print-receipt-kot *,
+  .printable-receipt, .printable-receipt * {
     visibility: visible;
   }
   
-  #print-receipt-kot {
+  #print-receipt-kot, .printable-receipt {
     display: block !important;
     position: absolute;
     left: 0;
@@ -325,7 +375,7 @@ body {
     margin: 0;
     padding: 0;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: #000;
   }
 }
@@ -372,5 +422,168 @@ body {
   to {
     transform: translateY(0) scale(1);
     opacity: 1;
+  }
+}
+
+/* Order Page & Layout Responsive Structure */
+.order-page-layout-row {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1;
+  min-height: 0;
+  height: 100% !important;
+  width: 100%;
+}
+
+@media (max-width: 991.98px) {
+  .order-page-layout-row {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .order-items-panel {
+    height: auto !important;
+    min-height: auto !important;
+    overflow-y: visible !important;
+    width: 100% !important;
+  }
+
+  .bill-panel {
+    height: auto !important;
+    min-height: auto !important;
+    border-left: 0 !important;
+    border-top: 1px solid #e2e8f0 !important;
+    width: 100% !important;
+  }
+
+  .cart-scroll {
+    max-height: 280px !important;
+  }
+  
+  .sticky-sidebar-mobile {
+    position: static !important;
+    top: 0 !important;
+  }
+
+  .order-category-container {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 100 !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06) !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .order-page-layout-row {
+    flex-direction: row !important;
+    overflow: hidden !important;
+  }
+
+  .order-items-panel {
+    height: 100% !important;
+    overflow-y: auto !important;
+  }
+
+  .bill-panel {
+    height: 100% !important;
+    min-height: 450px !important;
+  }
+}
+
+@media (max-width: 639.98px) {
+  .top-nav {
+    padding: 0.5rem 0.85rem !important;
+    gap: 0.5rem;
+  }
+
+  .nav-links {
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-bottom: 2px;
+    gap: 0.5rem !important;
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .nav-links::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-links li {
+    font-size: 0.75rem !important;
+    white-space: nowrap;
+  }
+
+  .btn-reservation {
+    flex-shrink: 0 !important;
+    padding: 0.4rem 0.75rem !important;
+    font-size: 0.75rem !important;
+    margin-left: auto !important;
+  }
+
+  .bottom-bar {
+    height: 44px !important;
+    padding: 0.25rem 0.75rem !important;
+    flex-wrap: nowrap !important;
+    gap: 0.5rem;
+  }
+
+  .bottom-bar-left {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 0.5rem !important;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .bottom-bar-left::-webkit-scrollbar {
+    display: none;
+  }
+
+  .btn-bottom {
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+  }
+
+  .btn-logout {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.68rem !important;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .floor-view {
+    padding: 0.75rem !important;
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* History Page Mobile Bottom Sheet Drawer */
+@media (max-width: 767.98px) {
+  .history-summary-drawer {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1050 !important;
+    max-height: 82vh !important;
+    box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.25) !important;
+    border-radius: 16px 16px 0 0 !important;
+    background: white !important;
+  }
+  
+  .history-backdrop-mobile {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(15, 23, 42, 0.5) !important;
+    backdrop-filter: blur(2px);
+    z-index: 1040 !important;
   }
 }
