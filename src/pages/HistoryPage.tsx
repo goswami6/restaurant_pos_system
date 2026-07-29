@@ -464,8 +464,9 @@ ${400 + contentStream.length}
                         {/* Expandable Sub-Row (Receipt details) */}
                         {isExpanded && (
                           <tr className="bg-gray-50/30">
-                            <td colSpan={7} className="px-2 sm:px-6 py-3 sm:py-4 border-t border-b border-gray-100">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start w-full">
+                            <td colSpan={7} className="p-1 sm:px-6 sm:py-4 border-t border-b border-gray-100">
+                              <div className="sticky left-0 w-[calc(100vw-1.5rem)] sm:w-full max-w-full px-1 sm:px-0">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-6 items-start w-full">
                                 {/* Left Side: Items Detail */}
                                 <div className="w-full">
                                   <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1.5">
@@ -541,8 +542,9 @@ ${400 + contentStream.length}
                                   </div>
                                 )}
                               </div>
-                            </td>
-                          </tr>
+                            </div>
+                          </td>
+                        </tr>
                         )}
                       </React.Fragment>
                     );
