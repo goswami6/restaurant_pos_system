@@ -464,23 +464,24 @@ ${400 + contentStream.length}
                         {/* Expandable Sub-Row (Receipt details) */}
                         {isExpanded && (
                           <tr className="bg-gray-50/30">
-                            <td colSpan={7} className="px-3 sm:px-6 py-4 border-t border-b border-gray-100">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <td colSpan={7} className="px-2 sm:px-6 py-3 sm:py-4 border-t border-b border-gray-100">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start w-full">
                                 {/* Left Side: Items Detail */}
-                                <div>
-                                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+                                <div className="w-full">
+                                  <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 sm:mb-3 flex items-center gap-1.5">
                                     <Receipt size={13} /> Ordered Items List
                                   </h4>
-                                  <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3 shadow-inner">
+                                  <div className="bg-white border border-gray-200 rounded-xl p-3 sm:p-4 space-y-2.5 shadow-inner">
                                     {(order.items || []).map((item, idx) => (
-                                      <div key={idx} className="flex justify-between items-center text-sm">
-                                        <div className="flex flex-col">
-                                          <span className="font-semibold text-gray-800">{item.name}</span>
-                                          <span className="text-xs text-gray-400">Price: ₹{Number(item.unit_price).toFixed(2)}</span>
+                                      <div key={idx} className="flex justify-between items-center text-xs sm:text-sm">
+                                        <div className="flex flex-col min-w-0 pr-2">
+                                          <span className="font-semibold text-gray-800 truncate">{item.name}</span>
+                                          <span className="text-[11px] sm:text-xs text-gray-400">Price: ₹{Number(item.unit_price).toFixed(2)}</span>
                                         </div>
-                                        <span className="font-bold text-gray-700">
-                                          x{item.quantity} &nbsp;&nbsp;&nbsp;&nbsp; ₹{(Number(item.total_price || item.unit_price * item.quantity)).toFixed(2)}
-                                        </span>
+                                        <div className="flex items-center gap-2 sm:gap-4 font-bold text-gray-700 flex-shrink-0">
+                                          <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[11px]">x{item.quantity}</span>
+                                          <span>₹{(Number(item.total_price || item.unit_price * item.quantity)).toFixed(2)}</span>
+                                        </div>
                                       </div>
                                     ))}
                                   </div>
@@ -488,34 +489,34 @@ ${400 + contentStream.length}
 
                                 {/* Right Side: Billing Breakdown */}
                                 {order.bill && (
-                                  <div className="bg-white border border-dashed border-gray-300 rounded-xl p-5 shadow-sm max-w-sm ml-auto w-full">
+                                  <div className="bg-white border border-dashed border-gray-300 rounded-xl p-3.5 sm:p-5 shadow-sm w-full md:max-w-sm md:ml-auto">
                                     <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest border-b pb-2 mb-3 text-center">
                                       Billing breakdown
                                     </h4>
-                                    <div className="space-y-2 text-sm text-gray-600">
+                                    <div className="space-y-2 text-xs sm:text-sm text-gray-600">
                                       <div className="flex justify-between">
                                         <span>Subtotal</span>
                                         <span className="font-medium text-gray-800">₹{Number(order.bill.subtotal).toFixed(2)}</span>
                                       </div>
-                                      <div className="flex justify-between text-xs text-gray-500">
+                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500">
                                         <span>Tax (5%)</span>
                                         <span>₹{Number(order.bill.tax_amount).toFixed(2)}</span>
                                       </div>
-                                      <div className="flex justify-between text-xs text-gray-500">
+                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500">
                                         <span>Service Charge (7%)</span>
                                         <span>₹{Number(order.bill.service_charge).toFixed(2)}</span>
                                       </div>
                                       {order.bill.discount_amount > 0 && (
-                                        <div className="flex justify-between text-xs text-red-500">
+                                        <div className="flex justify-between text-[11px] sm:text-xs text-red-500">
                                           <span>Discount</span>
                                           <span>-₹{Number(order.bill.discount_amount).toFixed(2)}</span>
                                         </div>
                                       )}
-                                      <div className="border-t border-dashed pt-3 mt-3 flex justify-between font-extrabold text-base text-gray-900">
+                                      <div className="border-t border-dashed pt-2.5 mt-2.5 flex justify-between font-extrabold text-sm sm:text-base text-gray-900">
                                         <span>Grand Total</span>
                                         <span className="text-[#0077b6]">₹{Number(order.bill.grand_total).toFixed(2)}</span>
                                       </div>
-                                      <div className="text-[9px] text-center text-gray-400 font-bold tracking-wide uppercase pt-2.5">
+                                      <div className="text-[9px] text-center text-gray-400 font-bold tracking-wide uppercase pt-2">
                                         Payment state: {order.bill.payment_status} | Bill: {order.bill.bill_status}
                                       </div>
 
