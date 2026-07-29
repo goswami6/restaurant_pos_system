@@ -368,7 +368,7 @@ ${400 + contentStream.length}
           </div>
         ) : (
           <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 sm:overflow-hidden shadow-xs">
-            <div className="overflow-x-auto w-full touch-pan-x [-webkit-overflow-scrolling:touch]">
+            <div className="overflow-x-auto w-full [-webkit-overflow-scrolling:touch]">
               <table className="w-full text-left border-collapse min-w-[580px] sm:min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-200/80">
                   <tr>
