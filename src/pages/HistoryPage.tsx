@@ -58,6 +58,11 @@ const HistoryPage: React.FC = () => {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
   };
 
+  const [posSettings, setPosSettings] = useState<any>(() => {
+    const saved = localStorage.getItem('emenu_pos_settings');
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const fetchOrderHistory = async () => {
     try {
       setLoading(true);
@@ -65,6 +70,17 @@ const HistoryPage: React.FC = () => {
       const savedUser = localStorage.getItem('emenu_user');
       const userObj = savedUser ? JSON.parse(savedUser) : null;
       const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
+
+      // Fetch POS settings (/api/settings/pos/:id)
+      fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          const settings = data?.data || data;
+          if (settings?.restaurant_info) {
+            setPosSettings(settings);
+            localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
+          }
+        }).catch(e => console.error('Error fetching POS settings in history:', e));
 
       // Fetch orders from server
       const ordersRes = await fetch(`${API_BASE_URL}/orders/${restaurantId}`);
@@ -112,10 +128,12 @@ const HistoryPage: React.FC = () => {
     const cgst = (Number(tax) / 2).toFixed(2);
     const sgst = (Number(tax) / 2).toFixed(2);
 
+    const restName = posSettings?.restaurant_info?.name || "BIG BEN RESTAURANT";
+    const restAddr = posSettings?.restaurant_info?.address || "1st Flr, Sun Mill Compound, Lower Parel, pune, MH, 411057";
+
     const lines = [
-      "BIG BEN RESTAURANT",
-      "123 Main Street, Food Court, City",
-      "Phone: +91 9876543210",
+      restName.toUpperCase(),
+      restAddr,
       "--------------------------------------------------",
       "TAX INVOICE / POS RECEIPT",
       "--------------------------------------------------",
@@ -246,9 +264,8 @@ ${400 + contentStream.length}
       </head>
       <body>
         <div style="text-align: center; margin-bottom: 6px;">
-          <div style="font-size: 14px; font-weight: bold;">Big Ben Restaurant</div>
-          <div style="font-size: 10px;">123 Main Street, Food Court</div>
-          <div style="font-size: 10px;">City, State, 110001</div>
+          <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurant_info?.name || 'Big Ben Restaurant'}</div>
+          <div style="font-size: 10px;">${posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel, pune, MH, 411057'}</div>
         </div>
 
         <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
@@ -290,10 +307,10 @@ ${400 + contentStream.length}
             <span>Sub Total &nbsp;&nbsp;${subTotalNum.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-            <span>CGST 2.5% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
+            <span>CGST ${posSettings?.financials?.cgst || 2.5}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-            <span>SGST 2.5% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
+            <span>SGST ${posSettings?.financials?.sgst || 2.5}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 4px;">
             <span>Grand Total (INR)</span>
