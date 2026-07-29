@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Printer, ShoppingBag, Clock, Download, UtensilsCrossed, Grid } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
 const OrderNumberPage: React.FC = () => {
@@ -12,14 +12,14 @@ const OrderNumberPage: React.FC = () => {
 
   if (!orderInfo) {
     return (
-      <div className="numberBody min-h-screen bg-[#f8f8f8] flex flex-col items-center justify-center p-4">
-        <div className="text-center bg-white p-8 rounded-lg shadow-md max-w-sm w-full">
-          <div className="text-4xl mb-3">❓</div>
-          <h2 className="text-lg font-bold text-gray-800 mb-2">No active order found</h2>
-          <p className="text-sm text-gray-500 mb-6">You haven't placed any order yet in this session.</p>
+      <div className="numberBody min-h-screen bg-[#f8f9fa] flex flex-col items-center justify-center p-4">
+        <div className="text-center bg-white p-8 rounded-2xl shadow-sm border border-gray-200 max-w-sm w-full">
+          <div className="text-5xl mb-4">🍽️</div>
+          <h2 className="text-lg font-bold text-gray-800 mb-1">No active order found</h2>
+          <p className="text-xs text-gray-500 mb-6">You haven't placed any order yet in this session.</p>
           <Link 
             to="/" 
-            className="inline-block bg-[#0077b6] text-white px-6 py-2.5 rounded-lg text-sm font-semibold hover:opacity-90 transition-opacity"
+            className="inline-block bg-[#0077b6] text-white px-6 py-2.5 rounded-xl text-xs font-bold hover:opacity-90 transition-opacity shadow-sm"
           >
             Go to Menu
           </Link>
@@ -28,68 +28,441 @@ const OrderNumberPage: React.FC = () => {
     );
   }
 
-  const { order_id, items, subTotal, tax, total } = orderInfo;
+  const { order_id, table, guest_name, phone, items = [], subTotal = 0, tax = 0, total = 0, created_at } = orderInfo;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const cleanDate = created_at 
+    ? new Date(created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+    : new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+  // Calculations matching POS Receipt logic
+  const totalQty = items.reduce((sum: number, item: any) => sum + (parseInt(item.quantity || item.qty) || 1), 0);
+  const taxTotal = parseFloat(tax) || 0;
+  const cgstAmt = taxTotal / 2;
+  const sgstAmt = taxTotal / 2;
+  const grandTotalNum = parseFloat(total) || 0;
+  const subTotalNum = parseFloat(subTotal) || 0;
+
+  const handleDownloadBill = () => {
+    const lines = [
+      "BIG BEN RESTAURANT",
+      "123 Main Street, Food Court, City",
+      "Phone: +91 9876543210",
+      "--------------------------------------------------",
+      "TAX INVOICE / POS RECEIPT",
+      "--------------------------------------------------",
+      `Bill No: #${order_id}       Table: ${table || 'Walk-In'}`,
+      `Date: ${cleanDate}`,
+      `Customer: ${guest_name || 'Guest'} ${phone ? `(${phone})` : ''}`,
+      "--------------------------------------------------",
+      "ITEM                             QTY   PRICE    AMT",
+      "--------------------------------------------------"
+    ];
+
+    (items || []).forEach((item: any) => {
+      const name = (item.name || 'Item').padEnd(28, ' ').substring(0, 28);
+      const qty = String(item.quantity || item.qty || 1).padStart(3, ' ');
+      const price = Number(item.price || item.unit_price || 0).toFixed(2).padStart(7, ' ');
+      const amt = (Number(item.price || item.unit_price || 0) * Number(item.quantity || item.qty || 1)).toFixed(2).padStart(7, ' ');
+      lines.push(`${name} ${qty} ${price} ${amt}`);
+    });
+
+    lines.push("--------------------------------------------------");
+    lines.push(`Sub Total:                              Rs.${subTotalNum.toFixed(2)}`);
+    lines.push(`CGST (2.5%):                            Rs.${cgstAmt.toFixed(2)}`);
+    lines.push(`SGST (2.5%):                            Rs.${sgstAmt.toFixed(2)}`);
+    lines.push("==================================================");
+    lines.push(`GRAND TOTAL:                            Rs.${grandTotalNum.toFixed(2)}`);
+    lines.push("==================================================");
+    lines.push("");
+    lines.push("          *** THANK YOU! VISIT AGAIN ***          ");
+    lines.push("         This is a computer generated bill.        ");
+
+    let contentStream = `BT /F1 10 Tf 20 760 Td 14 TL\n`;
+    lines.forEach((line) => {
+      const safeLine = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+      contentStream += `(${safeLine}) Tj T*\n`;
+    });
+    contentStream += `ET`;
+
+    const pdfRaw = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 450 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length ${contentStream.length} >>
+stream
+${contentStream}
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000246 00000 n 
+0000000318 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+${400 + contentStream.length}
+%%EOF`;
+
+    const blob = new Blob([pdfRaw], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bill_Receipt_${order_id}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+   const handleOrderMore = () => {
+    if (table) {
+      const activeTableNum = String(table).replace(/Table\s*#/i, '').replace(/Table\s*/i, '').trim();
+      sessionStorage.setItem('emenu_table', activeTableNum);
+    }
+    navigate('/');
+  };
 
   return (
-    <div className="numberBody min-h-screen bg-[#f8f8f8] pb-[10vh]">
-      <div className="header-number sticky top-0 z-50 flex h-[10vh] w-full items-center bg-white px-[3%] py-[1.5%] shadow-md">
-        <button onClick={() => navigate('/')} className="back-arrow mr-[4%] text-[20px] text-black cursor-pointer">
-          <ArrowLeft size={24} />
+    <div className="numberBody min-h-screen bg-[#f8f9fa] font-sans pb-32">
+      {/* Thermal POS Receipt Print Styles */}
+      <style>{`
+        @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          #thermal-pos-receipt, #thermal-pos-receipt * {
+            visibility: visible !important;
+          }
+          #thermal-pos-receipt {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 80mm !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 8px !important;
+            display: block !important;
+            background: white !important;
+            color: black !important;
+            font-family: monospace, monospace !important;
+            font-size: 11px !important;
+            line-height: 1.3 !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Header (Hidden on print) */}
+      <div className="header-number sticky top-0 z-40 flex h-16 w-full items-center justify-between bg-white px-4 md:px-8 shadow-sm border-b border-gray-150 no-print">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => navigate('/')} 
+            className="back-arrow p-2 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+            title="Back to menu"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 className="text-base md:text-lg font-black text-gray-900">Order Summary</h2>
+            <p className="text-[11px] text-gray-500 font-medium">Receipt #{order_id}</p>
+          </div>
+        </div>
+
+        <button 
+          onClick={handlePrint}
+          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+        >
+          <Printer size={16} />
+          <span className="hidden xs:inline">Print POS Bill</span>
         </button>
-        <h2 className="text-[20px] font-bold">Order {order_id}</h2>
       </div>
 
-      <div className="numbermiddle flex justify-center px-[2.5vw] pt-[5vh]">
-        <div className="number-container w-full max-w-[600px] rounded-[10px] bg-white p-[20px] shadow-lg">
-          <div>
-            {items.map((item: any) => (
-              <div key={item.id} className="item-list flex items-center justify-between border-b border-[#ddd] py-[12px] last:border-b-0">
-                <div className="item-details flex flex-col">
-                  <p className="item-name font-bold text-black text-[16px]">{item.name}</p>
-                  <p className="item-price text-[14px] text-gray-500">{item.price.toFixed(2)} Rs x {item.quantity}</p>
-                  {item.notes && (
-                    <span className="text-[11px] text-gray-400 italic">Note: {item.notes}</span>
-                  )}
-                </div>
-                <p className="item-total font-bold text-black text-[16px]">{(item.price * item.quantity).toFixed(2)} Rs</p>
-              </div>
-            ))}
+      {/* Web View Order Review Card */}
+      <div className="numbermiddle flex justify-center w-full px-2 sm:px-6 md:px-12 py-3 sm:py-6 no-print">
+        <div className="number-container w-full max-w-4xl bg-white rounded-xl sm:rounded-2xl p-4 sm:p-8 md:p-10 shadow-sm border border-gray-200 space-y-5 sm:space-y-7">
+          {/* Order Success Banner (Modern Mobile Card Style) */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border border-emerald-200/70 rounded-2xl p-4 sm:p-6 text-center space-y-2 shadow-xs">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs mb-1">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              Kitchen Preparing Order
+            </div>
+
+            <h3 className="text-base sm:text-xl font-black text-emerald-950 tracking-tight">
+              Order Active & Confirmed!
+            </h3>
+            <p className="text-xs sm:text-sm text-emerald-700 font-medium max-w-sm mx-auto">
+              Kitchen staff is preparing your items for Table #{table}.
+            </p>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+              <span className="bg-white text-emerald-900 font-black text-xs px-3 py-1.5 rounded-xl border border-emerald-200/80 shadow-2xs">
+                Order ID: #{order_id}
+              </span>
+              {table && (
+                <span className="bg-white text-[#0077b6] font-black text-xs px-3 py-1.5 rounded-xl border border-[#0077b6]/20 shadow-2xs">
+                  {String(table).includes('Table') ? table : `Table #${table}`}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="bill-details mt-5">
-            <div className="bill-details-text mb-[10px] text-left text-[20px] font-bold text-black">
-              Bill Detail
+          {/* Customer & Timestamp Info */}
+          <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm text-gray-600 bg-gray-50/80 p-3.5 sm:p-4 rounded-xl border border-gray-100 gap-2">
+            <div>
+              <span className="text-gray-400 font-medium">Customer: </span>
+              <span className="font-bold text-gray-900">{guest_name || 'Guest Customer'}</span>
+              {phone && <span className="text-gray-500 font-medium ml-1">({phone})</span>}
             </div>
-            <div className="bill-row my-[5px] flex justify-between text-[16px]">
-              <span>Sub Total</span>
-              <span>{subTotal.toFixed(2)} Rs</span>
+            <div className="flex items-center gap-1 text-gray-500 font-medium">
+              <Clock size={14} />
+              <span>{cleanDate}</span>
             </div>
-            <div className="bill-row my-[5px] flex justify-between text-[16px]">
-              <span>Tax (5%)</span>
-              <span>{tax.toFixed(2)} Rs</span>
+          </div>
+
+          {/* Items Ordered List */}
+          <div>
+            <h4 className="text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider mb-3 flex items-center justify-between border-b pb-2">
+              <span>Ordered Items</span>
+              <span className="text-gray-500 font-semibold">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
+            </h4>
+            
+            <div className="divide-y divide-gray-100">
+              {items.map((item: any, idx: number) => {
+                const itemTotal = (parseFloat(item.price || item.unit_price || 0) * (parseInt(item.quantity || item.qty) || 1)).toFixed(2);
+                return (
+                  <div key={idx} className="py-3 flex items-start justify-between gap-3 first:pt-0 last:pb-0">
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <span className="text-xs sm:text-sm font-bold text-gray-400 min-w-[16px]">{idx + 1}.</span>
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-900 text-xs sm:text-base leading-snug break-words">
+                          {item.name}
+                        </p>
+                        <p className="text-xs sm:text-sm text-gray-500 font-medium mt-0.5">
+                          ₹{parseFloat(item.price || item.unit_price || 0).toFixed(2)} × {item.quantity || item.qty}
+                        </p>
+                        {item.notes && (
+                          <p className="text-[11px] sm:text-xs text-amber-800 italic bg-amber-50 rounded px-2 py-0.5 mt-1 inline-block border border-amber-200/50">
+                            Note: "{item.notes}"
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="font-extrabold text-gray-900 text-xs sm:text-base whitespace-nowrap">
+                      ₹{itemTotal}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <hr className="my-2 h-px border-0 bg-[#ddd]" />
-            <div className="bill-row total flex justify-between font-bold text-[#0077b6] text-[18px]">
-              <span>Total</span>
-              <span>{total.toFixed(2)} Rs</span>
+          </div>
+
+          {/* Bill Summary */}
+          <div className="bill-details border-t border-dashed border-gray-300 pt-4 space-y-2.5">
+            <h4 className="text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider mb-2">
+              Bill Breakdown
+            </h4>
+
+            <div className="flex justify-between text-xs sm:text-sm text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-semibold text-gray-900">₹{subTotalNum.toFixed(2)}</span>
             </div>
+
+            <div className="flex justify-between text-xs sm:text-sm text-gray-600">
+              <span>Taxes (5%)</span>
+              <span className="font-semibold text-gray-900">₹{taxTotal.toFixed(2)}</span>
+            </div>
+
+            <div className="border-t border-gray-200 pt-3 flex justify-between font-black text-base sm:text-lg text-gray-900">
+              <span>Grand Total</span>
+              <span className="text-[#0077b6]">₹{grandTotalNum.toFixed(2)}</span>
+            </div>
+          </div>
+
+          {/* Footer Note */}
+          <div className="text-center text-[10px] sm:text-xs text-gray-400 font-bold uppercase tracking-wider pt-3 border-t border-gray-100">
+            Thank you for dining with Big Ben Restaurant!
           </div>
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 flex justify-center shadow-lg gap-3 max-w-xl mx-auto">
-        <Link 
-          to="/history" 
-          className="flex-1 py-3 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs text-center transition-all shadow-sm"
-        >
-          View History
-        </Link>
-        <Link 
-          to="/" 
-          className="flex-1 py-3 px-4 rounded-xl bg-[#0077b6] hover:bg-[#005f92] text-white font-bold text-xs text-center transition-all shadow-md"
-        >
-          Order More Items
-        </Link>
+      {/* DEDICATED THERMAL POS RECEIPT (Exact POS Receipt template & logic from restaurant_pos_react) */}
+      <div id="thermal-pos-receipt" className="hidden font-mono text-black text-[11px] leading-[1.3] w-[80mm] max-w-full mx-auto p-2 bg-white">
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '6px' }}>
+          <div style={{ fontSize: '14px', fontWeight: 'bold' }}>Big Ben Restaurant</div>
+          <div style={{ fontSize: '10px' }}>123 Main Street, Food Court</div>
+          <div style={{ fontSize: '10px' }}>City, State, 110001</div>
+        </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+        {/* Customer Info */}
+        {guest_name && (
+          <>
+            <div style={{ fontSize: '10px' }}>
+              Customer Name: {guest_name} {phone ? `(${phone})` : ''}
+            </div>
+            <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+          </>
+        )}
+
+        {/* Bill Meta */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+          <span>Bill No: #{order_id}</span>
+          <span>Date: {cleanDate}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+          <span>{table ? `Dine In: ${String(table).includes('Table') ? table : `Table #${table}`}` : 'Type: DINE-IN'}</span>
+          <span>Waiter: Staff Waiter</span>
+        </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+        {/* Table Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '10px' }}>
+          <span style={{ flex: 1, textAlign: 'left' }}>Item</span>
+          <span style={{ width: '32px', textAlign: 'center' }}>Qty.</span>
+          <span style={{ width: '55px', textAlign: 'right' }}>Price</span>
+          <span style={{ width: '60px', textAlign: 'right' }}>Amount</span>
+        </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+        {/* Items List */}
+        {items.map((item: any, idx: number) => {
+          const qty = parseInt(item.quantity || item.qty) || 1;
+          const unitPrice = parseFloat(item.price || item.unit_price || 0);
+          const itemAmount = unitPrice * qty;
+          return (
+            <div key={idx} style={{ marginBottom: '3px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                <span style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word' }}>{item.name}</span>
+                <span style={{ width: '32px', textAlign: 'center' }}>{qty}</span>
+                <span style={{ width: '55px', textAlign: 'right' }}>{unitPrice.toFixed(2)}</span>
+                <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
+              </div>
+              {item.notes && <div style={{ fontSize: '9px', color: '#333', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
+            </div>
+          );
+        })}
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+
+        {/* Totals Section */}
+        <div style={{ fontSize: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
+            <span>Total Qty: {totalQty}</span>
+            <span>Sub Total &nbsp;&nbsp;{subTotalNum.toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+            <span>CGST 2.5% &nbsp;&nbsp;{cgstAmt.toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+            <span>SGST 2.5% &nbsp;&nbsp;{sgstAmt.toFixed(2)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px', marginTop: '4px' }}>
+            <span>Grand Total (INR)</span>
+            <span>{grandTotalNum.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '6px 0 4px 0' }}></div>
+
+        {/* Footer Greeting */}
+        <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: '500', padding: '2px 0' }}>
+          Thank you & Visit Again
+        </div>
+
+        <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }}></div>
+      </div>
+
+      {/* Curved Center-Raised FAB Bottom Navigation Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-2xl h-14 sm:h-16 flex items-center px-4 no-print">
+        <div className="max-w-md md:max-w-2xl mx-auto flex items-center justify-around w-full relative">
+          {/* Print Tab */}
+          <button 
+            onClick={handlePrint}
+            className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer group"
+          >
+            <Printer size={20} className="group-hover:scale-110 transition-transform text-amber-500" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Print</span>
+          </button>
+
+          {/* Download Tab */}
+          <button 
+            onClick={handleDownloadBill}
+            className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-emerald-600 transition-colors cursor-pointer group"
+          >
+            <Download size={20} className="group-hover:scale-110 transition-transform text-emerald-600" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Download</span>
+          </button>
+
+          {/* MENU TAB (Tablet & Desktop Only) */}
+          <button 
+            onClick={handleOrderMore}
+            className="hidden md:flex flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors cursor-pointer group"
+          >
+            <UtensilsCrossed size={20} className="group-hover:scale-110 transition-transform text-[#0077b6]" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Menu</span>
+          </button>
+
+          {/* CENTER RAISED FAB BUTTON */}
+          <div className="relative -top-3.5 flex flex-col items-center justify-center">
+            <button 
+              onClick={handleOrderMore}
+              className="bg-gradient-to-tr from-[#0077b6] to-[#0284c7] hover:from-[#005f92] hover:to-[#0284c7] text-white p-3 rounded-full shadow-lg shadow-sky-500/35 border-4 border-white active:scale-95 transition-all cursor-pointer flex items-center justify-center"
+              title="Add Items / Order More"
+            >
+              <ShoppingBag size={20} className="text-white" />
+            </button>
+            <span className="text-[10px] font-black tracking-wider uppercase text-[#0077b6] mt-0.5">Order</span>
+          </div>
+
+          {/* TABLE TAB (Tablet & Desktop Only - Shown if table active) */}
+          {(table || sessionStorage.getItem('emenu_table')) && (
+            <button 
+              onClick={handleOrderMore}
+              className="hidden md:flex flex-col items-center justify-center px-2 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer group"
+            >
+              <Grid size={20} className="group-hover:scale-110 transition-transform text-purple-600" />
+              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600 truncate max-w-[70px]">
+                {String(table).includes('Table') ? table : `Table #${table}`}
+              </span>
+            </button>
+          )}
+
+          {/* History Tab */}
+          <Link 
+            to="/history"
+            className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors no-underline group"
+          >
+            <Clock size={20} className="group-hover:scale-110 transition-transform text-gray-500 group-hover:text-[#0077b6]" />
+            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">History</span>
+          </Link>
+        </div>
       </div>
     </div>
   );

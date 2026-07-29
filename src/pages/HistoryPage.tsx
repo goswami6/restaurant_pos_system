@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, Receipt, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Info } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { ArrowLeft, Receipt, AlertCircle, RefreshCw, ChevronDown, ChevronUp, Printer, Download, Eye } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
 import Header from '../components/Header';
 
@@ -31,10 +31,28 @@ interface OrderHistoryItem {
 }
 
 const HistoryPage: React.FC = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedOrders, setExpandedOrders] = useState<Record<string, boolean>>({});
+  const [dateFilter, setDateFilter] = useState<'ALL' | 'TODAY' | 'THIS_WEEK'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PENDING'>('ALL');
+
+  const handleOpenOrderPlacedPage = (order: any) => {
+    localStorage.setItem('emenu_last_order', JSON.stringify({
+      order_id: order.order_id,
+      table: order.table_name || 'Walk-In',
+      guest_name: order.guest_name,
+      phone: order.phone,
+      items: order.items || [],
+      subTotal: order.bill?.subtotal || 0,
+      tax: order.bill?.tax_amount || 0,
+      total: order.bill?.grand_total || 0,
+      created_at: order.created_at
+    }));
+    navigate('/order-number');
+  };
 
   const toggleExpand = (orderId: string) => {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }));
@@ -83,6 +101,116 @@ const HistoryPage: React.FC = () => {
     fetchOrderHistory();
   }, []);
 
+  const handleDownloadBill = (order: any) => {
+    const cleanDate = order.created_at 
+      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString()
+      : new Date().toLocaleString();
+
+    const subtotal = Number(order.bill?.subtotal || 0).toFixed(2);
+    const tax = Number(order.bill?.tax_amount || 0).toFixed(2);
+    const grandTotal = Number(order.bill?.grand_total || 0).toFixed(2);
+    const cgst = (Number(tax) / 2).toFixed(2);
+    const sgst = (Number(tax) / 2).toFixed(2);
+
+    const lines = [
+      "BIG BEN RESTAURANT",
+      "123 Main Street, Food Court, City",
+      "Phone: +91 9876543210",
+      "--------------------------------------------------",
+      "TAX INVOICE / POS RECEIPT",
+      "--------------------------------------------------",
+      `Bill No: #${order.order_id}       Table: ${order.table_name || 'Walk-In'}`,
+      `Date: ${cleanDate}`,
+      `Customer: ${order.guest_name || 'Guest'} ${order.phone ? `(${order.phone})` : ''}`,
+      "--------------------------------------------------",
+      "ITEM                             QTY   PRICE    AMT",
+      "--------------------------------------------------"
+    ];
+
+    (order.items || []).forEach((item: any) => {
+      const name = (item.name || 'Item').padEnd(28, ' ').substring(0, 28);
+      const qty = String(item.quantity || 1).padStart(3, ' ');
+      const price = Number(item.unit_price || 0).toFixed(2).padStart(7, ' ');
+      const amt = Number(item.total_price || (item.unit_price * item.quantity)).toFixed(2).padStart(7, ' ');
+      lines.push(`${name} ${qty} ${price} ${amt}`);
+    });
+
+    lines.push("--------------------------------------------------");
+    lines.push(`Sub Total:                              Rs.${subtotal}`);
+    lines.push(`CGST (2.5%):                            Rs.${cgst}`);
+    lines.push(`SGST (2.5%):                            Rs.${sgst}`);
+    lines.push("==================================================");
+    lines.push(`GRAND TOTAL:                            Rs.${grandTotal}`);
+    lines.push("==================================================");
+    lines.push("");
+    lines.push("          *** THANK YOU! VISIT AGAIN ***          ");
+    lines.push("         This is a computer generated bill.        ");
+
+    let contentStream = `BT /F1 10 Tf 20 760 Td 14 TL\n`;
+    lines.forEach((line) => {
+      const safeLine = line.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+      contentStream += `(${safeLine}) Tj T*\n`;
+    });
+    contentStream += `ET`;
+
+    const pdfRaw = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 450 800] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+5 0 obj
+<< /Length ${contentStream.length} >>
+stream
+${contentStream}
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000246 00000 n 
+0000000318 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+${400 + contentStream.length}
+%%EOF`;
+
+    const blob = new Blob([pdfRaw], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Bill_Receipt_${order.order_id}.pdf`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const handlePrintOrder = (order: any) => {
+    localStorage.setItem('emenu_last_order', JSON.stringify({
+      order_id: order.order_id,
+      table: order.table_name || 'Walk-In',
+      guest_name: order.guest_name,
+      phone: order.phone,
+      items: order.items || [],
+      subTotal: order.bill?.subtotal || 0,
+      tax: order.bill?.tax_amount || 0,
+      total: order.bill?.grand_total || 0,
+      created_at: order.created_at
+    }));
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
   const getStatusBadgeClass = (status: string) => {
     const s = (status || '').toUpperCase();
     if (s === 'PAID' || s === 'COMPLETED') return 'bg-emerald-50 text-emerald-600 border border-emerald-200/50';
@@ -92,13 +220,54 @@ const HistoryPage: React.FC = () => {
     return 'bg-gray-50 text-gray-500 border border-gray-200';
   };
 
+  const filteredOrders = orders.filter((order: any) => {
+    // 1. Date Filter
+    if (dateFilter !== 'ALL') {
+      const dateStr = order.created_at || '';
+      const orderDate = new Date(dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr);
+      const today = new Date();
+
+      if (dateFilter === 'TODAY') {
+        const isSameDay = 
+          orderDate.getDate() === today.getDate() &&
+          orderDate.getMonth() === today.getMonth() &&
+          orderDate.getFullYear() === today.getFullYear();
+        if (!isSameDay) return false;
+      }
+
+      if (dateFilter === 'THIS_WEEK') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(today.getDate() - 7);
+        if (orderDate < oneWeekAgo) return false;
+      }
+    }
+
+    // 2. Status Filter
+    if (statusFilter !== 'ALL') {
+      const status = (order.resolved_status || order.order_status || '').toUpperCase();
+      const paymentStatus = (order.bill?.payment_status || '').toUpperCase();
+
+      if (statusFilter === 'PAID') {
+        const isPaid = status === 'PAID' || status === 'COMPLETED' || paymentStatus === 'PAID';
+        if (!isPaid) return false;
+      }
+
+      if (statusFilter === 'PENDING') {
+        const isPaid = status === 'PAID' || status === 'COMPLETED' || paymentStatus === 'PAID';
+        if (isPaid) return false;
+      }
+    }
+
+    return true;
+  });
+
   return (
     <div className="min-h-screen bg-[#f3f4f6] font-sans pb-10">
       <Header />
       
       <main className="w-full max-w-7xl mx-auto px-2 sm:px-6 py-4 sm:py-8">
         {/* Title Bar */}
-        <div className="flex items-center justify-between mb-4 sm:mb-8 px-1">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 px-1">
           <div className="flex items-center gap-2 sm:gap-4">
             <Link to="/" className="p-2 sm:p-2.5 bg-white rounded-xl shadow-xs hover:shadow-md hover:bg-gray-50 text-gray-700 transition-all border border-gray-200">
               <ArrowLeft size={18} className="sm:w-5 sm:h-5" />
@@ -114,6 +283,64 @@ const HistoryPage: React.FC = () => {
             title="Refresh logs"
           >
             <RefreshCw size={16} className={`sm:w-4 sm:h-4 ${loading ? 'animate-spin text-[#0077b6]' : ''}`} />
+          </button>
+        </div>
+
+        {/* Quick Filters for Date & Payment Status */}
+        <div className="flex items-center gap-2 mb-5 overflow-x-auto select-none no-scrollbar pb-1 px-1">
+          <button
+            onClick={() => { setDateFilter('ALL'); setStatusFilter('ALL'); }}
+            className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+              dateFilter === 'ALL' && statusFilter === 'ALL'
+                ? 'bg-[#0077b6] text-white border-[#0077b6] shadow-xs'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            📋 All Logs
+          </button>
+
+          <button
+            onClick={() => setDateFilter(dateFilter === 'TODAY' ? 'ALL' : 'TODAY')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+              dateFilter === 'TODAY'
+                ? 'bg-[#0077b6] text-white border-[#0077b6] shadow-xs'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            📅 Today
+          </button>
+
+          <button
+            onClick={() => setDateFilter(dateFilter === 'THIS_WEEK' ? 'ALL' : 'THIS_WEEK')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+              dateFilter === 'THIS_WEEK'
+                ? 'bg-[#0077b6] text-white border-[#0077b6] shadow-xs'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+            }`}
+          >
+            📆 This Week
+          </button>
+
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'PAID' ? 'ALL' : 'PAID')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+              statusFilter === 'PAID'
+                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                : 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Paid
+          </button>
+
+          <button
+            onClick={() => setStatusFilter(statusFilter === 'PENDING' ? 'ALL' : 'PENDING')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border whitespace-nowrap ${
+              statusFilter === 'PENDING'
+                ? 'bg-amber-500 text-white border-amber-500 shadow-xs'
+                : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-50'
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400"></span> Pending
           </button>
         </div>
 
@@ -133,16 +360,16 @@ const HistoryPage: React.FC = () => {
               Reload History
             </button>
           </div>
-        ) : orders.length === 0 ? (
+        ) : filteredOrders.length === 0 ? (
           <div className="bg-white border border-gray-150 rounded-2xl p-16 text-center text-gray-500 shadow-sm">
             <Receipt size={56} className="mx-auto mb-4 opacity-25 text-gray-400" />
-            <p className="font-extrabold text-xl text-gray-800">No Orders Registered</p>
-            <p className="text-xs text-gray-400 mt-2 max-w-xs mx-auto">There are currently no bills registered for this restaurant database.</p>
+            <p className="font-extrabold text-xl text-gray-800">No Orders Found</p>
+            <p className="text-xs text-gray-400 mt-2 max-w-xs mx-auto">No order records match your selected filter criteria.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto no-scrollbar">
-              <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-full">
+          <div className="bg-white rounded-xl sm:rounded-2xl border border-gray-200 sm:overflow-hidden shadow-xs">
+            <div className="overflow-x-auto w-full touch-pan-x [-webkit-overflow-scrolling:touch]">
+              <table className="w-full text-left border-collapse min-w-[580px] sm:min-w-full">
                 <thead className="bg-gray-50 border-b border-gray-200/80">
                   <tr>
                     <th className="px-3 sm:px-5 py-3 text-[11px] sm:text-xs font-black text-gray-500 uppercase tracking-wider">ID</th>
@@ -155,7 +382,7 @@ const HistoryPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {orders.map((order) => {
+                  {filteredOrders.map((order) => {
                     const isExpanded = !!expandedOrders[order.order_id];
                     const itemsSummary = (order.items || []).map(i => `${i.name} x${i.quantity}`).join(', ');
                     
@@ -173,7 +400,13 @@ const HistoryPage: React.FC = () => {
                           onClick={() => toggleExpand(order.order_id)}
                         >
                           <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-extrabold text-gray-900">
-                            #{order.order_id}
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleOpenOrderPlacedPage(order); }}
+                              className="text-[#0077b6] hover:underline font-extrabold cursor-pointer"
+                              title="View & update order on Order Placed page"
+                            >
+                              #{order.order_id}
+                            </button>
                           </td>
                           <td className="px-3 sm:px-5 py-3 sm:py-4 text-xs sm:text-sm font-bold text-[#0077b6] whitespace-nowrap">
                             <span className="bg-[#0077b6]/5 px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[11px] sm:text-xs">
@@ -195,12 +428,36 @@ const HistoryPage: React.FC = () => {
                             </span>
                           </td>
                           <td className="px-3 sm:px-5 py-3 sm:py-4 text-right">
-                            <button 
-                              className="p-1 hover:bg-gray-200/50 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
-                              onClick={(e) => { e.stopPropagation(); toggleExpand(order.order_id); }}
-                            >
-                              {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button 
+                                className="p-1.5 hover:bg-emerald-100/70 text-emerald-700 bg-emerald-50 rounded-lg transition-colors border border-emerald-200/50 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); handleOpenOrderPlacedPage(order); }}
+                                title="Open Order Placed Page to Review/Update"
+                              >
+                                <Eye size={14} />
+                              </button>
+                              <button 
+                                className="p-1.5 hover:bg-amber-100/70 text-amber-700 bg-amber-50 rounded-lg transition-colors border border-amber-200/50 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
+                                title="Print Bill"
+                              >
+                                <Printer size={14} />
+                              </button>
+                              <button 
+                                className="p-1.5 hover:bg-[#0077b6]/10 text-[#0077b6] bg-[#0077b6]/5 rounded-lg transition-colors border border-[#0077b6]/20 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); handleDownloadBill(order); }}
+                                title="Download Bill"
+                              >
+                                <Download size={14} />
+                              </button>
+                              <button 
+                                className="p-1 hover:bg-gray-200/50 rounded-lg text-gray-400 hover:text-gray-700 transition-colors ml-0.5"
+                                onClick={(e) => { e.stopPropagation(); toggleExpand(order.order_id); }}
+                                title={isExpanded ? "Collapse Details" : "Expand Details"}
+                              >
+                                {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                              </button>
+                            </div>
                           </td>
                         </tr>
 
@@ -260,6 +517,24 @@ const HistoryPage: React.FC = () => {
                                       </div>
                                       <div className="text-[9px] text-center text-gray-400 font-bold tracking-wide uppercase pt-2.5">
                                         Payment state: {order.bill.payment_status} | Bill: {order.bill.bill_status}
+                                      </div>
+
+                                      {/* Print & Download Action Buttons */}
+                                      <div className="flex items-center gap-2 pt-3 border-t border-dashed border-gray-200">
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
+                                          className="flex-1 py-1.5 px-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"
+                                        >
+                                          <Printer size={13} />
+                                          <span>Print Bill</span>
+                                        </button>
+                                        <button 
+                                          onClick={(e) => { e.stopPropagation(); handleDownloadBill(order); }}
+                                          className="flex-1 py-1.5 px-2 bg-[#0077b6] hover:bg-[#005f92] active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"
+                                        >
+                                          <Download size={13} />
+                                          <span>Download Bill</span>
+                                        </button>
                                       </div>
                                     </div>
                                   </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Menu as MenuIcon, X } from 'lucide-react';
+import { Bell, Menu as MenuIcon, X, User, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 interface HeaderProps {
@@ -49,9 +49,9 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
           </div>
         </div>
 
-        {/* CENTER: Desktop Navigation Tabs for Staff/Waiters */}
+        {/* CENTER: Desktop Navigation Tabs for Waiters/Staff (lg breakpoint) */}
         {user && !user.isGuest && (
-          <div className="hidden md:flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
+          <div className="hidden lg:flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
             <Link 
               to={table ? `/?table=${table}` : "/"} 
               className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${
@@ -85,35 +85,36 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
           </div>
         )}
 
-        {/* RIGHT: Desktop User Phone, Notifications & Actions */}
-        <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+        {/* RIGHT: User Profile, Logout Icon, Notifications & 3-Bar Toggle */}
+        <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* User Profile Badge (Tablet / Desktop Only - Hidden on phone < sm) */}
           {user && !user.isGuest && (
-            <span className="text-xs text-gray-500 font-semibold">
-              📱 {user.phone}
-            </span>
+            <div className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200/80 px-2.5 py-1 rounded-full border border-gray-200/60 transition-colors cursor-pointer">
+              <User size={15} className="text-[#0077b6]" />
+              <span>Profile</span>
+            </div>
           )}
+
+          {/* Logout Icon Button (Tablet / Desktop Only - Hidden on phone < sm) */}
           {onLogout && user && !user.isGuest && (
             <button 
               onClick={onLogout}
-              className="text-xs font-semibold text-red-500 hover:text-red-700 cursor-pointer border border-red-200 hover:bg-red-50 px-2.5 py-1 rounded-md transition-colors"
+              className="hidden sm:flex p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200/60 transition-colors cursor-pointer"
+              title="Logout"
             >
-              Logout
+              <LogOut size={17} />
             </button>
           )}
+
           <button id="notification-btn" className="text-gray-700 hover:text-[#0077b6] transition-colors cursor-pointer p-1">
             <Bell size={18} />
           </button>
-        </div>
 
-        {/* MOBILE TOGGLE BUTTON (Visible on < md screens) */}
-        <div className="flex md:hidden items-center gap-2">
-          <button id="notification-btn-mobile" className="text-gray-700 hover:text-[#0077b6] p-1 cursor-pointer">
-            <Bell size={18} />
-          </button>
+          {/* 3-BAR HAMBURGER TOGGLE BUTTON (Visible on mobile & iPad Air/Tablet < lg) */}
           {user && !user.isGuest && (
             <button 
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
+              className="flex lg:hidden p-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
               title="Toggle Menu"
             >
               {isMobileMenuOpen ? <X size={20} /> : <MenuIcon size={20} />}
@@ -122,9 +123,9 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         </div>
       </div>
 
-      {/* MOBILE RIGHT SLIDE-OVER DRAWER */}
+      {/* MOBILE & TABLET RIGHT SLIDE-OVER DRAWER */}
       {isMobileMenuOpen && user && !user.isGuest && (
-        <div className="fixed inset-0 z-50 md:hidden flex justify-end">
+        <div className="fixed inset-0 z-50 lg:hidden flex justify-end">
           {/* Backdrop Blur Overlay */}
           <div 
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"

@@ -246,17 +246,22 @@ const OrderInfoPage: React.FC = () => {
 
       const data = await response.json();
       const orderNum = data.data?.order_id || data.order_id || `#${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+      const activeTable = selectedTable || tableIdFromUrl || sessionStorage.getItem('emenu_table') || '1';
 
       localStorage.setItem('emenu_last_order', JSON.stringify({
         order_id: orderNum,
+        table: activeTable,
+        guest_name: guestName,
+        phone: phone,
         items: cartItems,
         subTotal,
         tax,
-        total
+        total,
+        created_at: new Date().toISOString()
       }));
 
       localStorage.removeItem('emenu_cart');
-      setShowModal(true);
+      navigate('/order-number');
     } catch (error: any) {
       console.error("Order creation failed:", error.message);
       alert("Failed to place order: " + error.message);
@@ -278,8 +283,8 @@ const OrderInfoPage: React.FC = () => {
         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Order Information</h2>
       </div>
 
-      <div className="bodymiddle flex justify-center px-0 sm:px-4 py-2 sm:py-6">
-        <div className="info-container w-full max-w-[550px] bg-white rounded-none sm:rounded-2xl p-4 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-5 sm:space-y-6">
+      <div className="bodymiddle flex justify-center min-h-[calc(100vh-4rem-5rem)] px-0 sm:px-4 py-0 sm:py-6">
+        <div className="info-container w-full max-w-2xl bg-white rounded-none sm:rounded-2xl p-4 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-5 sm:space-y-6 flex flex-col justify-between">
           
           {/* Restaurant Header Info */}
           <div className="restaurant-info bg-gray-50/80 rounded-xl p-4 border border-gray-100">
