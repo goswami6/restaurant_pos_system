@@ -195,20 +195,109 @@ ${400 + contentStream.length}
   };
 
   const handlePrintOrder = (order: any) => {
-    localStorage.setItem('emenu_last_order', JSON.stringify({
-      order_id: order.order_id,
-      table: order.table_name || 'Walk-In',
-      guest_name: order.guest_name,
-      phone: order.phone,
-      items: order.items || [],
-      subTotal: order.bill?.subtotal || 0,
-      tax: order.bill?.tax_amount || 0,
-      total: order.bill?.grand_total || 0,
-      created_at: order.created_at
-    }));
-    setTimeout(() => {
-      window.print();
-    }, 100);
+    const cleanDate = order.created_at 
+      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString()
+      : new Date().toLocaleString();
+
+    const subtotal = Number(order.bill?.subtotal || 0).toFixed(2);
+    const tax = Number(order.bill?.tax_amount || 0).toFixed(2);
+    const cgst = (Number(tax) / 2).toFixed(2);
+    const sgst = (Number(tax) / 2).toFixed(2);
+    const grandTotal = Number(order.bill?.grand_total || 0).toFixed(2);
+
+    const itemsHtml = (order.items || []).map((item: any) => `
+      <tr>
+        <td style="text-align:left; padding: 4px 0; font-weight: 600;">${item.name}</td>
+        <td style="text-align:center; padding: 4px 0;">x${item.quantity}</td>
+        <td style="text-align:right; padding: 4px 0;">₹${Number(item.unit_price || 0).toFixed(2)}</td>
+        <td style="text-align:right; padding: 4px 0; font-weight:bold;">₹${Number(item.total_price || (item.unit_price * item.quantity)).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    const receiptHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>POS Receipt #${order.order_id}</title>
+        <style>
+          @page { size: 80mm auto; margin: 0; }
+          body {
+            font-family: 'Courier New', Courier, monospace, sans-serif;
+            width: 78mm;
+            margin: 0 auto;
+            padding: 12px;
+            color: #000;
+            background: #fff;
+            font-size: 12px;
+          }
+          .text-center { text-align: center; }
+          .bold { font-weight: bold; }
+          .title { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+          .subtitle { font-size: 10px; color: #444; margin-bottom: 8px; }
+          .divider { border-top: 1px dashed #000; margin: 8px 0; }
+          .double-divider { border-top: 2px dashed #000; margin: 8px 0; }
+          table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+          .row { display: flex; justify-content: space-between; margin: 4px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="text-center">
+          <div class="title">BIG BEN RESTAURANT</div>
+          <div class="subtitle">123 Main Street, Food Court, City<br/>Phone: +91 9876543210</div>
+        </div>
+
+        <div class="divider"></div>
+        <div class="text-center bold" style="letter-spacing:1px;">TAX INVOICE / POS RECEIPT</div>
+        <div class="divider"></div>
+
+        <div class="row"><span>Bill No: <b>#${order.order_id}</b></span><span>Table: <b>${order.table_name || 'Walk-In'}</b></span></div>
+        <div class="row"><span>Date: ${cleanDate}</span></div>
+        <div class="row"><span>Guest: ${order.guest_name || 'Guest'} ${order.phone ? `(${order.phone})` : ''}</span></div>
+
+        <div class="divider"></div>
+        <table>
+          <thead>
+            <tr style="border-bottom: 1px dashed #000;">
+              <th style="text-align:left; padding-bottom:4px;">Item</th>
+              <th style="text-align:center; padding-bottom:4px;">Qty</th>
+              <th style="text-align:right; padding-bottom:4px;">Price</th>
+              <th style="text-align:right; padding-bottom:4px;">Amt</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemsHtml}
+          </tbody>
+        </table>
+
+        <div class="divider"></div>
+        <div class="row"><span>Sub Total:</span><span>₹${subtotal}</span></div>
+        <div class="row"><span>CGST (2.5%):</span><span>₹${cgst}</span></div>
+        <div class="row"><span>SGST (2.5%):</span><span>₹${sgst}</span></div>
+        
+        <div class="double-divider"></div>
+        <div class="row bold" style="font-size:14px;"><span>GRAND TOTAL:</span><span>₹${grandTotal}</span></div>
+        <div class="double-divider"></div>
+
+        <div class="text-center" style="margin-top:14px; font-size:10px;">
+          <div>*** THANK YOU! VISIT AGAIN ***</div>
+          <div style="margin-top:4px; color:#555;">This is a computer generated bill.</div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+            setTimeout(function() { window.close(); }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=420,height=600');
+    if (printWindow) {
+      printWindow.document.write(receiptHtml);
+      printWindow.document.close();
+    }
   };
 
   const getStatusBadgeClass = (status: string) => {
