@@ -196,23 +196,33 @@ ${400 + contentStream.length}
 
   const handlePrintOrder = (order: any) => {
     const cleanDate = order.created_at 
-      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString()
-      : new Date().toLocaleString();
+      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
-    const subtotal = Number(order.bill?.subtotal || 0).toFixed(2);
-    const tax = Number(order.bill?.tax_amount || 0).toFixed(2);
-    const cgst = (Number(tax) / 2).toFixed(2);
-    const sgst = (Number(tax) / 2).toFixed(2);
-    const grandTotal = Number(order.bill?.grand_total || 0).toFixed(2);
+    const items = order.items || [];
+    const totalQty = items.reduce((sum: number, item: any) => sum + (parseInt(item.quantity || item.qty) || 1), 0);
+    const subTotalNum = Number(order.bill?.subtotal || 0);
+    const taxTotal = Number(order.bill?.tax_amount || 0);
+    const cgstAmt = taxTotal / 2;
+    const sgstAmt = taxTotal / 2;
+    const grandTotalNum = Number(order.bill?.grand_total || 0);
 
-    const itemsHtml = (order.items || []).map((item: any) => `
-      <tr>
-        <td style="text-align:left; padding: 4px 0; font-weight: 600;">${item.name}</td>
-        <td style="text-align:center; padding: 4px 0;">x${item.quantity}</td>
-        <td style="text-align:right; padding: 4px 0;">₹${Number(item.unit_price || 0).toFixed(2)}</td>
-        <td style="text-align:right; padding: 4px 0; font-weight:bold;">₹${Number(item.total_price || (item.unit_price * item.quantity)).toFixed(2)}</td>
-      </tr>
-    `).join('');
+    const itemsRowsHtml = items.map((item: any) => {
+      const qty = parseInt(item.quantity || item.qty) || 1;
+      const unitPrice = Number(item.unit_price || item.price || 0);
+      const itemAmount = Number(item.total_price || (unitPrice * qty));
+      return `
+        <div style="margin-bottom: 3px;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px;">
+            <span style="flex: 1; text-align: left; word-break: break-word;">${item.name}</span>
+            <span style="width: 32px; text-align: center;">${qty}</span>
+            <span style="width: 55px; text-align: right;">${unitPrice.toFixed(2)}</span>
+            <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
+          </div>
+          ${item.notes ? `<div style="font-size: 9px; color: #333; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
+        </div>
+      `;
+    }).join('');
 
     const receiptHtml = `
       <!DOCTYPE html>
@@ -222,66 +232,82 @@ ${400 + contentStream.length}
         <style>
           @page { size: 80mm auto; margin: 0; }
           body {
-            font-family: 'Courier New', Courier, monospace, sans-serif;
-            width: 78mm;
+            font-family: monospace, sans-serif;
+            width: 80mm;
+            max-width: 100%;
             margin: 0 auto;
-            padding: 12px;
+            padding: 8px;
             color: #000;
             background: #fff;
-            font-size: 12px;
+            font-size: 11px;
+            line-height: 1.3;
           }
-          .text-center { text-align: center; }
-          .bold { font-weight: bold; }
-          .title { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
-          .subtitle { font-size: 10px; color: #444; margin-bottom: 8px; }
-          .divider { border-top: 1px dashed #000; margin: 8px 0; }
-          .double-divider { border-top: 2px dashed #000; margin: 8px 0; }
-          table { width: 100%; border-collapse: collapse; margin: 6px 0; }
-          .row { display: flex; justify-content: space-between; margin: 4px 0; }
         </style>
       </head>
       <body>
-        <div class="text-center">
-          <div class="title">BIG BEN RESTAURANT</div>
-          <div class="subtitle">123 Main Street, Food Court, City<br/>Phone: +91 9876543210</div>
+        <div style="text-align: center; margin-bottom: 6px;">
+          <div style="font-size: 14px; font-weight: bold;">Big Ben Restaurant</div>
+          <div style="font-size: 10px;">123 Main Street, Food Court</div>
+          <div style="font-size: 10px;">City, State, 110001</div>
         </div>
 
-        <div class="divider"></div>
-        <div class="text-center bold" style="letter-spacing:1px;">TAX INVOICE / POS RECEIPT</div>
-        <div class="divider"></div>
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
 
-        <div class="row"><span>Bill No: <b>#${order.order_id}</b></span><span>Table: <b>${order.table_name || 'Walk-In'}</b></span></div>
-        <div class="row"><span>Date: ${cleanDate}</span></div>
-        <div class="row"><span>Guest: ${order.guest_name || 'Guest'} ${order.phone ? `(${order.phone})` : ''}</span></div>
+        ${order.guest_name ? `
+          <div style="font-size: 10px;">
+            Customer Name: ${order.guest_name} ${order.phone ? `(${order.phone})` : ''}
+          </div>
+          <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+        ` : ''}
 
-        <div class="divider"></div>
-        <table>
-          <thead>
-            <tr style="border-bottom: 1px dashed #000;">
-              <th style="text-align:left; padding-bottom:4px;">Item</th>
-              <th style="text-align:center; padding-bottom:4px;">Qty</th>
-              <th style="text-align:right; padding-bottom:4px;">Price</th>
-              <th style="text-align:right; padding-bottom:4px;">Amt</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${itemsHtml}
-          </tbody>
-        </table>
-
-        <div class="divider"></div>
-        <div class="row"><span>Sub Total:</span><span>₹${subtotal}</span></div>
-        <div class="row"><span>CGST (2.5%):</span><span>₹${cgst}</span></div>
-        <div class="row"><span>SGST (2.5%):</span><span>₹${sgst}</span></div>
-        
-        <div class="double-divider"></div>
-        <div class="row bold" style="font-size:14px;"><span>GRAND TOTAL:</span><span>₹${grandTotal}</span></div>
-        <div class="double-divider"></div>
-
-        <div class="text-center" style="margin-top:14px; font-size:10px;">
-          <div>*** THANK YOU! VISIT AGAIN ***</div>
-          <div style="margin-top:4px; color:#555;">This is a computer generated bill.</div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px;">
+          <span>Bill No: #${order.order_id}</span>
+          <span>Date: ${cleanDate}</span>
         </div>
+        <div style="display: flex; justify-content: space-between; font-size: 10px;">
+          <span>${order.table_name ? (String(order.table_name).includes('Table') ? order.table_name : `Table #${order.table_name}`) : 'Type: DINE-IN'}</span>
+          <span>Waiter: Staff Waiter</span>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
+          <span style="flex: 1; text-align: left;">Item</span>
+          <span style="width: 32px; text-align: center;">Qty.</span>
+          <span style="width: 55px; text-align: right;">Price</span>
+          <span style="width: 60px; text-align: right;">Amount</span>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+        ${itemsRowsHtml}
+
+        <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+        <div style="font-size: 10px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+            <span>Total Qty: ${totalQty}</span>
+            <span>Sub Total &nbsp;&nbsp;${subTotalNum.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+            <span>CGST 2.5% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+            <span>SGST 2.5% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 4px;">
+            <span>Grand Total (INR)</span>
+            <span>${grandTotalNum.toFixed(2)}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 6px 0 4px 0;"></div>
+
+        <div style="text-align: center; font-size: 11px; font-weight: 500; padding: 2px 0;">
+          Thank you & Visit Again
+        </div>
+
+        <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
 
         <script>
           window.onload = function() {
