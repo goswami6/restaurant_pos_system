@@ -87,7 +87,7 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
                 price: parseFloat(item.unit_price || item.price || '0'),
                 quantity: parseInt(item.quantity) || 1,
                 isVeg: item.notes?.includes('Veg') || true,
-                notes: item.notes || `Session Order: ${activeOrder.order_id}`,
+                notes: (item.notes && !item.notes.includes('Session Order')) ? item.notes : '',
                 isExisting: true
               };
             });

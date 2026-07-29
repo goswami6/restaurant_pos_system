@@ -1,14 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Printer, ShoppingBag, Clock, Download, UtensilsCrossed, Grid } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../config';
 
 const OrderNumberPage: React.FC = () => {
   const navigate = useNavigate();
 
-  const [orderInfo] = useState<any>(() => {
+  const [orderInfo, setOrderInfo] = useState<any>(() => {
     const saved = localStorage.getItem('emenu_last_order');
     return saved ? JSON.parse(saved) : null;
   });
+
+  useEffect(() => {
+    const fetchLatestOrderFromBackend = async () => {
+      try {
+        const savedUser = localStorage.getItem('emenu_user');
+        const userObj = savedUser ? JSON.parse(savedUser) : null;
+        const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
+        const targetOrderId = orderInfo?.order_id;
+
+        if (!targetOrderId) return;
+
+        const res = await fetch(`${API_BASE_URL}/orders/${restaurantId}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data && data.status === true && Array.isArray(data.data)) {
+          const freshOrder = data.data.find((o: any) => String(o.order_id) === String(targetOrderId));
+          if (freshOrder) {
+            const updated = {
+              order_id: freshOrder.order_id,
+              table: freshOrder.table_name || 'Walk-In',
+              guest_name: freshOrder.guest_name,
+              phone: freshOrder.phone,
+              items: freshOrder.items || [],
+              subTotal: freshOrder.bill?.subtotal || 0,
+              tax: freshOrder.bill?.tax_amount || 0,
+              total: freshOrder.bill?.grand_total || 0,
+              created_at: freshOrder.created_at
+            };
+            setOrderInfo(updated);
+            localStorage.setItem('emenu_last_order', JSON.stringify(updated));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to sync order from backend:', err);
+      }
+    };
+
+    fetchLatestOrderFromBackend();
+  }, []);
 
   if (!orderInfo) {
     return (
@@ -364,7 +405,9 @@ ${400 + contentStream.length}
                 <span style={{ width: '55px', textAlign: 'right' }}>{unitPrice.toFixed(2)}</span>
                 <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
               </div>
-              {item.notes && <div style={{ fontSize: '9px', color: '#333', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
+              {item.notes && !item.notes.includes('Session Order') && (
+                <div style={{ fontSize: '9px', color: '#333', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>
+              )}
             </div>
           );
         })}

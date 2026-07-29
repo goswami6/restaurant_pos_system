@@ -219,7 +219,7 @@ ${400 + contentStream.length}
             <span style="width: 55px; text-align: right;">${unitPrice.toFixed(2)}</span>
             <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
           </div>
-          ${item.notes ? `<div style="font-size: 9px; color: #333; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
+          ${(item.notes && !item.notes.includes('Session Order')) ? `<div style="font-size: 9px; color: #333; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
         </div>
       `;
     }).join('');
