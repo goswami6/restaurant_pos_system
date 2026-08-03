@@ -482,9 +482,9 @@ const OrderInfoPage: React.FC = () => {
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">
                 Table Number *
               </label>
-              {tableIdFromUrl ? (
-                <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/70 p-3 text-center text-xs font-bold text-emerald-600 flex items-center justify-center gap-1">
-                  <span>📋</span> Table #{tableIdFromUrl.replace(/[^0-9]/g, '')}
+              {(isGuestCustomer || tableIdFromUrl) && selectedTable ? (
+                <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/70 p-3 text-center text-xs font-bold text-emerald-700 flex items-center justify-center gap-1 shadow-sm">
+                  <span>📋</span> Table #{String(selectedTable).replace(/[^0-9]/g, '') || selectedTable}
                 </div>
               ) : (
                 <select
