@@ -394,33 +394,24 @@ const OrderInfoPage: React.FC = () => {
     if (!existingOrderId) return;
     setCancellingOrder(true);
     try {
-      const payloadItems = cartItems.map(item => ({
-        item_id: parseInt(item.id) || item.id,
-        name: item.name,
-        quantity: item.quantity,
-        unit_price: item.price,
-        total_price: item.price * item.quantity,
-        notes: item.notes || ""
-      }));
-
       const cancelPayload = {
-        order_id: parseInt(existingOrderId),
         order_status: 'CANCELLED',
-        items: payloadItems,
-        totals: {
-          subtotal: parseFloat(subTotal.toFixed(2)),
-          tax: parseFloat(taxAmt.toFixed(2)),
-          service_charge: parseFloat(serviceChargeAmt.toFixed(2)),
-          discount_amount: 0.00,
-          grand_total: parseFloat(total.toFixed(2))
-        }
+        status: 'CANCELLED'
       };
 
-      const response = await fetch(`${API_BASE_URL}/order/update`, {
-        method: 'POST',
+      let response = await fetch(`${API_BASE_URL}/order/update-status/${existingOrderId}`, {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cancelPayload)
       });
+
+      if (!response.ok) {
+        response = await fetch(`${API_BASE_URL}/order/update-status/${existingOrderId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cancelPayload)
+        });
+      }
 
       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
