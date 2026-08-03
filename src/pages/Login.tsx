@@ -89,9 +89,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             🍽️
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-1">
-            Welcome to <span className="text-[#0077b6]">E-Menu Storefront</span>
+            Staff & Waiter <span className="text-[#0077b6]">Portal</span>
           </h2>
-          <p className="text-gray-500 text-sm">Sign in to view menu and place orders</p>
+          <p className="text-gray-500 text-sm">Sign in with staff credentials to manage table orders</p>
         </div>
 
         {/* Demo Credentials Info Box */}
@@ -182,8 +182,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         </form>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-xs text-gray-400">
-          E-Menu Storefront &copy; {new Date().getFullYear()}
+        <div className="mt-6 text-center space-y-3">
+          <a 
+            href="/" 
+            className="inline-block text-xs font-bold text-[#0077b6] hover:underline"
+          >
+            ← Browsing as Customer? Click here to view Menu
+          </a>
+          <div className="text-xs text-gray-400">
+            E-Menu Storefront &copy; {new Date().getFullYear()}
+          </div>
         </div>
       </div>
     </div>

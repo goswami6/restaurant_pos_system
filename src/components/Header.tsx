@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, Menu as MenuIcon, X, User, LogOut } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { API_BASE_URL, getRestaurantId } from '../config';
 
 interface HeaderProps {
   onLogout?: () => void;
@@ -11,14 +12,30 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   const savedUser = localStorage.getItem('emenu_user');
   const user = savedUser ? JSON.parse(savedUser) : null;
 
+  const [restaurantName, setRestaurantName] = useState<string>('RESTAURANT');
+
+  useEffect(() => {
+    const fetchRestaurantInfo = async () => {
+      try {
+        const rid = getRestaurantId();
+        const res = await fetch(`${API_BASE_URL}/settings/pos/${rid}`);
+        if (res.ok) {
+          const data = await res.json();
+          const settings = data?.data || data;
+          if (settings?.restaurant_info?.name) {
+            setRestaurantName(settings.restaurant_info.name);
+          } else if (settings?.restaurant_name) {
+            setRestaurantName(settings.restaurant_name);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch restaurant header info:', e);
+      }
+    };
+    fetchRestaurantInfo();
+  }, []);
+
   const table = React.useMemo(() => {
-    const queryParams = new URLSearchParams(window.location.search);
-    const urlTable = queryParams.get('table') || queryParams.get('table_number');
-    if (urlTable) {
-      const clean = String(urlTable).replace(/[^0-9]/g, '');
-      sessionStorage.setItem('emenu_table', clean || urlTable);
-      return clean || urlTable;
-    }
     const stored = sessionStorage.getItem('emenu_table') || '';
     const cleanStored = String(stored).replace(/[^0-9]/g, '');
     return cleanStored || stored;
@@ -35,12 +52,12 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
   return (
     <nav className="navbar sticky top-0 z-50 bg-white shadow-sm border-b border-gray-150">
-      <div className="flex min-h-[60px] w-full items-center justify-between px-3 sm:px-6 py-2">
+      <div className="flex min-h-[54px] md:min-h-[60px] w-full items-center justify-between px-3 sm:px-6 py-1 md:py-2">
         {/* LEFT: Logo & Restaurant Title */}
         <div className="logo-section flex items-center min-w-0">
           <span className="logo text-lg sm:text-xl mr-1.5 flex-shrink-0">🏠</span>
           <div className="shop-name text-sm sm:text-base md:text-lg font-extrabold text-[#0077b6] flex items-center gap-1.5 min-w-0 truncate">
-            <span className="truncate">BIG BEN RESTAURANT</span>
+            <span className="truncate uppercase">{restaurantName}</span>
             {table && (
               <span className="bg-[#e8f8f0] text-[#2ecc71] border border-[#2ecc71]/20 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-bold flex-shrink-0">
                 {displayTable}
@@ -52,33 +69,30 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         {/* CENTER: Desktop Navigation Tabs for Waiters/Staff (lg breakpoint) */}
         {user && !user.isGuest && (
           <div className="hidden lg:flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
-            <Link 
-              to={table ? `/?table=${table}` : "/"} 
-              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${
-                currentPath === '/' 
-                  ? 'bg-white text-[#0077b6] shadow-xs' 
+            <Link
+              to={table ? `/?table=${table}` : "/"}
+              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${currentPath === '/'
+                  ? 'bg-white text-[#0077b6] shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
-              }`}
+                }`}
             >
               🍔 Menu
             </Link>
-            <Link 
-              to="/tables" 
-              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${
-                currentPath === '/tables' 
-                  ? 'bg-white text-[#0077b6] shadow-xs' 
+            <Link
+              to="/tables"
+              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${currentPath === '/tables'
+                  ? 'bg-white text-[#0077b6] shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
-              }`}
+                }`}
             >
               📋 Tables
             </Link>
-            <Link 
-              to="/history" 
-              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${
-                currentPath === '/history' 
-                  ? 'bg-white text-[#0077b6] shadow-xs' 
+            <Link
+              to="/history"
+              className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${currentPath === '/history'
+                  ? 'bg-white text-[#0077b6] shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
-              }`}
+                }`}
             >
               ⏳ History
             </Link>
@@ -97,7 +111,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
           {/* Logout Icon Button (Tablet / Desktop Only - Hidden on phone < sm) */}
           {onLogout && user && !user.isGuest && (
-            <button 
+            <button
               onClick={onLogout}
               className="hidden sm:flex p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg border border-red-200/60 transition-colors cursor-pointer"
               title="Logout"
@@ -112,7 +126,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
           {/* 3-BAR HAMBURGER TOGGLE BUTTON (Visible on mobile & iPad Air/Tablet < lg) */}
           {user && !user.isGuest && (
-            <button 
+            <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="flex lg:hidden p-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
               title="Toggle Menu"
@@ -127,7 +141,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
       {isMobileMenuOpen && user && !user.isGuest && (
         <div className="fixed inset-0 z-50 lg:hidden flex justify-end">
           {/* Backdrop Blur Overlay */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/40 backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
             onClick={() => setIsMobileMenuOpen(false)}
           />
@@ -141,7 +155,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                   <span className="text-xl">🏠</span>
                   <span className="text-sm font-extrabold text-[#0077b6]">Navigation</span>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all cursor-pointer"
                 >
@@ -151,38 +165,35 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
 
               {/* Navigation Links */}
               <div className="py-4 space-y-2">
-                <Link 
-                  to={table ? `/?table=${table}` : "/"} 
+                <Link
+                  to={table ? `/?table=${table}` : "/"}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                    currentPath === '/' 
-                      ? 'bg-[#0077b6] text-white shadow-md' 
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${currentPath === '/'
+                      ? 'bg-[#0077b6] text-white shadow-md'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <span className="text-base">🍔</span> Menu
                 </Link>
 
-                <Link 
-                  to="/tables" 
+                <Link
+                  to="/tables"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                    currentPath === '/tables' 
-                      ? 'bg-[#0077b6] text-white shadow-md' 
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${currentPath === '/tables'
+                      ? 'bg-[#0077b6] text-white shadow-md'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <span className="text-base">📋</span> Tables
                 </Link>
 
-                <Link 
-                  to="/history" 
+                <Link
+                  to="/history"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                    currentPath === '/history' 
-                      ? 'bg-[#0077b6] text-white shadow-md' 
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${currentPath === '/history'
+                      ? 'bg-[#0077b6] text-white shadow-md'
                       : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <span className="text-base">⏳</span> History
                 </Link>
@@ -198,7 +209,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
               )}
 
               {onLogout && (
-                <button 
+                <button
                   onClick={() => { setIsMobileMenuOpen(false); onLogout(); }}
                   className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs rounded-xl border border-red-200 transition-all cursor-pointer"
                 >

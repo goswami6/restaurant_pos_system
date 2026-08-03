@@ -6,6 +6,10 @@ import { API_BASE_URL } from '../config';
 const OrderNumberPage: React.FC = () => {
   const navigate = useNavigate();
 
+  const savedUser = localStorage.getItem('emenu_user');
+  const userObj = savedUser ? JSON.parse(savedUser) : null;
+  const isGuestCustomer = !userObj || userObj.isGuest || userObj.role?.toLowerCase() === 'guest';
+
   const [orderInfo, setOrderInfo] = useState<any>(() => {
     const saved = localStorage.getItem('emenu_last_order');
     return saved ? JSON.parse(saved) : null;
@@ -53,6 +57,7 @@ const OrderNumberPage: React.FC = () => {
               subTotal: freshOrder.bill?.subtotal || 0,
               tax: freshOrder.bill?.tax_amount || 0,
               total: freshOrder.bill?.grand_total || 0,
+              order_status: freshOrder.order_status || freshOrder.status || 'PENDING',
               created_at: freshOrder.created_at
             };
             setOrderInfo(updated);
@@ -245,46 +250,114 @@ ${400 + contentStream.length}
           </div>
         </div>
 
-        <button 
-          onClick={handlePrint}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
-        >
-          <Printer size={16} />
-          <span className="hidden xs:inline">Print POS Bill</span>
-        </button>
+        {!isGuestCustomer && (
+          <button 
+            onClick={handlePrint}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+          >
+            <Printer size={16} />
+            <span className="hidden xs:inline">Print POS Bill</span>
+          </button>
+        )}
       </div>
 
       {/* Web View Order Review Card */}
       <div className="numbermiddle flex justify-center w-full px-2 sm:px-6 md:px-12 py-3 sm:py-6 no-print">
         <div className="number-container w-full max-w-4xl bg-white rounded-xl sm:rounded-2xl p-4 sm:p-8 md:p-10 shadow-sm border border-gray-200 space-y-5 sm:space-y-7">
-          {/* Order Success Banner (Modern Mobile Card Style) */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border border-emerald-200/70 rounded-2xl p-4 sm:p-6 text-center space-y-2 shadow-xs">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs mb-1">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              Kitchen Preparing Order
-            </div>
+          {/* Order Status Banner */}
+          {(() => {
+            const currentStatus = String(orderInfo.order_status || orderInfo.status || 'PENDING').toUpperCase();
+            const isCancelled = currentStatus === 'CANCELLED' || currentStatus === 'REJECTED';
+            const isCompleted = currentStatus === 'COMPLETED' || currentStatus === 'SERVED' || currentStatus === 'PAID';
 
-            <h3 className="text-base sm:text-xl font-black text-emerald-950 tracking-tight">
-              Order Active & Confirmed!
-            </h3>
-            <p className="text-xs sm:text-sm text-emerald-700 font-medium max-w-sm mx-auto">
-              Kitchen staff is preparing your items for Table #{table}.
-            </p>
+            if (isCancelled) {
+              return (
+                <div className="relative overflow-hidden bg-gradient-to-br from-rose-50/90 via-red-50/40 to-white border border-rose-200/70 rounded-2xl p-4 sm:p-6 text-center space-y-2 shadow-xs">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-rose-200 text-rose-700 text-xs font-bold shadow-2xs mb-1">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-600"></span>
+                    Order Cancelled
+                  </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-              <span className="bg-white text-emerald-900 font-black text-xs px-3 py-1.5 rounded-xl border border-emerald-200/80 shadow-2xs">
-                Order ID: #{order_id}
-              </span>
-              {table && (
-                <span className="bg-white text-[#0077b6] font-black text-xs px-3 py-1.5 rounded-xl border border-[#0077b6]/20 shadow-2xs">
-                  {String(table).includes('Table') ? table : `Table #${table}`}
-                </span>
-              )}
-            </div>
-          </div>
+                  <h3 className="text-base sm:text-xl font-black text-rose-950 tracking-tight">
+                    Order Has Been Cancelled
+                  </h3>
+                  <p className="text-xs sm:text-sm text-rose-700 font-medium max-w-sm mx-auto">
+                    This order was cancelled by restaurant staff for Table #{table}.
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <span className="bg-white text-rose-900 font-black text-xs px-3 py-1.5 rounded-xl border border-rose-200/80 shadow-2xs">
+                      Order ID: #{order_id}
+                    </span>
+                    {table && (
+                      <span className="bg-white text-rose-700 font-black text-xs px-3 py-1.5 rounded-xl border border-rose-200/80 shadow-2xs">
+                        {String(table).includes('Table') ? table : `Table #${table}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            if (isCompleted) {
+              return (
+                <div className="relative overflow-hidden bg-gradient-to-br from-blue-50/90 via-sky-50/40 to-white border border-blue-200/70 rounded-2xl p-4 sm:p-6 text-center space-y-2 shadow-xs">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-blue-200 text-blue-800 text-xs font-bold shadow-2xs mb-1">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                    Order Completed & Served
+                  </div>
+
+                  <h3 className="text-base sm:text-xl font-black text-blue-950 tracking-tight">
+                    Order Completed!
+                  </h3>
+                  <p className="text-xs sm:text-sm text-blue-700 font-medium max-w-sm mx-auto">
+                    Your dishes have been served at Table #{table}. Enjoy your meal!
+                  </p>
+
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                    <span className="bg-white text-blue-900 font-black text-xs px-3 py-1.5 rounded-xl border border-blue-200/80 shadow-2xs">
+                      Order ID: #{order_id}
+                    </span>
+                    {table && (
+                      <span className="bg-white text-[#0077b6] font-black text-xs px-3 py-1.5 rounded-xl border border-[#0077b6]/20 shadow-2xs">
+                        {String(table).includes('Table') ? table : `Table #${table}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/90 via-teal-50/40 to-white border border-emerald-200/70 rounded-2xl p-4 sm:p-6 text-center space-y-2 shadow-xs">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full border border-emerald-200 text-emerald-800 text-xs font-bold shadow-2xs mb-1">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  Kitchen Preparing Order
+                </div>
+
+                <h3 className="text-base sm:text-xl font-black text-emerald-950 tracking-tight">
+                  Order Active & Confirmed!
+                </h3>
+                <p className="text-xs sm:text-sm text-emerald-700 font-medium max-w-sm mx-auto">
+                  Kitchen staff is preparing your items for Table #{table}.
+                </p>
+
+                <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                  <span className="bg-white text-emerald-900 font-black text-xs px-3 py-1.5 rounded-xl border border-emerald-200/80 shadow-2xs">
+                    Order ID: #{order_id}
+                  </span>
+                  {table && (
+                    <span className="bg-white text-[#0077b6] font-black text-xs px-3 py-1.5 rounded-xl border border-[#0077b6]/20 shadow-2xs">
+                      {String(table).includes('Table') ? table : `Table #${table}`}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Customer & Timestamp Info */}
           <div className="flex flex-col sm:flex-row justify-between text-xs sm:text-sm text-gray-600 bg-gray-50/80 p-3.5 sm:p-4 rounded-xl border border-gray-100 gap-2">
@@ -347,10 +420,29 @@ ${400 + contentStream.length}
               <span className="font-semibold text-gray-900">₹{subTotalNum.toFixed(2)}</span>
             </div>
 
-            <div className="flex justify-between text-xs sm:text-sm text-gray-600">
-              <span>Taxes (5%)</span>
-              <span className="font-semibold text-gray-900">₹{taxTotal.toFixed(2)}</span>
-            </div>
+            {posSettings?.financials?.service_charge_percentage > 0 && (
+              <div className="flex justify-between text-xs sm:text-sm text-gray-600">
+                <span>Service Charge ({posSettings.financials.service_charge_percentage}%)</span>
+                <span className="font-semibold text-gray-900">+₹{((subTotalNum * parseFloat(posSettings.financials.service_charge_percentage)) / 100).toFixed(2)}</span>
+              </div>
+            )}
+
+            {taxTotal > 0 && (
+              <>
+                <div className="flex justify-between text-xs text-gray-500 pl-2">
+                  <span>CGST ({(posSettings?.financials?.cgst || 2.5)}%)</span>
+                  <span>+₹{cgstAmt.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs text-gray-500 pl-2">
+                  <span>SGST ({(posSettings?.financials?.sgst || 2.5)}%)</span>
+                  <span>+₹{sgstAmt.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-xs sm:text-sm text-emerald-700 font-semibold">
+                  <span>Total Taxes</span>
+                  <span>+₹{taxTotal.toFixed(2)}</span>
+                </div>
+              </>
+            )}
 
             <div className="border-t border-gray-200 pt-3 flex justify-between font-black text-base sm:text-lg text-gray-900">
               <span>Grand Total</span>
@@ -460,14 +552,16 @@ ${400 + contentStream.length}
       {/* Curved Center-Raised FAB Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-2xl h-14 sm:h-16 flex items-center px-4 no-print">
         <div className="max-w-md md:max-w-2xl mx-auto flex items-center justify-around w-full relative">
-          {/* Print Tab */}
-          <button 
-            onClick={handlePrint}
-            className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer group"
-          >
-            <Printer size={20} className="group-hover:scale-110 transition-transform text-amber-500" />
-            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Print</span>
-          </button>
+          {/* Print Tab (Only for Staff/Waiters) */}
+          {!isGuestCustomer && (
+            <button 
+              onClick={handlePrint}
+              className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer group"
+            >
+              <Printer size={20} className="group-hover:scale-110 transition-transform text-amber-500" />
+              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Print</span>
+            </button>
+          )}
 
           {/* Download Tab */}
           <button 
@@ -478,10 +572,10 @@ ${400 + contentStream.length}
             <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Download</span>
           </button>
 
-          {/* MENU TAB (Tablet & Desktop Only) */}
+          {/* MENU TAB (Always visible for Guest Customers on mobile; responsive for staff) */}
           <button 
             onClick={handleOrderMore}
-            className="hidden md:flex flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors cursor-pointer group"
+            className={`${isGuestCustomer ? 'flex' : 'hidden md:flex'} flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors cursor-pointer group`}
           >
             <UtensilsCrossed size={20} className="group-hover:scale-110 transition-transform text-[#0077b6]" />
             <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Menu</span>
@@ -512,14 +606,16 @@ ${400 + contentStream.length}
             </button>
           )}
 
-          {/* History Tab */}
-          <Link 
-            to="/history"
-            className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors no-underline group"
-          >
-            <Clock size={20} className="group-hover:scale-110 transition-transform text-gray-500 group-hover:text-[#0077b6]" />
-            <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">History</span>
-          </Link>
+          {/* History Tab (Only for Waiters / Staff) */}
+          {!isGuestCustomer && (
+            <Link 
+              to="/history"
+              className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-[#0077b6] transition-colors no-underline group"
+            >
+              <Clock size={20} className="group-hover:scale-110 transition-transform text-gray-500 group-hover:text-[#0077b6]" />
+              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">History</span>
+            </Link>
+          )}
         </div>
       </div>
     </div>

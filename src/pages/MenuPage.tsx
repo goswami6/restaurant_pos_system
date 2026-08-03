@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, BellRing } from 'lucide-react';
+import { ShoppingCart, BellRing, PhoneCall } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { API_BASE_URL } from '../config';
@@ -100,12 +100,20 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
             setCart(mergedCart);
             localStorage.setItem('emenu_cart', JSON.stringify(mergedCart));
           } else {
-            setCart({});
-            localStorage.removeItem('emenu_cart');
+            const saved = localStorage.getItem('emenu_cart');
+            if (saved) {
+              try {
+                setCart(JSON.parse(saved));
+              } catch {}
+            }
           }
         } else {
-          setCart({});
-          localStorage.removeItem('emenu_cart');
+          const saved = localStorage.getItem('emenu_cart');
+          if (saved) {
+            try {
+              setCart(JSON.parse(saved));
+            } catch {}
+          }
         }
       } catch (err) {
         console.error('Error loading menu and session:', err);
@@ -114,6 +122,21 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
       }
     };
     loadMenuAndSession();
+  }, []);
+
+  useEffect(() => {
+    const handleCartSync = () => {
+      const saved = localStorage.getItem('emenu_cart');
+      if (saved) {
+        try {
+          setCart(JSON.parse(saved));
+        } catch {}
+      } else {
+        setCart({});
+      }
+    };
+    window.addEventListener('emenu_cart_updated', handleCartSync);
+    return () => window.removeEventListener('emenu_cart_updated', handleCartSync);
   }, []);
 
   const saveCart = (newCart: Record<string, any>) => {
@@ -207,18 +230,18 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
             <div className="iconplusitem flex w-[80%] items-center">
               <div className="flex-shrink-0">
                 {dietaryType === 'Veg' && (
-                  <div className="w-5 h-5 border-2 border-emerald-600 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Veg">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-emerald-600 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Veg">
+                    <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-emerald-600"></span>
                   </div>
                 )}
                 {dietaryType === 'Non-Veg' && (
-                  <div className="w-5 h-5 border-2 border-rose-600 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Non-Veg">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-600"></span>
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-rose-600 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Non-Veg">
+                    <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-rose-600"></span>
                   </div>
                 )}
                 {dietaryType === 'Egg' && (
-                  <div className="w-5 h-5 border-2 border-amber-500 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Egg">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                  <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-amber-500 flex items-center justify-center p-0.5 rounded-sm bg-white" title="Egg">
+                    <span className="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-amber-500"></span>
                   </div>
                 )}
               </div>
@@ -361,30 +384,30 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         return (
           <button
             onClick={() => setIsCallWaiterOpen(true)}
-            className="fixed bottom-[10vh] right-5 z-40 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white font-bold text-xs px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2 border border-amber-400 transition-all cursor-pointer"
+            className="fixed bottom-14 md:bottom-[10vh] right-4 md:right-5 z-40 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white font-bold text-xs p-3 md:px-4 md:py-2.5 rounded-full shadow-xl flex items-center justify-center gap-2 border border-amber-400/80 transition-all cursor-pointer animate-float-glow"
             title="Call Waiter"
           >
-            <BellRing size={16} className="animate-bounce" />
-            <span>Call Waiter</span>
+            <PhoneCall size={18} className="animate-pulse flex-shrink-0" />
+            <span className="hidden md:inline font-extrabold tracking-wide">Call Waiter</span>
           </button>
         );
       })()}
 
-      <div className="footer-index fixed bottom-0 left-0 right-0 z-40 flex h-14 w-full items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] bg-white">
+      <div className="footer-index fixed bottom-0 left-0 right-0 z-40 flex h-11 md:h-14 w-full items-center shadow-[0_-2px_5px_rgba(0,0,0,0.1)] bg-white">
         <div className="menu-btn-section flex h-full w-1/2 items-center justify-center bg-white">
           <button
             onClick={() => setIsMenuOpen(true)}
-            className="menu-btn flex cursor-pointer items-center justify-center rounded-[25px] bg-black px-[20px] py-[8px] text-[15px] font-bold text-white hover:bg-[#333] transition-all"
+            className="menu-btn flex cursor-pointer items-center justify-center rounded-[25px] bg-black px-[16px] py-[5px] md:px-[20px] md:py-[8px] text-[13px] md:text-[15px] font-bold text-white hover:bg-[#333] transition-all"
           >
             ☰ Menu
           </button>
         </div>
         <Link to="/cart" className="cart flex h-full w-1/2 items-center justify-center bg-[#0077b6] text-white no-underline shadow-md">
-          <ShoppingCart size={18} />
-          <span className="cart-text ml-1.5 mr-2 text-[15px] font-bold text-white">Cart</span>
+          <ShoppingCart size={16} className="md:w-[18px] md:h-[18px]" />
+          <span className="cart-text ml-1.5 mr-2 text-[13px] md:text-[15px] font-bold text-white">Cart</span>
           {totalCartCount > 0 && (
-            <div className="count-bg flex h-[22px] w-[22px] items-center justify-center rounded-full bg-red-600">
-              <span className="cart-count text-[12px] font-bold text-white">{totalCartCount}</span>
+            <div className="count-bg flex h-[18px] w-[18px] md:h-[22px] md:w-[22px] items-center justify-center rounded-full bg-red-600">
+              <span className="cart-count text-[10px] md:text-[12px] font-bold text-white">{totalCartCount}</span>
             </div>
           )}
         </Link>

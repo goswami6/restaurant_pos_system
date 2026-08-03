@@ -1,11 +1,42 @@
-import React, { useState } from 'react';
-import { Trash2, ShoppingBag, ArrowLeft } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Trash2, ShoppingBag, ArrowLeft, Info, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL, getRestaurantId } from '../config';
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+  const [isBillSheetOpen, setIsBillSheetOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState('');
+
+  const [posSettings, setPosSettings] = useState<any>({
+    taxRate: 5.0,
+    serviceCharge: 0.0
+  });
+
+  useEffect(() => {
+    const fetchPOSSettings = async () => {
+      try {
+        const rid = getRestaurantId();
+        const res = await fetch(`${API_BASE_URL}/settings/pos/${rid}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            const taxRate = parseFloat(data.financials?.tax_rate_percentage ?? 5.0);
+            const serviceCharge = parseFloat(data.financials?.service_charge_percentage ?? 0.0);
+            setPosSettings({
+              taxRate,
+              serviceCharge
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load dynamic POS settings in Cart:', e);
+      }
+    };
+    fetchPOSSettings();
+  }, []);
 
   const [cart, setCart] = useState<Record<string, any>>(() => {
     const saved = localStorage.getItem('emenu_cart');
@@ -15,6 +46,11 @@ const CartPage: React.FC = () => {
   const saveCart = (newCart: Record<string, any>) => {
     setCart(newCart);
     localStorage.setItem('emenu_cart', JSON.stringify(newCart));
+  };
+
+  const handleClearCart = () => {
+    saveCart({});
+    setIsClearModalOpen(false);
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -48,12 +84,18 @@ const CartPage: React.FC = () => {
 
   const cartItems = Object.values(cart);
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.05; // 5% GST
-  const grandTotal = subtotal + tax;
+  const serviceChargeRate = posSettings.serviceCharge || 0.0;
+  const serviceChargeAmt = (subtotal * serviceChargeRate) / 100;
+  const taxableAmount = subtotal + serviceChargeAmt;
+  const taxRate = posSettings.taxRate || 5.0;
+  const taxAmt = (taxableAmount * taxRate) / 100;
+  const cgstAmt = taxAmt / 2;
+  const sgstAmt = taxAmt / 2;
+  const grandTotal = subtotal + serviceChargeAmt + taxAmt;
 
   return (
     <div className="cart-body min-h-screen bg-[#f8f8f8] pb-24 md:pb-8">
-      <div className="header-cart sticky top-0 z-50 flex h-14 md:h-[10vh] w-full items-center justify-between bg-white px-4 md:px-[3%] py-2 md:py-[1.5%] shadow-sm border-b border-gray-100">
+      <div className="header-cart sticky top-0 z-50 flex h-11 md:h-[10vh] w-full items-center justify-between bg-white px-3 md:px-[3%] py-1 md:py-[1.5%] shadow-sm border-b border-gray-100">
         <div className="backpluscart flex items-center gap-3">
           <button onClick={() => navigate(-1)} className="back-arrow text-gray-700 hover:text-black cursor-pointer p-1 rounded-full hover:bg-gray-100 transition-all">
             <ArrowLeft size={22} />
@@ -63,20 +105,51 @@ const CartPage: React.FC = () => {
             <p className="text-xs text-gray-500 md:hidden">{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}</p>
           </div>
         </div>
-        <button className="cart-icon text-gray-700 p-1">
-          <ShoppingBag size={22} />
-        </button>
+
+        <div className="flex items-center gap-2">
+          {cartItems.length > 0 && (
+            <button 
+              onClick={() => setIsClearModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/80 rounded-full text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-2xs"
+              title="Clear All Items"
+            >
+              <Trash2 size={13} className="text-rose-500 flex-shrink-0" />
+              <span>Clear All</span>
+            </button>
+          )}
+          <div className="relative flex items-center justify-center">
+            <button className="cart-icon text-gray-700 p-1 cursor-default">
+              <ShoppingBag size={22} />
+            </button>
+            {cartItems.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-[#0077b6] text-white text-[10px] font-extrabold h-4 min-w-[16px] px-1 rounded-full flex items-center justify-center shadow-xs">
+                {cartItems.length}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
 
-      <div className="cart-container mx-3 my-4 md:m-[3%_2.5%] md:w-[95%] rounded-xl md:rounded-[10px] bg-white p-3.5 md:p-[15px] shadow-sm border border-gray-150">
+      <div className="cart-container mx-2 my-3.5 md:m-[3%_2.5%] md:w-[95%] rounded-2xl bg-white p-3.5 md:p-5 shadow-xs border border-gray-100/90">
         {cartItems.length === 0 ? (
-          <div className="text-center py-16 md:py-20 text-gray-500">
-            <div className="text-5xl mb-3">🛒</div>
-            <p className="text-base font-semibold text-gray-700">Your cart is empty</p>
-            <p className="text-xs text-gray-400 mt-1">Add items from the menu to see them here.</p>
+          <div className="text-center py-12 md:py-16 text-gray-500 space-y-3 flex flex-col items-center animate-slide-up">
+            <div className="w-16 h-16 bg-blue-50 border border-blue-100/80 rounded-full flex items-center justify-center shadow-2xs animate-pop-in animate-pulse-glow">
+              <ShoppingBag size={28} className="text-[#0077b6]" />
+            </div>
+            <div>
+              <p className="text-base font-extrabold text-gray-900">Your cart is empty</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-[240px] mx-auto">Explore our menu and add your favorite dishes to get started.</p>
+            </div>
+            <Link 
+              to="/" 
+              className="inline-flex items-center gap-2 bg-[#0077b6] hover:bg-[#005f92] active:scale-95 text-white text-xs font-extrabold px-5 py-2.5 rounded-xl shadow-md transition-all no-underline mt-1"
+            >
+              <span>Explore Menu</span>
+              <span>→</span>
+            </Link>
           </div>
         ) : (
-          <div className="divide-y divide-gray-150">
+          <div className="divide-y divide-gray-200/70">
             {cartItems.map((item) => (
               <div key={item.id} className="cart-item py-3.5 md:py-[15px] first:pt-0 last:pb-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="item-info flex-1">
@@ -100,7 +173,7 @@ const CartPage: React.FC = () => {
                     </div>
 
                     {/* Mobile Stepper */}
-                    <div className="quantity flex md:hidden items-center rounded-lg border border-[#0077b6] bg-blue-50/40 px-2 py-1 shadow-2xs">
+                    <div className="quantity flex md:hidden items-center rounded-xl border border-blue-100 bg-blue-50/60 px-2 py-1 shadow-2xs">
                       <button 
                         onClick={() => removeItem(item.id)}
                         className="delete p-1 text-red-500 hover:text-red-700 cursor-pointer active:scale-95 transition-transform"
@@ -170,11 +243,23 @@ const CartPage: React.FC = () => {
       {cartItems.length > 0 && (
         <>
           {/* Mobile Bottom Footer */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 p-3 px-4 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] flex md:hidden items-center justify-between">
-            <div>
-              <div className="text-[11px] font-medium text-gray-500 uppercase tracking-wider">Total</div>
-              <div className="text-base font-extrabold text-[#0077b6]">
-                {grandTotal.toFixed(2)} Rs
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 py-2 px-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] flex md:hidden items-center justify-between">
+            <div 
+              onClick={() => setIsBillSheetOpen(true)}
+              className="cursor-pointer group py-0.5"
+              title="Click to view detailed bill breakdown"
+            >
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider group-hover:text-[#0077b6] transition-colors">TOTAL</span>
+                <Info size={12} className="text-[#0077b6] group-hover:scale-110 transition-transform" />
+              </div>
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="text-base font-extrabold text-[#0077b6]">
+                  {grandTotal.toFixed(2)} Rs
+                </span>
+                <span className="text-[10px] font-medium text-gray-400">
+                  (incl. GST)
+                </span>
               </div>
             </div>
             <Link 
@@ -189,13 +274,90 @@ const CartPage: React.FC = () => {
           {/* Desktop Bottom Footer */}
           <Link 
             to="/order-info" 
-            className="cart-footer hidden md:flex fixed bottom-[2.5vh] ml-[2.5vw] h-[6vh] w-[95vw] items-center justify-center rounded-[10px] bg-[#0077b6] p-[15px] no-underline shadow-md"
+            className="cart-footer hidden md:flex fixed bottom-[2.5vh] ml-[2.5vw] h-[6vh] w-[95vw] items-center justify-between rounded-[10px] bg-[#0077b6] p-[15px] no-underline shadow-md"
           >
-            <div className="cart-button text-center text-[16px] text-white">
-              Confirm Order - {grandTotal.toFixed(2)} Rs - Plus Taxes
+            <div className="cart-button text-[16px] text-white font-bold flex items-center gap-2">
+              <span>Confirm Order - {grandTotal.toFixed(2)} Rs</span>
+              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-normal">Plus Taxes ({taxRate}% GST)</span>
             </div>
+            <span className="text-white text-lg font-bold">→</span>
           </Link>
         </>
+      )}
+
+      {/* Modal / Bottom Sheet for Bill Breakdown */}
+      {isBillSheetOpen && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4 animate-fade-in" onClick={() => setIsBillSheetOpen(false)}>
+          <div className="w-full sm:max-w-[360px] rounded-t-2xl sm:rounded-2xl bg-white p-5 shadow-2xl space-y-4 animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-[#0077b6]">
+                  <FileText size={16} />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900 tracking-tight">Bill Summary</h3>
+              </div>
+              <button 
+                onClick={() => setIsBillSheetOpen(false)} 
+                className="text-gray-400 hover:text-gray-700 text-lg font-bold p-1 cursor-pointer transition-colors"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs text-gray-600 py-1">
+              {/* Itemized List of Cart Dishes */}
+              <div className="space-y-1.5 border-b border-gray-100 pb-2.5 max-h-40 overflow-y-auto">
+                {cartItems.map((item: any) => {
+                  const itemLineTotal = (item.price * item.quantity).toFixed(2);
+                  return (
+                    <div key={item.id} className="flex justify-between items-center text-gray-800">
+                      <span className="font-semibold truncate max-w-[200px]">
+                        {item.name} <span className="text-gray-500 font-normal">× {item.quantity}</span>
+                      </span>
+                      <span className="font-bold text-gray-900">{itemLineTotal} Rs</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {serviceChargeRate > 0 && (
+                <div className="flex justify-between items-center text-gray-700 font-medium">
+                  <span>Service Charge ({serviceChargeRate}%)</span>
+                  <span className="font-bold">+{serviceChargeAmt.toFixed(2)} Rs</span>
+                </div>
+              )}
+
+              {taxRate > 0 && (
+                <>
+                  <div className="flex justify-between items-center text-gray-500 pl-2 text-[11px]">
+                    <span>CGST ({(taxRate / 2).toFixed(1)}%)</span>
+                    <span>+{cgstAmt.toFixed(2)} Rs</span>
+                  </div>
+                  <div className="flex justify-between items-center text-gray-500 pl-2 text-[11px]">
+                    <span>SGST ({(taxRate / 2).toFixed(1)}%)</span>
+                    <span>+{sgstAmt.toFixed(2)} Rs</span>
+                  </div>
+                  <div className="flex justify-between items-center text-emerald-700 font-semibold">
+                    <span>Total Taxes ({taxRate}%)</span>
+                    <span>+{taxAmt.toFixed(2)} Rs</span>
+                  </div>
+                </>
+              )}
+
+              <div className="border-t border-dashed border-gray-200 pt-2.5 flex justify-between items-center text-sm font-extrabold text-gray-900">
+                <span>To Pay (Grand Total)</span>
+                <span className="text-[#0077b6] text-base">{grandTotal.toFixed(2)} Rs</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => setIsBillSheetOpen(false)}
+              className="w-full py-2.5 bg-[#0077b6] hover:bg-[#005f92] active:scale-95 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-md"
+            >
+              Got It
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Modal */}
@@ -225,6 +387,35 @@ const CartPage: React.FC = () => {
             >
               Submit
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Clear Cart Confirmation */}
+      {isClearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in" onClick={() => setIsClearModalOpen(false)}>
+          <div className="w-full max-w-[340px] rounded-2xl bg-white p-5 text-center shadow-2xl space-y-4 animate-pop-in" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-2xs">
+              <Trash2 size={22} className="text-rose-600" />
+            </div>
+            <div>
+              <h3 className="text-base font-extrabold text-gray-900">Clear all cart items?</h3>
+              <p className="text-xs text-gray-500 mt-1">This will remove all selected dishes from your cart.</p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button 
+                onClick={() => setIsClearModalOpen(false)}
+                className="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleClearCart}
+                className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md"
+              >
+                Clear Cart
+              </button>
+            </div>
           </div>
         </div>
       )}

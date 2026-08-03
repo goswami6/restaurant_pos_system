@@ -11,10 +11,19 @@ import HistoryPage from './pages/HistoryPage';
 const MenuRouteWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
-  const urlTable = queryParams.get('table') || queryParams.get('table_number');
+  const urlRid =
+    queryParams.get('id') ||
+    queryParams.get('restaurant_id') ||
+    queryParams.get('restaurantId') ||
+    queryParams.get('restaurant') ||
+    queryParams.get('rest_id') ||
+    queryParams.get('rid');
 
-  if (urlTable) {
-    sessionStorage.setItem('emenu_table', urlTable);
+  if (urlRid) {
+    const cleanId = parseInt(urlRid, 10);
+    if (!isNaN(cleanId) && cleanId > 0) {
+      sessionStorage.setItem('emenu_restaurant_id', String(cleanId));
+    }
   }
 
   return <MenuPage onLogout={onLogout} />;
@@ -25,7 +34,7 @@ function App() {
     const savedUser = localStorage.getItem('emenu_user');
     if (savedUser) return JSON.parse(savedUser);
 
-    // Default guest session for direct customer menu access
+    // Default guest customer session for QR code scan & direct browsing (NO login required)
     const defaultUser = { phone: 'Guest Customer', isGuest: true };
     localStorage.setItem('emenu_user', JSON.stringify(defaultUser));
     return defaultUser;
@@ -33,14 +42,24 @@ function App() {
 
   React.useEffect(() => {
     const queryParams = new URLSearchParams(window.location.search);
-    const urlTable = queryParams.get('table') || queryParams.get('table_number');
-    if (urlTable) {
-      sessionStorage.setItem('emenu_table', urlTable);
+    const urlRid =
+      queryParams.get('id') ||
+      queryParams.get('restaurant_id') ||
+      queryParams.get('restaurantId') ||
+      queryParams.get('restaurant') ||
+      queryParams.get('rest_id') ||
+      queryParams.get('rid');
+
+    if (urlRid) {
+      const cleanId = parseInt(urlRid, 10);
+      if (!isNaN(cleanId) && cleanId > 0) {
+        sessionStorage.setItem('emenu_restaurant_id', String(cleanId));
+      }
     }
   }, []);
 
   const handleLogin = (userData: any) => {
-    // Clear any guest table override and set real staff session
+    // Clear guest table override when staff/waiter logs in
     sessionStorage.removeItem('emenu_table');
     const staffUser = { ...userData, isGuest: false };
     localStorage.setItem('emenu_user', JSON.stringify(staffUser));
@@ -50,7 +69,10 @@ function App() {
   const handleLogout = () => {
     localStorage.removeItem('emenu_user');
     sessionStorage.removeItem('emenu_table');
-    setUser(null);
+    // Fallback to guest mode so customer can still browse menu
+    const guestUser = { phone: 'Guest Customer', isGuest: true };
+    localStorage.setItem('emenu_user', JSON.stringify(guestUser));
+    setUser(guestUser);
   };
 
   return (
@@ -62,31 +84,31 @@ function App() {
         />
         <Route 
           path="/" 
-          element={user ? <MenuRouteWrapper onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
+          element={<MenuRouteWrapper onLogout={handleLogout} />} 
         />
         <Route 
           path="/menu" 
-          element={user ? <MenuRouteWrapper onLogout={handleLogout} /> : <Navigate to="/login" replace />} 
+          element={<MenuRouteWrapper onLogout={handleLogout} />} 
         />
         <Route 
           path="/cart" 
-          element={user ? <CartPage /> : <Navigate to="/login" replace />} 
+          element={<CartPage />} 
         />
         <Route 
           path="/order-info" 
-          element={user ? <OrderInfoPage /> : <Navigate to="/login" replace />} 
+          element={<OrderInfoPage />} 
         />
         <Route 
           path="/order-number" 
-          element={user ? <OrderNumberPage /> : <Navigate to="/login" replace />} 
+          element={<OrderNumberPage />} 
         />
         <Route 
           path="/tables" 
-          element={user ? <TablesPage /> : <Navigate to="/login" replace />} 
+          element={user && !user.isGuest ? <TablesPage /> : <Navigate to="/" replace />} 
         />
         <Route 
           path="/history" 
-          element={user ? <HistoryPage /> : <Navigate to="/login" replace />} 
+          element={user && !user.isGuest ? <HistoryPage /> : <Navigate to="/" replace />} 
         />
       </Routes>
     </Router>

@@ -1,11 +1,39 @@
 import React, { useState } from 'react';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, getRestaurantId } from '../config';
 
 const OrderInfoPage: React.FC = () => {
   const navigate = useNavigate();
   const [showModal, setShowModal] = useState(false);
+
+  const [posSettings, setPosSettings] = useState<any>({
+    taxRate: 5.0,
+    serviceCharge: 0.0
+  });
+
+  React.useEffect(() => {
+    const fetchPOSSettings = async () => {
+      try {
+        const rid = getRestaurantId();
+        const res = await fetch(`${API_BASE_URL}/settings/pos/${rid}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data) {
+            const taxRate = parseFloat(data.financials?.tax_rate_percentage ?? 5.0);
+            const serviceCharge = parseFloat(data.financials?.service_charge_percentage ?? 0.0);
+            setPosSettings({
+              taxRate,
+              serviceCharge
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to load dynamic POS settings in OrderInfo:', e);
+      }
+    };
+    fetchPOSSettings();
+  }, []);
   const [guestName, setGuestName] = useState(() => {
     const savedUser = localStorage.getItem('emenu_user');
     if (!savedUser) return '';
@@ -137,11 +165,7 @@ const OrderInfoPage: React.FC = () => {
         const finalTables = availableTables.length > 0 ? availableTables : mappedList;
         setTables(finalTables);
 
-        if (finalTables.length > 0) {
-          const firstTableNum = finalTables[0].table_number || finalTables[0].table_name || `#${finalTables[0].table_id}`;
-          const cleanFirst = String(firstTableNum).replace(/[^0-9]/g, '') || firstTableNum;
-          setSelectedTable(cleanFirst);
-        }
+        // Do not auto-select table unless scanned from URL QR code
       } catch (err: any) {
         console.error('Failed to fetch tables:', err.message);
         setTables([]);
@@ -165,18 +189,28 @@ const OrderInfoPage: React.FC = () => {
 
   const cartItems = Object.values(cart);
   const subTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subTotal * 0.05;
-  const total = subTotal + tax;
+  const serviceChargeRate = posSettings.serviceCharge || 0.0;
+  const serviceChargeAmt = (subTotal * serviceChargeRate) / 100;
+  const taxableAmount = subTotal + serviceChargeAmt;
+  const taxRate = posSettings.taxRate || 5.0;
+  const taxAmt = (taxableAmount * taxRate) / 100;
+  const cgstAmt = taxAmt / 2;
+  const sgstAmt = taxAmt / 2;
+  const total = subTotal + serviceChargeAmt + taxAmt;
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
       alert("Your cart is empty!");
       return;
     }
-    if (!selectedTable && !tableIdFromUrl) {
-      alert("Please select a table number!");
+    
+    const targetTableNum = selectedTable || tableIdFromUrl;
+    const cleanTableNum = String(targetTableNum).replace(/[^0-9]/g, '');
+    if (!targetTableNum || !cleanTableNum) {
+      alert("Please select a valid Table Number before placing your order!");
       return;
     }
+
     if (!guestName.trim() || !phone.trim()) {
       alert("Please enter Guest Name and Phone Number!");
       return;
@@ -188,7 +222,7 @@ const OrderInfoPage: React.FC = () => {
     const userObj = savedUser ? JSON.parse(savedUser) : null;
     const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-    const matchingTableObj = tables.find(t => t.table_number === selectedTable);
+    const matchingTableObj = tables.find(t => String(t.table_number) === String(cleanTableNum) || String(t.table_id) === String(cleanTableNum));
     const tableNumberId = matchingTableObj ? (parseInt(matchingTableObj.table_id) || null) : null;
 
     const payloadItems = cartItems.map(item => {
@@ -211,19 +245,15 @@ const OrderInfoPage: React.FC = () => {
         staff_id: 5,
         staff_name: guestName || "E-Menu Customer",
         order_type: "DINE_IN",
-        table_number: (() => {
-          const raw = selectedTable || tableIdFromUrl;
-          const cleanNum = String(raw).replace(/[^0-9]/g, '');
-          return cleanNum ? `Table #${cleanNum}` : (raw || "Table #1");
-        })(),
+        table_number: `Table #${cleanTableNum}`,
         table_number_id: tableNumberId,
         guest_count: 1
       },
       items: payloadItems,
       totals: {
         subtotal: parseFloat(subTotal.toFixed(2)),
-        tax: parseFloat(tax.toFixed(2)),
-        service_charge: 0.00,
+        tax: parseFloat(taxAmt.toFixed(2)),
+        service_charge: parseFloat(serviceChargeAmt.toFixed(2)),
         discount_amount: 0.00,
         grand_total: parseFloat(total.toFixed(2))
       },
@@ -255,7 +285,8 @@ const OrderInfoPage: React.FC = () => {
         phone: phone,
         items: cartItems,
         subTotal,
-        tax,
+        tax: taxAmt,
+        serviceCharge: serviceChargeAmt,
         total,
         created_at: new Date().toISOString()
       }));
@@ -273,21 +304,21 @@ const OrderInfoPage: React.FC = () => {
   return (
     <div className="infobody min-h-screen bg-[#f8f9fa] font-sans pb-32">
       {/* Top Header */}
-      <div className="header-info sticky top-0 z-50 flex h-16 w-full items-center bg-white px-4 md:px-8 shadow-sm border-b border-gray-150">
+      <div className="header-info sticky top-0 z-50 flex h-11 md:h-16 w-full items-center bg-white px-3 md:px-8 shadow-sm border-b border-gray-150">
         <button 
           onClick={() => navigate(-1)} 
-          className="back-arrow mr-4 p-2 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+          className="back-arrow mr-2.5 p-1.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
         >
           <ArrowLeft size={20} />
         </button>
         <h2 className="text-lg font-extrabold text-gray-900 tracking-tight">Order Information</h2>
       </div>
 
-      <div className="bodymiddle flex justify-center min-h-[calc(100vh-4rem-5rem)] px-0 sm:px-4 py-0 sm:py-6">
-        <div className="info-container w-full max-w-2xl bg-white rounded-none sm:rounded-2xl p-4 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-5 sm:space-y-6 flex flex-col justify-between">
+      <div className="bodymiddle flex justify-center min-h-[calc(100vh-4rem-5rem)] px-1 sm:px-4 py-1.5 sm:py-6">
+        <div className="info-container w-full max-w-2xl bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-4 sm:space-y-6 flex flex-col justify-between">
           
           {/* Restaurant Header Info */}
-          <div className="restaurant-info bg-gray-50/80 rounded-xl p-4 border border-gray-100">
+          <div className="restaurant-info bg-gray-50/80 rounded-xl p-3 sm:p-4 border border-gray-100">
             <h2 className="text-lg font-black text-gray-900 mb-1 tracking-tight">BIG BEN RESTAURANT</h2>
             <p className="text-xs text-gray-600 flex items-start gap-1.5 my-1">
               <span>📍</span> <span>1st Flr, A Wing, Todi Estate, Sun Mill Compound, Lower Parel (west)</span>
@@ -322,11 +353,12 @@ const OrderInfoPage: React.FC = () => {
                   onChange={(e) => setSelectedTable(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 p-2.5 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-xs font-semibold text-gray-900 bg-white"
                 >
+                  <option value="">-- Select Table Number * --</option>
                   {tables.map((t: any) => {
                     const num = String(t.table_number || t.table_name || t.table_id).replace(/[^0-9]/g, '') || t.table_number;
                     return (
                       <option key={t.table_id || num} value={num}>
-                        Table #{num} (Available)
+                        Table #{num} ({t.status || 'Available'})
                       </option>
                     );
                   })}
@@ -365,17 +397,57 @@ const OrderInfoPage: React.FC = () => {
           </div>
 
           {/* Billing Summary Box */}
-          <div className="summary bg-gray-50 rounded-xl p-4 border border-gray-200/60 text-sm space-y-2">
-            <div className="flex justify-between text-gray-600 font-medium">
-              <span>Sub Total</span>
+          <div className="summary bg-gray-50/90 rounded-xl p-3.5 sm:p-4 border border-gray-200/80 text-xs sm:text-sm space-y-2.5">
+            <div className="flex items-center justify-between border-b border-gray-200/80 pb-2">
+              <span className="font-extrabold text-gray-900 uppercase tracking-wider text-[11px] sm:text-xs">Order Summary</span>
+              <span className="text-[11px] font-semibold text-gray-500">{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}</span>
+            </div>
+
+            {/* Itemized List of Cart Dishes */}
+            <div className="space-y-1.5 border-b border-gray-200/80 pb-2 max-h-40 overflow-y-auto">
+              {cartItems.map((item: any) => {
+                const itemLineTotal = (item.price * item.quantity).toFixed(2);
+                return (
+                  <div key={item.id} className="flex justify-between items-center text-gray-800 text-xs">
+                    <span className="font-semibold truncate max-w-[220px]">
+                      {item.name} <span className="text-gray-500 font-normal">× {item.quantity}</span>
+                    </span>
+                    <span className="font-bold text-gray-900">₹{itemLineTotal}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-between text-gray-600 font-medium pt-0.5">
+              <span>Items Subtotal</span>
               <span className="font-semibold text-gray-900">₹{subTotal.toFixed(2)}</span>
             </div>
-            <div className="flex justify-between text-gray-600 font-medium">
-              <span>Tax (5%)</span>
-              <span className="font-semibold text-gray-900">₹{tax.toFixed(2)}</span>
-            </div>
-            <hr className="border-gray-200 my-2" />
-            <div className="total flex justify-between font-black text-base text-[#0077b6] pt-1">
+
+            {serviceChargeRate > 0 && (
+              <div className="flex justify-between text-gray-700 font-medium">
+                <span>Service Charge ({serviceChargeRate}%)</span>
+                <span className="font-bold">+₹{serviceChargeAmt.toFixed(2)}</span>
+              </div>
+            )}
+
+            {taxRate > 0 && (
+              <>
+                <div className="flex justify-between text-gray-500 pl-2 text-[11px]">
+                  <span>CGST ({(taxRate / 2).toFixed(1)}%)</span>
+                  <span>+₹{cgstAmt.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500 pl-2 text-[11px]">
+                  <span>SGST ({(taxRate / 2).toFixed(1)}%)</span>
+                  <span>+₹{sgstAmt.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-700 font-semibold">
+                  <span>Total Taxes ({taxRate}%)</span>
+                  <span>+₹{taxAmt.toFixed(2)}</span>
+                </div>
+              </>
+            )}
+
+            <div className="border-t border-dashed border-gray-300 pt-2.5 flex justify-between font-black text-base text-[#0077b6]">
               <span>Grand Total</span>
               <span>₹{total.toFixed(2)}</span>
             </div>
@@ -385,7 +457,7 @@ const OrderInfoPage: React.FC = () => {
       </div>
 
       {/* Floating Bottom Place Order Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 flex justify-center shadow-lg">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-2.5 sm:p-4 flex justify-center shadow-lg">
         <button 
           onClick={handlePlaceOrder}
           disabled={loading}
