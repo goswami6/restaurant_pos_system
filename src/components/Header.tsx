@@ -17,11 +17,24 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
   useEffect(() => {
     const fetchRestaurantInfo = async () => {
       try {
+        const savedSettingsStr = localStorage.getItem('emenu_pos_settings');
+        if (savedSettingsStr) {
+          const settings = JSON.parse(savedSettingsStr);
+          if (settings?.restaurant_info?.name) {
+            setRestaurantName(settings.restaurant_info.name);
+            return;
+          } else if (settings?.restaurant_name) {
+            setRestaurantName(settings.restaurant_name);
+            return;
+          }
+        }
+
         const rid = getRestaurantId();
         const res = await fetch(`${API_BASE_URL}/settings/pos/${rid}`);
         if (res.ok) {
           const data = await res.json();
           const settings = data?.data || data;
+          localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
           if (settings?.restaurant_info?.name) {
             setRestaurantName(settings.restaurant_info.name);
           } else if (settings?.restaurant_name) {

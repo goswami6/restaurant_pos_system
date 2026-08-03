@@ -59,20 +59,40 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
         const userObj = savedUser ? JSON.parse(savedUser) : null;
         const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-        // Fetch menus and active orders in parallel
+        // Check if menu is cached in sessionStorage and less than 15 minutes old (15 * 60 * 1000 = 900000ms)
+        const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+        let cachedCategories: any[] = [];
+        const cachedMenuStr = sessionStorage.getItem(`emenu_cached_menu_${restaurantId}`);
+        const cachedMenuTimeStr = sessionStorage.getItem(`emenu_cached_menu_time_${restaurantId}`);
+        const isCacheValid = cachedMenuStr && cachedMenuTimeStr && (Date.now() - parseInt(cachedMenuTimeStr, 10)) < FIFTEEN_MINUTES_MS;
+
+        if (isCacheValid) {
+          try {
+            cachedCategories = JSON.parse(cachedMenuStr);
+          } catch (e) {
+            // invalid cache
+          }
+        }
+
+        // Load active session order only if table is scanned
+        const currentTable = sessionStorage.getItem('emenu_table') || '';
+
+        // Fetch menus (if not valid in 15min cache) and active orders (only if table scanned) in parallel
         const [menuRes, ordersRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/menus/${restaurantId}`),
-          fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null)
+          cachedCategories.length > 0 ? null : fetch(`${API_BASE_URL}/menus/${restaurantId}`),
+          currentTable ? fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null) : null
         ]);
 
-        if (!menuRes.ok) {
-          throw new Error('Menu network response was not ok');
+        if (cachedCategories.length > 0) {
+          setCategories(cachedCategories);
+        } else if (menuRes && menuRes.ok) {
+          const menuData = await menuRes.json();
+          const fetchedCats = menuData.categories || [];
+          setCategories(fetchedCats);
+          sessionStorage.setItem(`emenu_cached_menu_${restaurantId}`, JSON.stringify(fetchedCats));
+          sessionStorage.setItem(`emenu_cached_menu_time_${restaurantId}`, String(Date.now()));
         }
-        const menuData = await menuRes.json();
-        setCategories(menuData.categories || []);
 
-        // Load active session order if table is occupied
-        const currentTable = sessionStorage.getItem('emenu_table') || '';
         if (currentTable && ordersRes && ordersRes.ok) {
           const ordersData = await ordersRes.json();
           const rawOrders = Array.isArray(ordersData)

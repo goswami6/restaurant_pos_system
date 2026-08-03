@@ -71,16 +71,19 @@ const HistoryPage: React.FC = () => {
       const userObj = savedUser ? JSON.parse(savedUser) : null;
       const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-      // Fetch POS settings (/api/settings/pos/:id)
-      fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          const settings = data?.data || data;
-          if (settings?.restaurant_info) {
-            setPosSettings(settings);
-            localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
-          }
-        }).catch(e => console.error('Error fetching POS settings in history:', e));
+      // Fetch POS settings (/api/settings/pos/:id) if not cached
+      const savedSettingsStr = localStorage.getItem('emenu_pos_settings');
+      if (!savedSettingsStr) {
+        fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            const settings = data?.data || data;
+            if (settings?.restaurant_info) {
+              setPosSettings(settings);
+              localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
+            }
+          }).catch(e => console.error('Error fetching POS settings in history:', e));
+      }
 
       // Fetch orders from server
       const ordersRes = await fetch(`${API_BASE_URL}/orders/${restaurantId}`);

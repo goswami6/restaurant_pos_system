@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, RotateCw, Users, Receipt, Plus, CreditCard, Check, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { RotateCw, Receipt, Plus, CreditCard, Check, Clock } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 import Header from '../components/Header';
 
@@ -20,7 +20,7 @@ interface Table {
   table_id: number | string;
   table_number: string;
   capacity: number;
-  status: 'Available' | 'Occupied' | 'Dirty' | 'Reserved';
+  status: 'Available' | 'Occupied' | 'Busy' | 'Dirty' | 'Reserved';
   current_session: TableSession | null;
   updated_at?: string;
 }
@@ -30,6 +30,7 @@ const TablesPage: React.FC = () => {
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const fetchedRef = React.useRef(false);
 
   const fetchTables = async () => {
     try {
@@ -90,13 +91,12 @@ const TablesPage: React.FC = () => {
         }
       }
 
-
-
       // Map API statuses cleanly and merge live active orders for Occupied tables
       const mappedList: Table[] = list.map((item: any) => {
-        let normalizedStatus: 'Available' | 'Occupied' | 'Dirty' | 'Reserved' = 'Available';
+        let normalizedStatus: 'Available' | 'Occupied' | 'Busy' | 'Dirty' | 'Reserved' = 'Available';
         const statusUpper = (item.status || '').toUpperCase();
         if (statusUpper === 'OCCUPIED') normalizedStatus = 'Occupied';
+        else if (statusUpper === 'BUSY' || statusUpper === 'SELECTING') normalizedStatus = 'Busy';
         else if (statusUpper === 'DIRTY') normalizedStatus = 'Dirty';
         else if (statusUpper === 'RESERVED') normalizedStatus = 'Reserved';
         else normalizedStatus = 'Available';
@@ -146,6 +146,8 @@ const TablesPage: React.FC = () => {
   };
 
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
     fetchTables();
   }, []);
 
@@ -306,11 +308,13 @@ const TablesPage: React.FC = () => {
         ) : (
           <div className="grid gap-5 py-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
             {tables.map((table) => {
-              // Map badge color based on status
-              let badgeColor = 'bg-green-600';
-              if (table.status === 'Occupied') badgeColor = 'bg-amber-500';
-              else if (table.status === 'Dirty') badgeColor = 'bg-gray-500';
-              else if (table.status === 'Reserved') badgeColor = 'bg-blue-500';
+              // Map badge color based on exact requested status colors:
+              // Available: Green | Busy: Amber Yellow | Occupied: Red | Dirty: Slate | Reserved: Purple
+              let badgeColor = 'bg-emerald-600';
+              if (table.status === 'Occupied') badgeColor = 'bg-red-600';
+              else if (table.status === 'Busy') badgeColor = 'bg-amber-500 text-slate-900';
+              else if (table.status === 'Dirty') badgeColor = 'bg-slate-500';
+              else if (table.status === 'Reserved') badgeColor = 'bg-purple-600';
 
               return (
                 <div 

@@ -16,17 +16,25 @@ const OrderInfoPage: React.FC = () => {
   React.useEffect(() => {
     const fetchPOSSettings = async () => {
       try {
+        const savedSettingsStr = localStorage.getItem('emenu_pos_settings');
+        if (savedSettingsStr) {
+          const savedSettings = JSON.parse(savedSettingsStr);
+          const taxRate = parseFloat(savedSettings.financials?.tax_rate_percentage ?? savedSettings.taxRate ?? 5.0);
+          const serviceCharge = parseFloat(savedSettings.financials?.service_charge_percentage ?? savedSettings.serviceCharge ?? 0.0);
+          setPosSettings({ taxRate, serviceCharge });
+          return;
+        }
+
         const rid = getRestaurantId();
         const res = await fetch(`${API_BASE_URL}/settings/pos/${rid}`);
         if (res.ok) {
           const data = await res.json();
           if (data) {
-            const taxRate = parseFloat(data.financials?.tax_rate_percentage ?? 5.0);
-            const serviceCharge = parseFloat(data.financials?.service_charge_percentage ?? 0.0);
-            setPosSettings({
-              taxRate,
-              serviceCharge
-            });
+            const settingsData = data?.data || data;
+            localStorage.setItem('emenu_pos_settings', JSON.stringify(settingsData));
+            const taxRate = parseFloat(settingsData.financials?.tax_rate_percentage ?? settingsData.taxRate ?? 5.0);
+            const serviceCharge = parseFloat(settingsData.financials?.service_charge_percentage ?? settingsData.serviceCharge ?? 0.0);
+            setPosSettings({ taxRate, serviceCharge });
           }
         }
       } catch (e) {
@@ -297,6 +305,27 @@ const OrderInfoPage: React.FC = () => {
     };
 
     try {
+      setLoading(true);
+
+      // Pre-check table live availability on backend to prevent concurrent ordering conflicts
+      const ordersCheckRes = await fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null);
+      if (ordersCheckRes && ordersCheckRes.ok) {
+        const ordersCheckData = await ordersCheckRes.json();
+        const rawCheckOrders = Array.isArray(ordersCheckData) ? ordersCheckData : (ordersCheckData?.data || []);
+        const isTableOccupiedNow = rawCheckOrders.some((o: any) => {
+          const cleanOrderTable = String(o.table_name || o.table_number || o.table_number_id || '').replace(/[^0-9]/g, '');
+          const isPending = (o.order_status || o.status || '').toUpperCase() === 'PENDING';
+          const isUnpaid = (o.bill?.payment_status || '').toUpperCase() !== 'PAID';
+          return cleanOrderTable !== '' && cleanOrderTable === cleanTableNum && isPending && isUnpaid;
+        });
+
+        if (isTableOccupiedNow && !existingOrderId) {
+          toast.error(`Table #${cleanTableNum} was just occupied. Please select an available table.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       const response = await fetch(`${API_BASE_URL}/order/create`, {
         method: 'POST',
         headers: {

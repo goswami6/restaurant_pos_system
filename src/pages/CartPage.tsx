@@ -50,18 +50,6 @@ const CartPage: React.FC = () => {
         const storedTable = sessionStorage.getItem('emenu_table') || '';
         const cleanTableNum = String(storedTable).replace(/[^0-9]/g, '');
 
-        const savedLastOrder = localStorage.getItem('emenu_last_order');
-        if (savedLastOrder) {
-          try {
-            const parsed = JSON.parse(savedLastOrder);
-            const cleanLastTable = String(parsed.table || '').replace(/[^0-9]/g, '');
-            if ((!cleanTableNum || cleanLastTable === cleanTableNum) && parsed.order_id) {
-              setExistingOrderId(String(parsed.order_id));
-              return;
-            }
-          } catch {}
-        }
-
         if (cleanTableNum) {
           const rid = getRestaurantId();
           const res = await fetch(`${API_BASE_URL}/orders/${rid}`);
@@ -69,7 +57,7 @@ const CartPage: React.FC = () => {
             const data = await res.json();
             const rawOrders = Array.isArray(data) ? data : (data?.data || []);
             const found = rawOrders.find((o: any) => {
-              const cleanOrderTable = String(o.table_name || o.table_number || '').replace(/[^0-9]/g, '');
+              const cleanOrderTable = String(o.table_name || o.table_number || o.table_number_id || '').replace(/[^0-9]/g, '');
               const isPending = (o.order_status || o.status || '').toUpperCase() === 'PENDING';
               const isUnpaid = (o.bill?.payment_status || '').toUpperCase() !== 'PAID';
               return cleanOrderTable === cleanTableNum && isPending && isUnpaid;
@@ -86,10 +74,8 @@ const CartPage: React.FC = () => {
       setExistingOrderId(null);
     };
 
-    if (!isGuestCustomer) {
-      checkActiveOccupiedOrder();
-    }
-  }, [isGuestCustomer]);
+    checkActiveOccupiedOrder();
+  }, []);
 
   const [cart, setCart] = useState<Record<string, any>>(() => {
     const saved = localStorage.getItem('emenu_cart');

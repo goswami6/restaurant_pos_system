@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import MenuPage from './pages/MenuPage';
-import CartPage from './pages/CartPage';
-import OrderInfoPage from './pages/OrderInfoPage';
-import OrderNumberPage from './pages/OrderNumberPage';
-import Login from './pages/Login';
-import TablesPage from './pages/TablesPage';
-import HistoryPage from './pages/HistoryPage';
+
+// Lazy loading page routes for Code-Splitting and fast initial page load
+const MenuPage = lazy(() => import('./pages/MenuPage'));
+const CartPage = lazy(() => import('./pages/CartPage'));
+const OrderInfoPage = lazy(() => import('./pages/OrderInfoPage'));
+const OrderNumberPage = lazy(() => import('./pages/OrderNumberPage'));
+const Login = lazy(() => import('./pages/Login'));
+const TablesPage = lazy(() => import('./pages/TablesPage'));
+const HistoryPage = lazy(() => import('./pages/HistoryPage'));
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center bg-slate-50">
+    <div className="w-8 h-8 border-3 border-[#0077b6] border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 const MenuRouteWrapper: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const location = useLocation();
@@ -80,40 +88,42 @@ function App() {
   return (
     <Router>
       <ToastContainer position="top-center" autoClose={2000} hideProgressBar={true} newestOnTop closeOnClick pauseOnHover theme="colored" />
-      <Routes>
-        <Route 
-          path="/login" 
-          element={user && !user.isGuest ? <Navigate to="/tables" replace /> : <Login onLogin={handleLogin} />} 
-        />
-        <Route 
-          path="/" 
-          element={<MenuRouteWrapper onLogout={handleLogout} />} 
-        />
-        <Route 
-          path="/menu" 
-          element={<MenuRouteWrapper onLogout={handleLogout} />} 
-        />
-        <Route 
-          path="/cart" 
-          element={<CartPage />} 
-        />
-        <Route 
-          path="/order-info" 
-          element={<OrderInfoPage />} 
-        />
-        <Route 
-          path="/order-number" 
-          element={<OrderNumberPage />} 
-        />
-        <Route 
-          path="/tables" 
-          element={user && !user.isGuest ? <TablesPage /> : <Navigate to="/" replace />} 
-        />
-        <Route 
-          path="/history" 
-          element={user && !user.isGuest ? <HistoryPage /> : <Navigate to="/" replace />} 
-        />
-      </Routes>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route 
+            path="/login" 
+            element={user && !user.isGuest ? <Navigate to="/tables" replace /> : <Login onLogin={handleLogin} />} 
+          />
+          <Route 
+            path="/" 
+            element={<MenuRouteWrapper onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/menu" 
+            element={<MenuRouteWrapper onLogout={handleLogout} />} 
+          />
+          <Route 
+            path="/cart" 
+            element={<CartPage />} 
+          />
+          <Route 
+            path="/order-info" 
+            element={<OrderInfoPage />} 
+          />
+          <Route 
+            path="/order-number" 
+            element={<OrderNumberPage />} 
+          />
+          <Route 
+            path="/tables" 
+            element={user && !user.isGuest ? <TablesPage /> : <Navigate to="/" replace />} 
+          />
+          <Route 
+            path="/history" 
+            element={user && !user.isGuest ? <HistoryPage /> : <Navigate to="/" replace />} 
+          />
+        </Routes>
+      </Suspense>
     </Router>
   );
 }

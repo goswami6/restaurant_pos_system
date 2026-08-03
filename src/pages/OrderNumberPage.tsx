@@ -30,9 +30,10 @@ const OrderNumberPage: React.FC = () => {
       try {
         const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-        // Fetch POS Settings and Orders in parallel ONCE
+        // Fetch POS Settings (if not cached) and Orders in parallel ONCE
+        const savedSettingsStr = localStorage.getItem('emenu_pos_settings');
         const [settingsRes, ordersRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`).catch(() => null),
+          savedSettingsStr ? null : fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`).catch(() => null),
           fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null)
         ]);
 
