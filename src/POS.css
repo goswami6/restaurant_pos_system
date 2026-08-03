@@ -222,9 +222,10 @@ body {
 
 /* Dynamic header accent states */
 .table-card-pos.available .card-header-pos { @apply bg-green-600; }
-.table-card-pos.occupied .card-header-pos { @apply bg-orange-500; }
+.table-card-pos.busy .card-header-pos { @apply bg-amber-500 text-slate-900; }
+.table-card-pos.occupied .card-header-pos { @apply bg-red-600; }
 .table-card-pos.dirty .card-header-pos { @apply bg-slate-500; }
-.table-card-pos.reserved .card-header-pos { @apply bg-blue-500; }
+.table-card-pos.reserved .card-header-pos { @apply bg-purple-600; }
 
 .card-body-pos {
   @apply p-4 flex-1 flex flex-col justify-between text-center;
@@ -348,7 +349,7 @@ body {
 }
 
 /* KOT PRINT STYLING */
-#print-receipt-kot, .printable-receipt {
+#print-receipt-kot {
   display: none;
 }
 
@@ -361,12 +362,11 @@ body {
   }
   
   /* Display only the active print receipt */
-  #print-receipt-kot, #print-receipt-kot *,
-  .printable-receipt, .printable-receipt * {
+  #print-receipt-kot, #print-receipt-kot * {
     visibility: visible;
   }
   
-  #print-receipt-kot, .printable-receipt {
+  #print-receipt-kot {
     display: block !important;
     position: absolute;
     left: 0;
@@ -585,5 +585,42 @@ body {
     background: rgba(15, 23, 42, 0.5) !important;
     backdrop-filter: blur(2px);
     z-index: 1040 !important;
+  }
+}
+
+/* Small Screen Category Header Compact Height */
+@media (max-width: 991.98px) {
+  .order-category-container {
+    padding-top: 3px !important;
+    padding-bottom: 3px !important;
+  }
+  .order-category-container .category-btn {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+    border-radius: 8px !important;
+  }
+}
+
+/* Mobile History Table Styling & Scrollbar Hiding */
+.history-table-responsive {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+.history-table-responsive::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+@media (max-width: 767.98px) {
+  .history-table-responsive table th,
+  .history-table-responsive table td {
+    padding: 6px 8px !important;
+    font-size: 0.78rem !important;
+  }
+  .history-table-responsive table .btn {
+    padding: 3px 6px !important;
+    font-size: 0.7rem !important;
   }
 }

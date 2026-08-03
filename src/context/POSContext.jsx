@@ -207,6 +207,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
     };
 
     // ── fetchOrders ──────────────────────────────────────────────────────────
+    const prevOrderIdsRef = useRef(new Set());
+
     const fetchOrders = async () => {
         const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
         try {
@@ -246,6 +248,17 @@ export const POSProvider = ({ user, onLogout, children }) => {
                         }))
                     };
                 });
+
+                // Detect newly placed orders and trigger live Toast popup alert
+                if (prevOrderIdsRef.current.size > 0) {
+                    mappedOrders.forEach(ord => {
+                        if (!prevOrderIdsRef.current.has(ord.order_id)) {
+                            showToast('success', `🔔 New Order #${ord.order_id}!`, `Placed for ${ord.table_number} • Total ₹${ord.total.toFixed(2)}`);
+                        }
+                    });
+                }
+                prevOrderIdsRef.current = new Set(mappedOrders.map(o => o.order_id));
+
                 mappedOrders.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
                 setOrderHistory(mappedOrders);
             }
@@ -258,12 +271,25 @@ export const POSProvider = ({ user, onLogout, children }) => {
     useEffect(() => {
         const fetchMenus = async () => {
             const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
+            const cachedMenuStr = sessionStorage.getItem(`emenu_cached_pos_menu_${restaurantId}`);
+            if (cachedMenuStr) {
+                try {
+                    const parsed = JSON.parse(cachedMenuStr);
+                    setMenuData(parsed);
+                    setLoading(false);
+                    return;
+                } catch (e) {
+                    // cache invalid
+                }
+            }
+
             try {
                 setLoading(true);
                 const response = await fetch(`${API_BASE_URL}/menus/${restaurantId}`);
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const data = await response.json();
                 setMenuData(data);
+                sessionStorage.setItem(`emenu_cached_pos_menu_${restaurantId}`, JSON.stringify(data));
             } catch (error) {
                 console.warn('API menu fetch failed:', error.message);
                 setMenuData({ categories: [] });
@@ -345,21 +371,36 @@ export const POSProvider = ({ user, onLogout, children }) => {
         }
 
         return list.map(t => {
-            // Match by table_id (numeric) as primary key, fallback to table_number string
-            const activeOrder = orderHistory.find(oh =>
-                (oh.table_number_id && parseInt(oh.table_number_id) === parseInt(t.table_id)) ||
-                oh.table_number === t.table_number
-            ) && orderHistory.find(oh =>
-                ((oh.table_number_id && parseInt(oh.table_number_id) === parseInt(t.table_id)) ||
-                oh.table_number === t.table_number) && oh.status === 'PENDING'
-            );
-            if (activeOrder && t.status === 'Occupied') {
-                return { ...t, status: 'Occupied', current_session: { active_order_id: activeOrder.order_id, order_status: activeOrder.status || 'PENDING', staff_name: activeOrder.staff_name || user?.username || 'Alex M.', updated_at: activeOrder.time, current_total: activeOrder.total, total_items: activeOrder.items.reduce((s, i) => s + i.qty, 0), items: activeOrder.items } };
+            const cleanTableNum = String(t.table_number || '').replace(/[^0-9]/g, '');
+            const cleanTableId = String(t.table_id || '').replace(/[^0-9]/g, '');
+
+            const activeOrder = orderHistory.find(oh => {
+                const statusStr = String(oh.order_status || oh.status || '').toUpperCase();
+                if (statusStr !== 'PENDING') return false;
+
+                const cleanOrderTableNum = String(oh.table_name || oh.table_number || '').replace(/[^0-9]/g, '');
+                const orderTableId = String(oh.table_number_id || '');
+
+                return (cleanTableNum && cleanOrderTableNum && cleanTableNum === cleanOrderTableNum) ||
+                       (cleanTableId && orderTableId && cleanTableId === orderTableId);
+            });
+
+            if (activeOrder) {
+                return { 
+                    ...t, 
+                    status: 'Occupied', 
+                    current_session: { 
+                        active_order_id: activeOrder.order_id, 
+                        order_status: activeOrder.order_status || activeOrder.status || 'PENDING', 
+                        staff_name: activeOrder.staff_name || activeOrder.guest_name || user?.username || 'Ravi', 
+                        updated_at: activeOrder.created_at || activeOrder.time, 
+                        current_total: activeOrder.bill?.grand_total ?? activeOrder.total ?? 0, 
+                        total_items: (activeOrder.items || []).reduce((s, i) => s + (parseInt(i.quantity || i.qty) || 1), 0), 
+                        items: activeOrder.items || [] 
+                    } 
+                };
             }
-            if (t.status === 'Occupied' && !t.current_session) {
-                return { ...t, status: 'Occupied', current_session: { active_order_id: null, staff_name: 'Unknown', updated_at: new Date().toISOString(), current_total: 0, total_items: 0, items: [] } };
-            }
-            return t;
+            return { ...t, status: 'Available', current_session: null };
         });
     }, [tablesData, orderHistory, user?.username]);
 
@@ -398,12 +439,15 @@ export const POSProvider = ({ user, onLogout, children }) => {
         if (session.items?.length > 0) {
             const newCart = {};
             session.items.forEach(item => {
-                const cartKey = item.variant_id ? `${item.item_id}_${item.variant_id}` : String(item.item_id);
+                const itemName = item.name || item.item_name || 'Item';
+                const formattedName = String(itemName).endsWith('(Active Order)') ? String(itemName) : `${String(itemName)} (Active Order)`;
+                const cartKey = item.variant_id ? `${item.item_id}_${item.variant_id}` : String(item.item_id || item.id || Math.random());
                 newCart[cartKey] = {
-                    id: cartKey, item_id: String(item.item_id),
-                    name: item.name.endsWith('(Active Order)') ? item.name : `${item.name} (Active Order)`,
-                    price: parseFloat(item.price !== undefined ? item.price : item.unit_price) || 0,
-                    qty: parseInt(item.qty !== undefined ? item.qty : item.quantity) || 1,
+                    id: cartKey, 
+                    item_id: String(item.item_id || item.id || '1'),
+                    name: formattedName,
+                    price: parseFloat(item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0)) || 0,
+                    qty: parseInt(item.qty !== undefined ? item.qty : (item.quantity !== undefined ? item.quantity : 1)) || 1,
                     category_id: String(item.category_id || '5'),
                     selectedVariant: item.variant_id ? { id: item.variant_id, name: item.variant_name || 'Variant', price: 0 } : null,
                     notes: item.notes || `Session Order: ${session.active_order_id || 'Active'}`

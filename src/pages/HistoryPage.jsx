@@ -31,8 +31,11 @@ const HistoryPage = () => {
                 <div className={activeOrderSummary ? "col-lg-8 col-md-7" : "col-12"}>
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                         <div className="card-body p-3 p-sm-4">
-                            <h5 className="fw-bold text-slate-900 mb-1">⏳ Order History</h5>
-                            <p className="text-muted small mb-3 mb-sm-4">Search and view details of placed and paid orders</p>
+                            <h5 className="fw-bold text-slate-900 mb-1 d-flex align-items-center">
+                                <i className="bi bi-clock-history text-primary fs-5 me-2"></i>
+                                <span>Order History</span>
+                            </h5>
+                            <p className="text-muted small mb-3 mb-sm-4 d-none d-sm-block">Search and view details of placed and paid orders</p>
         
                             <div className="row g-2 g-sm-3 mb-3 mb-sm-4">
                                 <div className="col-12 col-md-5">
@@ -42,6 +45,7 @@ const HistoryPage = () => {
                                         placeholder="Search by Order ID or Table..." 
                                         value={historySearchQuery}
                                         onChange={(e) => setHistorySearchQuery(e.target.value)}
+                                        style={{ height: '38px', fontSize: '0.85rem' }}
                                     />
                                 </div>
                                 <div className="col-6 col-md-3.5 col-lg-3">
@@ -49,6 +53,7 @@ const HistoryPage = () => {
                                         className="form-select"
                                         value={historyTypeFilter}
                                         onChange={(e) => setHistoryTypeFilter(e.target.value)}
+                                        style={{ height: '38px', fontSize: '0.85rem' }}
                                     >
                                         <option value="All">All Types</option>
                                         <option value="Dine-In">Dine-In</option>
@@ -61,6 +66,7 @@ const HistoryPage = () => {
                                         className="form-select"
                                         value={historyStatusFilter}
                                         onChange={(e) => setHistoryStatusFilter(e.target.value)}
+                                        style={{ height: '38px', fontSize: '0.85rem' }}
                                     >
                                         <option value="All">All Statuses</option>
                                         <option value="PAID">PAID</option>
@@ -69,8 +75,8 @@ const HistoryPage = () => {
                                 </div>
                             </div>
         
-                            <div className="table-responsive">
-                                <table className="table table-hover align-middle mb-0">
+                            <div className="table-responsive w-100 history-table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                                <table className="table table-hover align-middle mb-0" style={{ minWidth: '550px' }}>
                                     <thead className="table-light text-secondary" style={{ whiteSpace: 'nowrap' }}>
                                         <tr>
                                             <th>Order ID</th>
