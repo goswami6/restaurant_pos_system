@@ -72,21 +72,24 @@ const OrderInfoPage: React.FC = () => {
       sessionStorage.setItem('emenu_table', clean || urlTable);
       return clean || urlTable;
     }
-    const stored = sessionStorage.getItem('emenu_table') || '';
-    const cleanStored = String(stored).replace(/[^0-9]/g, '');
-    return cleanStored || stored;
+    return '';
   });
 
   const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [tables, setTables] = useState<any[]>([]);
-  const [selectedTable, setSelectedTable] = useState('');
+  const [selectedTable, setSelectedTable] = useState(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const urlTable = queryParams.get('table') || queryParams.get('table_number') || '';
+    if (urlTable) return String(urlTable).replace(/[^0-9]/g, '') || urlTable;
+    const stored = sessionStorage.getItem('emenu_table') || '';
+    return String(stored).replace(/[^0-9]/g, '') || stored;
+  });
 
   React.useEffect(() => {
     if (tableIdFromUrl) {
       setSelectedTable(tableIdFromUrl);
-      return;
     }
 
     const fetchTables = async () => {
@@ -176,7 +179,15 @@ const OrderInfoPage: React.FC = () => {
         const finalTables = availableTables.length > 0 ? availableTables : mappedList;
         setTables(finalTables);
 
-        // Do not auto-select table unless scanned from URL QR code
+        setSelectedTable((prev) => {
+          if (prev) return prev;
+          if (finalTables.length > 0) {
+            const firstNum = String(finalTables[0].table_number || finalTables[0].table_name || finalTables[0].table_id).replace(/[^0-9]/g, '') || finalTables[0].table_number;
+            sessionStorage.setItem('emenu_table', firstNum);
+            return firstNum;
+          }
+          return '';
+        });
       } catch (err: any) {
         console.error('Failed to fetch tables:', err.message);
         setTables([]);
@@ -478,7 +489,15 @@ const OrderInfoPage: React.FC = () => {
               ) : (
                 <select
                   value={selectedTable}
-                  onChange={(e) => setSelectedTable(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedTable(val);
+                    if (val) {
+                      sessionStorage.setItem('emenu_table', val);
+                    } else {
+                      sessionStorage.removeItem('emenu_table');
+                    }
+                  }}
                   className="w-full rounded-xl border border-gray-300 p-2.5 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-xs font-semibold text-gray-900 bg-white"
                 >
                   <option value="">-- Select Table Number * --</option>
