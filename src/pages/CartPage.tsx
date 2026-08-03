@@ -135,26 +135,6 @@ const CartPage: React.FC = () => {
 
       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-      // Call table status API to free table status to Available
-      const activeTable = sessionStorage.getItem('emenu_table') || '';
-      const cleanTableNum = String(activeTable).replace(/[^0-9]/g, '');
-      const targetTable = cleanTableNum || activeTable;
-      if (targetTable) {
-        try {
-          await fetch(`${API_BASE_URL}/tables/status`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              table_number: targetTable,
-              status: 'Available',
-              current_session: null
-            })
-          });
-        } catch (tableErr) {
-          console.warn('Failed to free table status:', tableErr);
-        }
-      }
-
       saveCart({});
       localStorage.removeItem('emenu_last_order');
       sessionStorage.removeItem('emenu_table');
