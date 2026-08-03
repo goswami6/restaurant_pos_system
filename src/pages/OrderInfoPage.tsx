@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { API_BASE_URL, getRestaurantId } from '../config';
 
 const OrderInfoPage: React.FC = () => {
@@ -56,6 +57,13 @@ const OrderInfoPage: React.FC = () => {
   });
   const [loading, setLoading] = useState(false);
 
+  const userObj = React.useMemo(() => {
+    const savedUser = localStorage.getItem('emenu_user');
+    return savedUser ? JSON.parse(savedUser) : null;
+  }, []);
+
+  const isGuestCustomer = !userObj || userObj.isGuest || userObj.role?.toLowerCase() === 'guest';
+
   const [tableIdFromUrl] = useState(() => {
     const queryParams = new URLSearchParams(window.location.search);
     const urlTable = queryParams.get('table') || queryParams.get('table_number') || '';
@@ -69,6 +77,9 @@ const OrderInfoPage: React.FC = () => {
     return cleanStored || stored;
   });
 
+  const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
   const [tables, setTables] = useState<any[]>([]);
   const [selectedTable, setSelectedTable] = useState('');
 
@@ -97,10 +108,10 @@ const OrderInfoPage: React.FC = () => {
         if (ordersRes && ordersRes.ok) {
           try {
             const ordersData = await ordersRes.json();
-            const rawOrders = Array.isArray(ordersData) 
-              ? ordersData 
+            const rawOrders = Array.isArray(ordersData)
+              ? ordersData
               : (ordersData && Array.isArray(ordersData.data) ? ordersData.data : []);
-            
+
             activeOrders = rawOrders.filter((o: any) => {
               const isUnpaid = o.bill?.payment_status?.toUpperCase() !== 'PAID';
               const isPending = o.order_status?.toUpperCase() === 'PENDING';
@@ -110,7 +121,7 @@ const OrderInfoPage: React.FC = () => {
             console.warn("Failed to parse orders in OrderInfoPage:", e);
           }
         }
-        
+
         let list: any[] = [];
         if (data && data.status === true && Array.isArray(data.data)) {
           const hasSections = data.data.length > 0 && data.data[0].tables;
@@ -145,7 +156,7 @@ const OrderInfoPage: React.FC = () => {
           const hasActiveOrder = activeOrders.some((o: any) => {
             const cleanOrderTable = String(o.table_name || o.table_number || '').replace(/[^0-9]/g, '');
             return (String(o.table_number_id) === String(item.table_id)) ||
-                   (cleanOrderTable !== '' && cleanOrderTable === cleanTableNum);
+              (cleanOrderTable !== '' && cleanOrderTable === cleanTableNum);
           });
 
           if (hasActiveOrder) {
@@ -175,11 +186,24 @@ const OrderInfoPage: React.FC = () => {
     fetchTables();
   }, [tableIdFromUrl]);
 
-  // Sync manual table selection to sessionStorage so the header can read it
+  // Sync manual table selection to sessionStorage and check for active occupied order ID
   React.useEffect(() => {
     if (selectedTable) {
       sessionStorage.setItem('emenu_table', selectedTable);
+      const cleanNum = String(selectedTable).replace(/[^0-9]/g, '');
+      const savedLastOrder = localStorage.getItem('emenu_last_order');
+      if (savedLastOrder) {
+        try {
+          const parsed = JSON.parse(savedLastOrder);
+          const cleanLastTable = String(parsed.table || '').replace(/[^0-9]/g, '');
+          if (cleanLastTable === cleanNum && parsed.order_id) {
+            setExistingOrderId(String(parsed.order_id));
+            return;
+          }
+        } catch { }
+      }
     }
+    setExistingOrderId(null);
   }, [selectedTable]);
 
   const [cart] = useState<Record<string, any>>(() => {
@@ -200,19 +224,19 @@ const OrderInfoPage: React.FC = () => {
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
-      alert("Your cart is empty!");
+      toast.warning("Your cart is empty!");
       return;
     }
-    
+
     const targetTableNum = selectedTable || tableIdFromUrl;
     const cleanTableNum = String(targetTableNum).replace(/[^0-9]/g, '');
     if (!targetTableNum || !cleanTableNum) {
-      alert("Please select a valid Table Number before placing your order!");
+      toast.warning("Please select a valid Table Number before placing your order!");
       return;
     }
 
     if (!guestName.trim() || !phone.trim()) {
-      alert("Please enter Guest Name and Phone Number!");
+      toast.warning("Please enter Guest Name and Phone Number!");
       return;
     }
 
@@ -292,12 +316,104 @@ const OrderInfoPage: React.FC = () => {
       }));
 
       localStorage.removeItem('emenu_cart');
+      toast.success("Order placed successfully!");
       navigate('/order-number');
     } catch (error: any) {
       console.error("Order creation failed:", error.message);
-      alert("Failed to place order: " + error.message);
+      toast.error("Failed to place order: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!existingOrderId) return handlePlaceOrder();
+    if (cartItems.length === 0) {
+      toast.warning("Your cart is empty!");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payloadItems = cartItems.map(item => ({
+        item_id: parseInt(item.id) || item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        notes: item.notes || ""
+      }));
+
+      const updatePayload = {
+        order_id: parseInt(existingOrderId),
+        items: payloadItems,
+        totals: {
+          subtotal: parseFloat(subTotal.toFixed(2)),
+          tax: parseFloat(taxAmt.toFixed(2)),
+          service_charge: parseFloat(serviceChargeAmt.toFixed(2)),
+          discount_amount: 0.00,
+          grand_total: parseFloat(total.toFixed(2))
+        }
+      };
+
+      const response = await fetch(`${API_BASE_URL}/order/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+      const activeTable = selectedTable || tableIdFromUrl || sessionStorage.getItem('emenu_table') || '1';
+      localStorage.setItem('emenu_last_order', JSON.stringify({
+        order_id: existingOrderId,
+        table: activeTable,
+        guest_name: guestName,
+        phone: phone,
+        items: cartItems,
+        subTotal,
+        tax: taxAmt,
+        serviceCharge: serviceChargeAmt,
+        total,
+        order_status: "PENDING",
+        created_at: new Date().toISOString()
+      }));
+
+      localStorage.removeItem('emenu_cart');
+      toast.success(`Order #${existingOrderId} updated successfully!`);
+      setShowModal(true);
+    } catch (error: any) {
+      console.error("Order update failed:", error.message);
+      toast.error("Failed to update order: " + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmCancelOrder = async () => {
+    if (!existingOrderId) return;
+    setCancellingOrder(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: parseInt(existingOrderId),
+          order_status: 'CANCELLED',
+          payment_status: 'UNPAID'
+        })
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+      localStorage.removeItem('emenu_cart');
+      localStorage.removeItem('emenu_last_order');
+      setShowCancelModal(false);
+      navigate('/');
+    } catch (error: any) {
+      console.error("Cancel order failed:", error.message);
+    } finally {
+      setCancellingOrder(false);
     }
   };
 
@@ -305,8 +421,8 @@ const OrderInfoPage: React.FC = () => {
     <div className="infobody min-h-screen bg-[#f8f9fa] font-sans pb-32">
       {/* Top Header */}
       <div className="header-info sticky top-0 z-50 flex h-11 md:h-16 w-full items-center bg-white px-3 md:px-8 shadow-sm border-b border-gray-150">
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="back-arrow mr-2.5 p-1.5 rounded-xl text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
         >
           <ArrowLeft size={20} />
@@ -316,7 +432,7 @@ const OrderInfoPage: React.FC = () => {
 
       <div className="bodymiddle flex justify-center min-h-[calc(100vh-4rem-5rem)] px-1 sm:px-4 py-1.5 sm:py-6">
         <div className="info-container w-full max-w-2xl bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-6 shadow-none sm:shadow-sm border-0 sm:border border-gray-200/80 space-y-4 sm:space-y-6 flex flex-col justify-between">
-          
+
           {/* Restaurant Header Info */}
           <div className="restaurant-info bg-gray-50/80 rounded-xl p-3 sm:p-4 border border-gray-100">
             <h2 className="text-lg font-black text-gray-900 mb-1 tracking-tight">BIG BEN RESTAURANT</h2>
@@ -348,7 +464,7 @@ const OrderInfoPage: React.FC = () => {
                   <span>📋</span> Table #{tableIdFromUrl.replace(/[^0-9]/g, '')}
                 </div>
               ) : (
-                <select 
+                <select
                   value={selectedTable}
                   onChange={(e) => setSelectedTable(e.target.value)}
                   className="w-full rounded-xl border border-gray-300 p-2.5 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-xs font-semibold text-gray-900 bg-white"
@@ -373,11 +489,11 @@ const OrderInfoPage: React.FC = () => {
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 Guest Name *
               </label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={guestName}
                 onChange={(e) => setGuestName(e.target.value)}
-                placeholder="Enter Guest Name" 
+                placeholder="Enter Guest Name"
                 className="w-full rounded-xl border border-gray-300 p-3 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-sm font-medium text-gray-900 transition-all"
               />
             </div>
@@ -386,11 +502,11 @@ const OrderInfoPage: React.FC = () => {
               <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
                 Phone Number *
               </label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter Phone Number" 
+                placeholder="Enter Phone Number"
                 className="w-full rounded-xl border border-gray-300 p-3 outline-none focus:border-[#0077b6] focus:ring-2 focus:ring-[#0077b6]/20 text-sm font-medium text-gray-900 transition-all"
               />
             </div>
@@ -456,22 +572,49 @@ const OrderInfoPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Bottom Place Order Bar */}
+      {/* Floating Bottom Place / Update / Cancel Order Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 p-2.5 sm:p-4 flex justify-center shadow-lg">
-        <button 
-          onClick={handlePlaceOrder}
-          disabled={loading}
-          className="w-full max-w-[550px] py-3.5 px-6 rounded-xl bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.99] text-white font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-              <span>Placing Order...</span>
-            </>
-          ) : (
-            <span>Place Order (₹{total.toFixed(2)})</span>
-          )}
-        </button>
+        {!isGuestCustomer && existingOrderId ? (
+          <div className="w-full max-w-[550px] flex items-center gap-2">
+            <button
+              onClick={() => setShowCancelModal(true)}
+              disabled={loading}
+              className="flex-1 py-3 px-2.5 sm:px-4 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-[0.99] text-white font-extrabold text-[11px] sm:text-sm whitespace-nowrap shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 border border-rose-700/20"
+            >
+              <span>Cancel</span>
+            </button>
+
+            <button
+              onClick={handleUpdateOrder}
+              disabled={loading}
+              className="flex-[1.6] py-3 px-3 sm:px-4 rounded-xl bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.99] text-white font-extrabold text-[11px] sm:text-sm whitespace-nowrap shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 border border-[#005f92]/20"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                  <span>Updating...</span>
+                </>
+              ) : (
+                <span>Update Order (₹{total.toFixed(2)}) →</span>
+              )}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={handlePlaceOrder}
+            disabled={loading}
+            className="w-full max-w-[550px] py-3.5 px-6 rounded-xl bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.99] text-white font-bold text-sm tracking-wide shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                <span>Placing Order...</span>
+              </>
+            ) : (
+              <span>Place Order (₹{total.toFixed(2)})</span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Confirmation Modal */}
@@ -486,7 +629,7 @@ const OrderInfoPage: React.FC = () => {
               <p className="text-xs text-gray-500 mt-1">Your order has been placed and sent to the kitchen.</p>
             </div>
             <div className="space-y-2.5 pt-1">
-              <button 
+              <button
                 onClick={() => {
                   setShowModal(false);
                   navigate('/history');
@@ -495,7 +638,7 @@ const OrderInfoPage: React.FC = () => {
               >
                 View Order History
               </button>
-              <button 
+              <button
                 onClick={() => {
                   setShowModal(false);
                   navigate('/order-number');
@@ -503,6 +646,46 @@ const OrderInfoPage: React.FC = () => {
                 className="w-full py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-bold transition-all cursor-pointer"
               >
                 View Order Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal for Cancel Order */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in" onClick={() => setShowCancelModal(false)}>
+          <div className="w-full max-w-[340px] rounded-2xl bg-white p-6 text-center shadow-2xl space-y-4 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 size={26} className="text-rose-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Cancel Order #{existingOrderId}?</h3>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Are you sure you want to cancel this order? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button 
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancellingOrder}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+              >
+                No, Keep Order
+              </button>
+              <button 
+                onClick={handleConfirmCancelOrder}
+                disabled={cancellingOrder}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md flex items-center justify-center gap-1 disabled:opacity-50"
+              >
+                {cancellingOrder ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <span>Yes, Cancel</span>
+                )}
               </button>
             </div>
           </div>

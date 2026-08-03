@@ -46,6 +46,15 @@ const MenuPage: React.FC<{ onLogout?: () => void }> = ({ onLogout }) => {
     const loadMenuAndSession = async () => {
       try {
         setLoading(true);
+        const queryParams = new URLSearchParams(window.location.search);
+        const urlTable = queryParams.get('table') || queryParams.get('table_number');
+        if (urlTable) {
+          const clean = String(urlTable).replace(/[^0-9]/g, '');
+          sessionStorage.setItem('emenu_table', clean || urlTable);
+        } else {
+          sessionStorage.removeItem('emenu_table');
+        }
+
         const savedUser = localStorage.getItem('emenu_user');
         const userObj = savedUser ? JSON.parse(savedUser) : null;
         const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;

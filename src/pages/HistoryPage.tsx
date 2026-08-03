@@ -119,50 +119,68 @@ const HistoryPage: React.FC = () => {
 
   const handleDownloadBill = (order: any) => {
     const cleanDate = order.created_at 
-      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString()
-      : new Date().toLocaleString();
+      ? new Date(order.created_at.includes(' ') ? order.created_at.replace(' ', 'T') : order.created_at).toLocaleString('en-GB')
+      : new Date().toLocaleString('en-GB');
 
-    const subtotal = Number(order.bill?.subtotal || 0).toFixed(2);
-    const tax = Number(order.bill?.tax_amount || 0).toFixed(2);
-    const grandTotal = Number(order.bill?.grand_total || 0).toFixed(2);
-    const cgst = (Number(tax) / 2).toFixed(2);
-    const sgst = (Number(tax) / 2).toFixed(2);
+    const taxRate = parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5);
+    const serviceChargeRate = parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 0);
+    const items = order.items || [];
+    const itemsSubtotal = items.reduce((sum: number, item: any) => {
+      const q = parseInt(item.quantity || item.qty) || 1;
+      const unitP = Number(item.unit_price || item.price || (item.total_price ? item.total_price / q : 0));
+      return sum + (unitP * q);
+    }, 0);
 
-    const restName = posSettings?.restaurant_info?.name || "BIG BEN RESTAURANT";
-    const restAddr = posSettings?.restaurant_info?.address || "1st Flr, Sun Mill Compound, Lower Parel, pune, MH, 411057";
+    const subtotal = Number(order.bill?.subtotal ?? order.subTotal ?? order.subtotal ?? itemsSubtotal);
+    const serviceAmt = Number(order.bill?.service_charge ?? order.serviceCharge ?? ((subtotal * serviceChargeRate) / 100));
+    const taxTotal = Number(order.bill?.tax_amount ?? order.tax ?? (((subtotal + serviceAmt) * taxRate) / 100));
+    const halfTaxRate = (taxRate / 2).toFixed(1);
+    const cgstAmt = taxTotal / 2;
+    const sgstAmt = taxTotal / 2;
+    const grandTotal = Number(order.bill?.grand_total ?? order.total ?? order.grand_total ?? (subtotal + serviceAmt + taxTotal));
+    const totalQty = items.reduce((sum: number, item: any) => sum + (parseInt(item.quantity || item.qty) || 1), 0);
+
+    const restaurantNameStr = posSettings?.restaurantName || posSettings?.restaurant_info?.name || 'Big Ben Restaurant';
+    const addressStr = posSettings?.address || posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel';
+    const cityStateStr = [posSettings?.city || posSettings?.restaurant_info?.city, posSettings?.state || posSettings?.restaurant_info?.state, posSettings?.pincode || posSettings?.restaurant_info?.pincode].filter(Boolean).join(', ') || 'pune, MH, 411057';
+    const gstinStr = posSettings?.gstin || posSettings?.restaurant_info?.gstin || posSettings?.restaurant_info?.gst_number || '27AAAAA0000A1Z5';
+    const fssaiStr = posSettings?.fssaiNo || posSettings?.restaurant_info?.fssai_no || posSettings?.restaurant_info?.fssai_number || '10019022009876';
 
     const lines = [
-      restName.toUpperCase(),
-      restAddr,
+      restaurantNameStr,
+      addressStr,
+      cityStateStr,
+      `GSTIN: ${gstinStr}`,
+      `FSSAI NO: ${fssaiStr}`,
       "--------------------------------------------------",
-      "TAX INVOICE / POS RECEIPT",
+      `Bill No: ${order.order_id}                   Date: ${cleanDate}`,
+      `Dine In: ${order.table_name || 'N/A'}                  Waiter: Ravi`,
       "--------------------------------------------------",
-      `Bill No: #${order.order_id}       Table: ${order.table_name || 'Walk-In'}`,
-      `Date: ${cleanDate}`,
-      `Customer: ${order.guest_name || 'Guest'} ${order.phone ? `(${order.phone})` : ''}`,
-      "--------------------------------------------------",
-      "ITEM                             QTY   PRICE    AMT",
+      "Item                             Qty.   Price   Amount",
       "--------------------------------------------------"
     ];
 
     (order.items || []).forEach((item: any) => {
       const name = (item.name || 'Item').padEnd(28, ' ').substring(0, 28);
-      const qty = String(item.quantity || 1).padStart(3, ' ');
-      const price = Number(item.unit_price || 0).toFixed(2).padStart(7, ' ');
-      const amt = Number(item.total_price || (item.unit_price * item.quantity)).toFixed(2).padStart(7, ' ');
+      const qty = String(item.quantity || item.qty || 1).padStart(3, ' ');
+      const price = Number(item.unit_price || item.price || 0).toFixed(2).padStart(7, ' ');
+      const amt = (Number(item.total_price || (Number(item.unit_price || item.price || 0) * (item.quantity || 1)))).toFixed(2).padStart(7, ' ');
       lines.push(`${name} ${qty} ${price} ${amt}`);
     });
 
     lines.push("--------------------------------------------------");
-    lines.push(`Sub Total:                              Rs.${subtotal}`);
-    lines.push(`CGST (2.5%):                            Rs.${cgst}`);
-    lines.push(`SGST (2.5%):                            Rs.${sgst}`);
-    lines.push("==================================================");
-    lines.push(`GRAND TOTAL:                            Rs.${grandTotal}`);
-    lines.push("==================================================");
+    lines.push(`Total Qty: ${totalQty}               Sub Total  ${subtotal.toFixed(2)}`);
+    lines.push(`                                    CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2)}`);
+    lines.push(`                                    SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2)}`);
+    if (serviceChargeRate > 0) {
+      lines.push(`                          Service Charge ${serviceChargeRate}%   ${serviceAmt.toFixed(2)}`);
+    }
+    lines.push("--------------------------------------------------");
+    lines.push(`Grand Total (INR)                         ${grandTotal.toFixed(2)}`);
+    lines.push("--------------------------------------------------");
     lines.push("");
-    lines.push("          *** THANK YOU! VISIT AGAIN ***          ");
-    lines.push("         This is a computer generated bill.        ");
+    lines.push("             Thank you & Visit Again              ");
+    lines.push("--------------------------------------------------");
 
     let contentStream = `BT /F1 10 Tf 20 760 Td 14 TL\n`;
     lines.forEach((line) => {
@@ -219,11 +237,23 @@ ${400 + contentStream.length}
 
     const items = order.items || [];
     const totalQty = items.reduce((sum: number, item: any) => sum + (parseInt(item.quantity || item.qty) || 1), 0);
-    const subTotalNum = Number(order.bill?.subtotal || 0);
-    const taxTotal = Number(order.bill?.tax_amount || 0);
+    
+    // Fallback subtotal calculation from items if order.bill is empty
+    const itemsSubtotal = items.reduce((sum: number, item: any) => {
+      const q = parseInt(item.quantity || item.qty) || 1;
+      const unitP = Number(item.unit_price || item.price || (item.total_price ? item.total_price / q : 0));
+      return sum + (unitP * q);
+    }, 0);
+
+    const taxRate = parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5);
+    const serviceChargeRate = parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 0);
+
+    const subTotalNum = Number(order.bill?.subtotal ?? order.subTotal ?? order.subtotal ?? itemsSubtotal);
+    const serviceAmt = Number(order.bill?.service_charge ?? order.serviceCharge ?? ((subTotalNum * serviceChargeRate) / 100));
+    const taxTotal = Number(order.bill?.tax_amount ?? order.tax ?? (((subTotalNum + serviceAmt) * taxRate) / 100));
     const cgstAmt = taxTotal / 2;
     const sgstAmt = taxTotal / 2;
-    const grandTotalNum = Number(order.bill?.grand_total || 0);
+    const grandTotalNum = Number(order.bill?.grand_total ?? order.total ?? order.grand_total ?? (subTotalNum + serviceAmt + taxTotal));
 
     const itemsRowsHtml = items.map((item: any) => {
       const qty = parseInt(item.quantity || item.qty) || 1;
@@ -264,8 +294,13 @@ ${400 + contentStream.length}
       </head>
       <body>
         <div style="text-align: center; margin-bottom: 6px;">
-          <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurant_info?.name || 'Big Ben Restaurant'}</div>
-          <div style="font-size: 10px;">${posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel, pune, MH, 411057'}</div>
+          <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurantName || posSettings?.restaurant_info?.name || 'Big Ben Restaurant'}</div>
+          <div style="font-size: 10px;">${posSettings?.address || posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel'}</div>
+          <div style="font-size: 10px;">
+            ${[posSettings?.city || posSettings?.restaurant_info?.city, posSettings?.state || posSettings?.restaurant_info?.state, posSettings?.pincode || posSettings?.restaurant_info?.pincode].filter(Boolean).join(', ') || 'pune, MH, 411057'}
+          </div>
+          <div style="font-size: 10px;">GSTIN: ${posSettings?.gstin || posSettings?.restaurant_info?.gstin || posSettings?.restaurant_info?.gst_number || '27AAAAA0000A1Z5'}</div>
+          <div style="font-size: 10px;">FSSAI NO: ${posSettings?.fssaiNo || posSettings?.restaurant_info?.fssai_no || posSettings?.restaurant_info?.fssai_number || '10019022009876'}</div>
         </div>
 
         <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
@@ -278,12 +313,12 @@ ${400 + contentStream.length}
         ` : ''}
 
         <div style="display: flex; justify-content: space-between; font-size: 10px;">
-          <span>Bill No: #${order.order_id}</span>
+          <span>Bill No: ${order.order_id}</span>
           <span>Date: ${cleanDate}</span>
         </div>
         <div style="display: flex; justify-content: space-between; font-size: 10px;">
-          <span>${order.table_name ? (String(order.table_name).includes('Table') ? order.table_name : `Table #${order.table_name}`) : 'Type: DINE-IN'}</span>
-          <span>Waiter: Staff Waiter</span>
+          <span>${order.table_name ? `Dine In: ${order.table_name}` : 'Type: DINE-IN'}</span>
+          <span>Waiter: Ravi</span>
         </div>
 
         <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
@@ -307,11 +342,16 @@ ${400 + contentStream.length}
             <span>Sub Total &nbsp;&nbsp;${subTotalNum.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-            <span>CGST ${posSettings?.financials?.cgst || 2.5}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
+            <span>CGST ${((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
           </div>
           <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-            <span>SGST ${posSettings?.financials?.sgst || 2.5}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
+            <span>SGST ${((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
           </div>
+          ${parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5) > 0 ? `
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+              <span>Service Charge ${parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5)}% &nbsp;&nbsp;${((subTotalNum * parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5)) / 100).toFixed(2)}</span>
+            </div>
+          ` : ''}
           <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 4px;">
             <span>Grand Total (INR)</span>
             <span>${grandTotalNum.toFixed(2)}</span>
@@ -568,13 +608,15 @@ ${400 + contentStream.length}
                               >
                                 <Eye size={14} />
                               </button>
-                              <button 
-                                className="p-1.5 hover:bg-amber-100/70 text-amber-700 bg-amber-50 rounded-lg transition-colors border border-amber-200/50 cursor-pointer"
-                                onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
-                                title="Print Bill"
-                              >
-                                <Printer size={14} />
-                              </button>
+                              {order.resolved_status !== 'CANCELLED' && order.resolved_status !== 'REJECTED' && (
+                                <button 
+                                  className="p-1.5 hover:bg-amber-100/70 text-amber-700 bg-amber-50 rounded-lg transition-colors border border-amber-200/50 cursor-pointer"
+                                  onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
+                                  title="Print Bill"
+                                >
+                                  <Printer size={14} />
+                                </button>
+                              )}
                               <button 
                                 className="p-1.5 hover:bg-[#0077b6]/10 text-[#0077b6] bg-[#0077b6]/5 rounded-lg transition-colors border border-[#0077b6]/20 cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); handleDownloadBill(order); }}
@@ -620,7 +662,7 @@ ${400 + contentStream.length}
                                   </div>
                                 </div>
 
-                                {/* Right Side: Billing Breakdown */}
+                {/* Right Side: Billing Breakdown */}
                                 {order.bill && (
                                   <div className="bg-white border border-dashed border-gray-300 rounded-xl p-3.5 sm:p-5 shadow-sm w-full md:max-w-sm md:ml-auto">
                                     <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest border-b pb-2 mb-3 text-center">
@@ -631,14 +673,20 @@ ${400 + contentStream.length}
                                         <span>Subtotal</span>
                                         <span className="font-medium text-gray-800">₹{Number(order.bill.subtotal).toFixed(2)}</span>
                                       </div>
-                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500">
-                                        <span>Tax (5%)</span>
-                                        <span>₹{Number(order.bill.tax_amount).toFixed(2)}</span>
+                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500 pl-2">
+                                        <span>CGST ({((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}%)</span>
+                                        <span>+₹{(Number(order.bill.tax_amount || 0) / 2).toFixed(2)}</span>
                                       </div>
-                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500">
-                                        <span>Service Charge (7%)</span>
-                                        <span>₹{Number(order.bill.service_charge).toFixed(2)}</span>
+                                      <div className="flex justify-between text-[11px] sm:text-xs text-gray-500 pl-2">
+                                        <span>SGST ({((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}%)</span>
+                                        <span>+₹{(Number(order.bill.tax_amount || 0) / 2).toFixed(2)}</span>
                                       </div>
+                                      {Number(order.bill.service_charge) > 0 && (
+                                        <div className="flex justify-between text-[11px] sm:text-xs text-gray-500">
+                                          <span>Service Charge ({posSettings?.financials?.service_charge_percentage || posSettings?.serviceCharge || 5}%)</span>
+                                          <span>+₹{Number(order.bill.service_charge).toFixed(2)}</span>
+                                        </div>
+                                      )}
                                       {order.bill.discount_amount > 0 && (
                                         <div className="flex justify-between text-[11px] sm:text-xs text-red-500">
                                           <span>Discount</span>
@@ -655,13 +703,19 @@ ${400 + contentStream.length}
 
                                       {/* Print & Download Action Buttons */}
                                       <div className="flex items-center gap-2 pt-3 border-t border-dashed border-gray-200">
-                                        <button 
-                                          onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
-                                          className="flex-1 py-1.5 px-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"
-                                        >
-                                          <Printer size={13} />
-                                          <span>Print Bill</span>
-                                        </button>
+                                        {order.resolved_status !== 'CANCELLED' && order.resolved_status !== 'REJECTED' ? (
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); handlePrintOrder(order); }}
+                                            className="flex-1 py-1.5 px-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"
+                                          >
+                                            <Printer size={13} />
+                                            <span>Print Bill</span>
+                                          </button>
+                                        ) : (
+                                          <div className="flex-1 py-1.5 px-2 bg-rose-50 text-rose-600 rounded-lg text-xs font-bold text-center border border-rose-200">
+                                            Order Cancelled
+                                          </div>
+                                        )}
                                         <button 
                                           onClick={(e) => { e.stopPropagation(); handleDownloadBill(order); }}
                                           className="flex-1 py-1.5 px-2 bg-[#0077b6] hover:bg-[#005f92] active:scale-95 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-all shadow-xs"

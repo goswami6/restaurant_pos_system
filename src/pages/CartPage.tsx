@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Trash2, ShoppingBag, ArrowLeft, Info, FileText } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
 import { API_BASE_URL, getRestaurantId } from '../config';
 
 const CartPage: React.FC = () => {
@@ -14,6 +15,11 @@ const CartPage: React.FC = () => {
     taxRate: 5.0,
     serviceCharge: 0.0
   });
+
+  const savedUser = localStorage.getItem('emenu_user');
+  const userObj = savedUser ? JSON.parse(savedUser) : null;
+  const isGuestCustomer = !userObj || userObj.isGuest || userObj.role?.toLowerCase() === 'guest';
+  const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPOSSettings = async () => {
@@ -38,6 +44,53 @@ const CartPage: React.FC = () => {
     fetchPOSSettings();
   }, []);
 
+  useEffect(() => {
+    const checkActiveOccupiedOrder = async () => {
+      try {
+        const storedTable = sessionStorage.getItem('emenu_table') || '';
+        const cleanTableNum = String(storedTable).replace(/[^0-9]/g, '');
+
+        const savedLastOrder = localStorage.getItem('emenu_last_order');
+        if (savedLastOrder) {
+          try {
+            const parsed = JSON.parse(savedLastOrder);
+            const cleanLastTable = String(parsed.table || '').replace(/[^0-9]/g, '');
+            if ((!cleanTableNum || cleanLastTable === cleanTableNum) && parsed.order_id) {
+              setExistingOrderId(String(parsed.order_id));
+              return;
+            }
+          } catch {}
+        }
+
+        if (cleanTableNum) {
+          const rid = getRestaurantId();
+          const res = await fetch(`${API_BASE_URL}/orders/${rid}`);
+          if (res.ok) {
+            const data = await res.json();
+            const rawOrders = Array.isArray(data) ? data : (data?.data || []);
+            const found = rawOrders.find((o: any) => {
+              const cleanOrderTable = String(o.table_name || o.table_number || '').replace(/[^0-9]/g, '');
+              const isPending = (o.order_status || o.status || '').toUpperCase() === 'PENDING';
+              const isUnpaid = (o.bill?.payment_status || '').toUpperCase() !== 'PAID';
+              return cleanOrderTable === cleanTableNum && isPending && isUnpaid;
+            });
+            if (found) {
+              setExistingOrderId(String(found.order_id));
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking occupied order in Cart:', e);
+      }
+      setExistingOrderId(null);
+    };
+
+    if (!isGuestCustomer) {
+      checkActiveOccupiedOrder();
+    }
+  }, [isGuestCustomer]);
+
   const [cart, setCart] = useState<Record<string, any>>(() => {
     const saved = localStorage.getItem('emenu_cart');
     return saved ? JSON.parse(saved) : {};
@@ -51,6 +104,98 @@ const CartPage: React.FC = () => {
   const handleClearCart = () => {
     saveCart({});
     setIsClearModalOpen(false);
+  };
+
+  const [updating, setUpdating] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleConfirmCancelOrder = async () => {
+    if (!existingOrderId) return;
+    setCancelling(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/orders/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: parseInt(existingOrderId),
+          order_status: 'CANCELLED',
+          payment_status: 'UNPAID'
+        })
+      });
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+      saveCart({});
+      localStorage.removeItem('emenu_last_order');
+      setShowCancelModal(false);
+      toast.info(`Order #${existingOrderId} has been cancelled.`);
+      navigate('/');
+    } catch (err: any) {
+      console.error('Failed to cancel order:', err);
+      toast.error(`Failed to cancel order: ${err.message}`);
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleDirectUpdateOrderInCart = async () => {
+    if (!existingOrderId) return;
+    if (cartItems.length === 0) {
+      toast.warning("Your cart is empty!");
+      return;
+    }
+    setUpdating(true);
+    try {
+      const payloadItems = cartItems.map(item => ({
+        item_id: parseInt(item.id) || item.id,
+        name: item.name,
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity,
+        notes: item.notes || ""
+      }));
+
+      const updatePayload = {
+        order_id: parseInt(existingOrderId),
+        items: payloadItems,
+        totals: {
+          subtotal: parseFloat(subtotal.toFixed(2)),
+          tax: parseFloat(taxAmt.toFixed(2)),
+          service_charge: parseFloat(serviceChargeAmt.toFixed(2)),
+          discount_amount: 0.00,
+          grand_total: parseFloat(grandTotal.toFixed(2))
+        }
+      };
+
+      const response = await fetch(`${API_BASE_URL}/order/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatePayload)
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+      const storedTable = sessionStorage.getItem('emenu_table') || '1';
+      localStorage.setItem('emenu_last_order', JSON.stringify({
+        order_id: existingOrderId,
+        table: storedTable,
+        items: cartItems,
+        subTotal: subtotal,
+        tax: taxAmt,
+        serviceCharge: serviceChargeAmt,
+        total: grandTotal,
+        order_status: "PENDING",
+        created_at: new Date().toISOString()
+      }));
+
+      saveCart({});
+      toast.success(`Order #${existingOrderId} updated successfully!`);
+      navigate('/order-number');
+    } catch (err: any) {
+      console.error("Cart update failed:", err.message);
+      toast.error("Failed to update order: " + err.message);
+    } finally {
+      setUpdating(false);
+    }
   };
 
   const updateQty = (id: string, delta: number) => {
@@ -102,7 +247,6 @@ const CartPage: React.FC = () => {
           </button>
           <div>
             <h2 className="text-lg md:text-[20px] font-bold text-gray-900">Cart</h2>
-            <p className="text-xs text-gray-500 md:hidden">{cartItems.length} {cartItems.length === 1 ? 'item' : 'items'}</p>
           </div>
         </div>
 
@@ -243,45 +387,95 @@ const CartPage: React.FC = () => {
       {cartItems.length > 0 && (
         <>
           {/* Mobile Bottom Footer */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 py-2 px-3 shadow-[0_-4px_12px_rgba(0,0,0,0.08)] flex md:hidden items-center justify-between">
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200 py-2.5 px-3 shadow-[0_-4px_16px_rgba(0,0,0,0.1)] flex md:hidden items-center justify-between gap-2">
             <div 
               onClick={() => setIsBillSheetOpen(true)}
-              className="cursor-pointer group py-0.5"
+              className="cursor-pointer group py-0.5 min-w-0 flex-shrink-0"
               title="Click to view detailed bill breakdown"
             >
               <div className="flex items-center gap-1">
-                <span className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider group-hover:text-[#0077b6] transition-colors">TOTAL</span>
-                <Info size={12} className="text-[#0077b6] group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider group-hover:text-[#0077b6] transition-colors">TOTAL</span>
+                <Info size={11} className="text-[#0077b6] group-hover:scale-110 transition-transform" />
               </div>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-base font-extrabold text-[#0077b6]">
-                  {grandTotal.toFixed(2)} Rs
+              <div className="flex items-baseline gap-1">
+                <span className="text-sm sm:text-base font-black text-[#0077b6] whitespace-nowrap">
+                  ₹{grandTotal.toFixed(2)}
                 </span>
-                <span className="text-[10px] font-medium text-gray-400">
+                <span className="text-[9px] font-medium text-gray-400 whitespace-nowrap hidden xs:inline">
                   (incl. GST)
                 </span>
               </div>
             </div>
-            <Link 
-              to="/order-info" 
-              className="bg-[#0077b6] hover:bg-[#005f92] active:scale-98 text-white font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 text-sm transition-all no-underline"
-            >
-              <span>Confirm Order</span>
-              <span>→</span>
-            </Link>
+
+            {!isGuestCustomer && existingOrderId ? (
+              <div className="flex items-center gap-1.5 flex-1 justify-end min-w-0">
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold px-3 py-2 rounded-xl shadow-xs text-xs whitespace-nowrap transition-all cursor-pointer border border-rose-700/20"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDirectUpdateOrderInCart}
+                  disabled={updating}
+                  className="bg-[#0077b6] hover:bg-[#005f92] active:scale-98 text-white font-extrabold px-3.5 py-2 rounded-xl shadow-xs flex items-center justify-center gap-1 text-xs whitespace-nowrap transition-all border border-[#005f92]/20 cursor-pointer disabled:opacity-50"
+                >
+                  {updating ? (
+                    <span>Updating...</span>
+                  ) : (
+                    <>
+                      <span>Update Order</span>
+                      <span className="text-xs">→</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : (
+              <Link 
+                to="/order-info" 
+                className="bg-[#0077b6] hover:bg-[#005f92] active:scale-98 text-white font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5 text-xs sm:text-sm whitespace-nowrap transition-all no-underline"
+              >
+                <span>Confirm Order</span>
+                <span>→</span>
+              </Link>
+            )}
           </div>
 
           {/* Desktop Bottom Footer */}
-          <Link 
-            to="/order-info" 
-            className="cart-footer hidden md:flex fixed bottom-[2.5vh] ml-[2.5vw] h-[6vh] w-[95vw] items-center justify-between rounded-[10px] bg-[#0077b6] p-[15px] no-underline shadow-md"
-          >
-            <div className="cart-button text-[16px] text-white font-bold flex items-center gap-2">
-              <span>Confirm Order - {grandTotal.toFixed(2)} Rs</span>
-              <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-normal">Plus Taxes ({taxRate}% GST)</span>
+          {!isGuestCustomer && existingOrderId ? (
+            <div className="cart-footer hidden md:flex fixed bottom-[2.5vh] ml-[2.5vw] h-[6vh] w-[95vw] items-center justify-between rounded-[10px] bg-[#0077b6] p-[15px] shadow-md">
+              <div className="cart-button text-[16px] text-white font-bold flex items-center gap-2">
+                <span>Update Order - {grandTotal.toFixed(2)} Rs</span>
+                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-normal">Plus Taxes ({taxRate}% GST)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowCancelModal(true)}
+                  className="bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDirectUpdateOrderInCart}
+                  disabled={updating}
+                  className="bg-white text-[#0077b6] hover:bg-gray-100 font-bold px-4 py-1.5 rounded-lg text-xs transition-all cursor-pointer border border-white/40 disabled:opacity-50"
+                >
+                  {updating ? 'Updating...' : 'Update Order →'}
+                </button>
+              </div>
             </div>
-            <span className="text-white text-lg font-bold">→</span>
-          </Link>
+          ) : (
+            <Link 
+              to="/order-info" 
+              className="cart-footer hidden md:flex fixed bottom-[2.5vh] ml-[2.5vw] h-[6vh] w-[95vw] items-center justify-between rounded-[10px] bg-[#0077b6] p-[15px] no-underline shadow-md"
+            >
+              <div className="cart-button text-[16px] text-white font-bold flex items-center gap-2">
+                <span>Confirm Order - {grandTotal.toFixed(2)} Rs</span>
+                <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-normal">Plus Taxes ({taxRate}% GST)</span>
+              </div>
+              <span className="text-white text-lg font-bold">→</span>
+            </Link>
+          )}
         </>
       )}
 
@@ -414,6 +608,46 @@ const CartPage: React.FC = () => {
                 className="flex-1 py-2 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md"
               >
                 Clear Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal for Cancel Order */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in" onClick={() => setShowCancelModal(false)}>
+          <div className="w-full max-w-[340px] rounded-2xl bg-white p-6 text-center shadow-2xl space-y-4 animate-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="w-14 h-14 bg-rose-50 border border-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 size={26} className="text-rose-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-gray-900">Cancel Order #{existingOrderId}?</h3>
+              <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                Are you sure you want to cancel this order? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button 
+                onClick={() => setShowCancelModal(false)}
+                disabled={cancelling}
+                className="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold cursor-pointer transition-all disabled:opacity-50"
+              >
+                No, Keep Order
+              </button>
+              <button 
+                onClick={handleConfirmCancelOrder}
+                disabled={cancelling}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md flex items-center justify-center gap-1 disabled:opacity-50"
+              >
+                {cancelling ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                    <span>Cancelling...</span>
+                  </>
+                ) : (
+                  <span>Yes, Cancel</span>
+                )}
               </button>
             </div>
           </div>

@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import MenuPage from './pages/MenuPage';
 import CartPage from './pages/CartPage';
 import OrderInfoPage from './pages/OrderInfoPage';
@@ -77,6 +79,7 @@ function App() {
 
   return (
     <Router>
+      <ToastContainer position="top-center" autoClose={2000} hideProgressBar={true} newestOnTop closeOnClick pauseOnHover theme="colored" />
       <Routes>
         <Route 
           path="/login" 

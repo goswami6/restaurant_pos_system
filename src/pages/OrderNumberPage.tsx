@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, Printer, ShoppingBag, Clock, Download, UtensilsCrossed, Grid } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE_URL } from '../config';
@@ -20,31 +20,35 @@ const OrderNumberPage: React.FC = () => {
     return saved ? JSON.parse(saved) : null;
   });
 
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+
     const fetchLatestDataFromBackend = async () => {
       try {
-        const savedUser = localStorage.getItem('emenu_user');
-        const userObj = savedUser ? JSON.parse(savedUser) : null;
         const restaurantId = userObj?.restaurant_id || userObj?.restaurent_id || 9;
 
-        // Fetch POS Settings (/api/settings/pos/:id)
-        fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`)
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            const settings = data?.data || data;
-            if (settings?.restaurant_info) {
-              setPosSettings(settings);
-              localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
-            }
-          }).catch(e => console.error('Error fetching POS settings:', e));
+        // Fetch POS Settings and Orders in parallel ONCE
+        const [settingsRes, ordersRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`).catch(() => null),
+          fetch(`${API_BASE_URL}/orders/${restaurantId}`).catch(() => null)
+        ]);
+
+        if (settingsRes && settingsRes.ok) {
+          const data = await settingsRes.json();
+          const settings = data?.data || data;
+          if (settings?.restaurant_info) {
+            setPosSettings(settings);
+            localStorage.setItem('emenu_pos_settings', JSON.stringify(settings));
+          }
+        }
 
         const targetOrderId = orderInfo?.order_id;
-        if (!targetOrderId) return;
+        if (!targetOrderId || !ordersRes || !ordersRes.ok) return;
 
-        const res = await fetch(`${API_BASE_URL}/orders/${restaurantId}`);
-        if (!res.ok) return;
-
-        const data = await res.json();
+        const data = await ordersRes.json();
         if (data && data.status === true && Array.isArray(data.data)) {
           const freshOrder = data.data.find((o: any) => String(o.order_id) === String(targetOrderId));
           if (freshOrder) {
@@ -96,31 +100,65 @@ const OrderNumberPage: React.FC = () => {
     window.print();
   };
 
+  const handleTakeNewOrder = () => {
+    sessionStorage.removeItem('emenu_table');
+    localStorage.removeItem('emenu_cart');
+    localStorage.removeItem('emenu_last_order');
+    if (!isGuestCustomer) {
+      navigate('/tables');
+    } else {
+      navigate('/');
+    }
+  };
+
   const cleanDate = created_at 
     ? new Date(created_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
     : new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
 
-  // Calculations matching POS Receipt logic
+  // Calculations matching POS Receipt logic with fallbacks
   const totalQty = items.reduce((sum: number, item: any) => sum + (parseInt(item.quantity || item.qty) || 1), 0);
-  const taxTotal = parseFloat(tax) || 0;
+  const itemsSubtotal = items.reduce((sum: number, item: any) => {
+    const q = parseInt(item.quantity || item.qty) || 1;
+    const unitP = Number(item.unit_price || item.price || (item.total_price ? item.total_price / q : 0));
+    return sum + (unitP * q);
+  }, 0);
+
+  const taxRate = parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5);
+  const serviceChargeRate = parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 0);
+
+  const subTotalNum = parseFloat(subTotal) > 0 ? parseFloat(subTotal) : itemsSubtotal;
+  const serviceAmt = (subTotalNum * serviceChargeRate) / 100;
+  const taxTotal = parseFloat(tax) > 0 ? parseFloat(tax) : (((subTotalNum + serviceAmt) * taxRate) / 100);
   const cgstAmt = taxTotal / 2;
   const sgstAmt = taxTotal / 2;
-  const grandTotalNum = parseFloat(total) || 0;
-  const subTotalNum = parseFloat(subTotal) || 0;
+  const grandTotalNum = parseFloat(total) > 0 ? parseFloat(total) : (subTotalNum + serviceAmt + taxTotal);
 
   const handleDownloadBill = () => {
+    const subtotal = subTotalNum;
+    const taxTotal = subtotal * (taxRate / 100);
+    const halfTaxRate = (taxRate / 2).toFixed(1);
+    const cgstAmt = taxTotal / 2;
+    const sgstAmt = taxTotal / 2;
+    const serviceAmt = subtotal * (serviceChargeRate / 100);
+    const grandTotal = grandTotalNum || (subtotal + taxTotal + serviceAmt);
+
+    const restaurantNameStr = posSettings?.restaurantName || posSettings?.restaurant_info?.name || 'Big Ben Restaurant';
+    const addressStr = posSettings?.address || posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel';
+    const cityStateStr = [posSettings?.city || posSettings?.restaurant_info?.city, posSettings?.state || posSettings?.restaurant_info?.state, posSettings?.pincode || posSettings?.restaurant_info?.pincode].filter(Boolean).join(', ') || 'pune, MH, 411057';
+    const gstinStr = posSettings?.gstin || posSettings?.restaurant_info?.gstin || posSettings?.restaurant_info?.gst_number || '27AAAAA0000A1Z5';
+    const fssaiStr = posSettings?.fssaiNo || posSettings?.restaurant_info?.fssai_no || posSettings?.restaurant_info?.fssai_number || '10019022009876';
+
     const lines = [
-      "BIG BEN RESTAURANT",
-      "123 Main Street, Food Court, City",
-      "Phone: +91 9876543210",
+      restaurantNameStr,
+      addressStr,
+      cityStateStr,
+      `GSTIN: ${gstinStr}`,
+      `FSSAI NO: ${fssaiStr}`,
       "--------------------------------------------------",
-      "TAX INVOICE / POS RECEIPT",
+      `Bill No: ${order_id}                   Date: ${cleanDate}`,
+      `${table ? `Dine In: ${String(table).includes('Table') ? table : `Table #${table}`}` : 'Type: DINE-IN'}                  Waiter: Ravi`,
       "--------------------------------------------------",
-      `Bill No: #${order_id}       Table: ${table || 'Walk-In'}`,
-      `Date: ${cleanDate}`,
-      `Customer: ${guest_name || 'Guest'} ${phone ? `(${phone})` : ''}`,
-      "--------------------------------------------------",
-      "ITEM                             QTY   PRICE    AMT",
+      "Item                             Qty.   Price   Amount",
       "--------------------------------------------------"
     ];
 
@@ -133,15 +171,18 @@ const OrderNumberPage: React.FC = () => {
     });
 
     lines.push("--------------------------------------------------");
-    lines.push(`Sub Total:                              Rs.${subTotalNum.toFixed(2)}`);
-    lines.push(`CGST (2.5%):                            Rs.${cgstAmt.toFixed(2)}`);
-    lines.push(`SGST (2.5%):                            Rs.${sgstAmt.toFixed(2)}`);
-    lines.push("==================================================");
-    lines.push(`GRAND TOTAL:                            Rs.${grandTotalNum.toFixed(2)}`);
-    lines.push("==================================================");
+    lines.push(`Total Qty: ${totalQty}               Sub Total  ${subtotal.toFixed(2)}`);
+    lines.push(`                                    CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2)}`);
+    lines.push(`                                    SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2)}`);
+    if (serviceChargeRate > 0) {
+      lines.push(`                          Service Charge ${serviceChargeRate}%   ${serviceAmt.toFixed(2)}`);
+    }
+    lines.push("--------------------------------------------------");
+    lines.push(`Grand Total (INR)                         ${grandTotal.toFixed(2)}`);
+    lines.push("--------------------------------------------------");
     lines.push("");
-    lines.push("          *** THANK YOU! VISIT AGAIN ***          ");
-    lines.push("         This is a computer generated bill.        ");
+    lines.push("             Thank you & Visit Again              ");
+    lines.push("--------------------------------------------------");
 
     let contentStream = `BT /F1 10 Tf 20 760 Td 14 TL\n`;
     lines.forEach((line) => {
@@ -250,15 +291,22 @@ ${400 + contentStream.length}
           </div>
         </div>
 
-        {!isGuestCustomer && (
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
-          >
-            <Printer size={16} />
-            <span className="hidden xs:inline">Print POS Bill</span>
-          </button>
-        )}
+        {(() => {
+          const currentStatus = String(orderInfo?.order_status || orderInfo?.status || 'PENDING').toUpperCase();
+          const isOrderCancelled = currentStatus === 'CANCELLED' || currentStatus === 'REJECTED';
+          if (!isGuestCustomer && !isOrderCancelled) {
+            return (
+              <button 
+                onClick={handlePrint}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                <Printer size={16} />
+                <span className="hidden xs:inline">Print POS Bill</span>
+              </button>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Web View Order Review Card */}
@@ -461,8 +509,13 @@ ${400 + contentStream.length}
       <div id="thermal-pos-receipt" className="hidden font-mono text-black text-[11px] leading-[1.3] w-[80mm] max-w-full mx-auto p-2 bg-white">
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '6px' }}>
-          <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{posSettings?.restaurant_info?.name || 'Big Ben Restaurant'}</div>
-          <div style={{ fontSize: '10px' }}>{posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel, pune, MH, 411057'}</div>
+          <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{posSettings?.restaurantName || posSettings?.restaurant_info?.name || 'Big Ben Restaurant'}</div>
+          <div style={{ fontSize: '10px' }}>{posSettings?.address || posSettings?.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel'}</div>
+          <div style={{ fontSize: '10px' }}>
+            {[posSettings?.city || posSettings?.restaurant_info?.city, posSettings?.state || posSettings?.restaurant_info?.state, posSettings?.pincode || posSettings?.restaurant_info?.pincode].filter(Boolean).join(', ') || 'pune, MH, 411057'}
+          </div>
+          <div style={{ fontSize: '10px' }}>GSTIN: {posSettings?.gstin || posSettings?.restaurant_info?.gstin || posSettings?.restaurant_info?.gst_number || '27AAAAA0000A1Z5'}</div>
+          <div style={{ fontSize: '10px' }}>FSSAI NO: {posSettings?.fssaiNo || posSettings?.restaurant_info?.fssai_no || posSettings?.restaurant_info?.fssai_number || '10019022009876'}</div>
         </div>
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
@@ -479,12 +532,12 @@ ${400 + contentStream.length}
 
         {/* Bill Meta */}
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-          <span>Bill No: #{order_id}</span>
+          <span>Bill No: {order_id}</span>
           <span>Date: {cleanDate}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
           <span>{table ? `Dine In: ${String(table).includes('Table') ? table : `Table #${table}`}` : 'Type: DINE-IN'}</span>
-          <span>Waiter: Staff Waiter</span>
+          <span>Waiter: Ravi</span>
         </div>
 
         <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
@@ -528,11 +581,16 @@ ${400 + contentStream.length}
             <span>Sub Total &nbsp;&nbsp;{subTotalNum.toFixed(2)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
-            <span>CGST {posSettings?.financials?.cgst || 2.5}% &nbsp;&nbsp;{cgstAmt.toFixed(2)}</span>
+            <span>CGST {((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}% &nbsp;&nbsp;{cgstAmt.toFixed(2)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
-            <span>SGST {posSettings?.financials?.sgst || 2.5}% &nbsp;&nbsp;{sgstAmt.toFixed(2)}</span>
+            <span>SGST {((parseFloat(posSettings?.financials?.tax_rate_percentage ?? posSettings?.taxRate ?? 5)) / 2).toFixed(1)}% &nbsp;&nbsp;{sgstAmt.toFixed(2)}</span>
           </div>
+          {parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5) > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '2px' }}>
+              <span>Service Charge {parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5)}% &nbsp;&nbsp;{((subTotalNum * parseFloat(posSettings?.financials?.service_charge_percentage ?? posSettings?.serviceCharge ?? 5)) / 100).toFixed(2)}</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px', marginTop: '4px' }}>
             <span>Grand Total (INR)</span>
             <span>{grandTotalNum.toFixed(2)}</span>
@@ -552,16 +610,23 @@ ${400 + contentStream.length}
       {/* Curved Center-Raised FAB Bottom Navigation Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-200/90 shadow-2xl h-14 sm:h-16 flex items-center px-4 no-print">
         <div className="max-w-md md:max-w-2xl mx-auto flex items-center justify-around w-full relative">
-          {/* Print Tab (Only for Staff/Waiters) */}
-          {!isGuestCustomer && (
-            <button 
-              onClick={handlePrint}
-              className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer group"
-            >
-              <Printer size={20} className="group-hover:scale-110 transition-transform text-amber-500" />
-              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Print</span>
-            </button>
-          )}
+          {/* Print Tab (Only for Staff/Waiters when order is not cancelled) */}
+          {(() => {
+            const currentStatus = String(orderInfo?.order_status || orderInfo?.status || 'PENDING').toUpperCase();
+            const isOrderCancelled = currentStatus === 'CANCELLED' || currentStatus === 'REJECTED';
+            if (!isGuestCustomer && !isOrderCancelled) {
+              return (
+                <button 
+                  onClick={handlePrint}
+                  className="flex flex-col items-center justify-center px-2 text-gray-500 hover:text-amber-600 transition-colors cursor-pointer group"
+                >
+                  <Printer size={20} className="group-hover:scale-110 transition-transform text-amber-500" />
+                  <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Print</span>
+                </button>
+              );
+            }
+            return null;
+          })()}
 
           {/* Download Tab */}
           <button 
@@ -581,27 +646,34 @@ ${400 + contentStream.length}
             <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">Menu</span>
           </button>
 
-          {/* CENTER RAISED FAB BUTTON */}
+          {/* CENTER RAISED FAB BUTTON - TAKE NEW ORDER FOR WAITERS / ADD MORE FOR GUESTS */}
           <div className="relative -top-3.5 flex flex-col items-center justify-center">
             <button 
-              onClick={handleOrderMore}
+              onClick={handleTakeNewOrder}
               className="bg-gradient-to-tr from-[#0077b6] to-[#0284c7] hover:from-[#005f92] hover:to-[#0284c7] text-white p-3 rounded-full shadow-lg shadow-sky-500/35 border-4 border-white active:scale-95 transition-all cursor-pointer flex items-center justify-center"
-              title="Add Items / Order More"
+              title="Start Fresh New Order"
             >
               <ShoppingBag size={20} className="text-white" />
             </button>
-            <span className="text-[10px] font-black tracking-wider uppercase text-[#0077b6] mt-0.5">Order</span>
+            <span className="text-[10px] font-black tracking-wider uppercase text-[#0077b6] mt-0.5">
+              {isGuestCustomer ? 'Order' : 'New Order'}
+            </span>
           </div>
 
-          {/* TABLE TAB (Tablet & Desktop Only - Shown if table active) */}
-          {(table || sessionStorage.getItem('emenu_table')) && (
+          {/* TABLES TAB FOR WAITERS (Only on Tablet & Desktop to avoid crowding mobile bar) */}
+          {!isGuestCustomer && (
             <button 
-              onClick={handleOrderMore}
+              onClick={() => {
+                sessionStorage.removeItem('emenu_table');
+                localStorage.removeItem('emenu_cart');
+                navigate('/tables');
+              }}
               className="hidden md:flex flex-col items-center justify-center px-2 text-gray-500 hover:text-purple-600 transition-colors cursor-pointer group"
+              title="View All Tables"
             >
               <Grid size={20} className="group-hover:scale-110 transition-transform text-purple-600" />
-              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600 truncate max-w-[70px]">
-                {String(table).includes('Table') ? table : `Table #${table}`}
+              <span className="text-[10px] font-extrabold tracking-wider uppercase mt-0.5 text-gray-600">
+                Tables
               </span>
             </button>
           )}

@@ -35,20 +35,28 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
     fetchRestaurantInfo();
   }, []);
 
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   const table = React.useMemo(() => {
+    const queryParams = new URLSearchParams(location.search);
+    const urlTable = queryParams.get('table') || queryParams.get('table_number') || '';
+    if (urlTable) {
+      const clean = String(urlTable).replace(/[^0-9]/g, '');
+      sessionStorage.setItem('emenu_table', clean || urlTable);
+      return clean || urlTable;
+    }
     const stored = sessionStorage.getItem('emenu_table') || '';
+    if (!stored || stored.toLowerCase().includes('walk-in')) return '';
     const cleanStored = String(stored).replace(/[^0-9]/g, '');
     return cleanStored || stored;
-  }, []);
+  }, [location.search, location.pathname]);
 
   const displayTable = React.useMemo(() => {
-    if (!table) return '';
+    if (!table || table.toLowerCase().includes('walk-in')) return '';
     const clean = String(table).replace(/[^0-9]/g, '');
     return clean ? `Table #${clean}` : table;
   }, [table]);
-
-  const location = useLocation();
-  const currentPath = location.pathname;
 
   return (
     <nav className="navbar sticky top-0 z-50 bg-white shadow-sm border-b border-gray-150">
@@ -58,7 +66,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
           <span className="logo text-lg sm:text-xl mr-1.5 flex-shrink-0">🏠</span>
           <div className="shop-name text-sm sm:text-base md:text-lg font-extrabold text-[#0077b6] flex items-center gap-1.5 min-w-0 truncate">
             <span className="truncate uppercase">{restaurantName}</span>
-            {table && (
+            {displayTable && (
               <span className="bg-[#e8f8f0] text-[#2ecc71] border border-[#2ecc71]/20 text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-bold flex-shrink-0">
                 {displayTable}
               </span>
@@ -70,7 +78,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
         {user && !user.isGuest && (
           <div className="hidden lg:flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
             <Link
-              to={table ? `/?table=${table}` : "/"}
+              to="/"
               className={`text-xs font-bold px-3 py-1.5 rounded-md transition-all ${currentPath === '/'
                   ? 'bg-white text-[#0077b6] shadow-xs'
                   : 'text-gray-600 hover:text-gray-800'
@@ -166,7 +174,7 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
               {/* Navigation Links */}
               <div className="py-4 space-y-2">
                 <Link
-                  to={table ? `/?table=${table}` : "/"}
+                  to="/"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-bold text-sm transition-all ${currentPath === '/'
                       ? 'bg-[#0077b6] text-white shadow-md'
