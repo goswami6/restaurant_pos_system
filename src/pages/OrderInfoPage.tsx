@@ -234,9 +234,8 @@ const OrderInfoPage: React.FC = () => {
   const subTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const serviceChargeRate = posSettings.serviceCharge || 0.0;
   const serviceChargeAmt = (subTotal * serviceChargeRate) / 100;
-  const taxableAmount = subTotal + serviceChargeAmt;
   const taxRate = posSettings.taxRate || 5.0;
-  const taxAmt = (taxableAmount * taxRate) / 100;
+  const taxAmt = (subTotal * taxRate) / 100;
   const cgstAmt = taxAmt / 2;
   const sgstAmt = taxAmt / 2;
   const total = subTotal + serviceChargeAmt + taxAmt;

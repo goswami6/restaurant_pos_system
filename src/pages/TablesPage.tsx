@@ -306,12 +306,12 @@ const TablesPage: React.FC = () => {
         ) : loading ? (
           <div className="text-center py-10 font-bold text-[#0077b6]">Loading tables...</div>
         ) : (
-          <div className="grid gap-5 py-5 grid-cols-[repeat(auto-fill,minmax(300px,1fr))]">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5 py-3 sm:py-5">
             {tables.map((table) => {
               // Map badge color based on exact requested status colors:
               // Available: Green | Busy: Amber Yellow | Occupied: Red | Dirty: Slate | Reserved: Purple
               let badgeColor = 'bg-emerald-600';
-              if (table.status === 'Occupied') badgeColor = 'bg-red-600';
+              if (table.status === 'Occupied') badgeColor = 'bg-rose-600';
               else if (table.status === 'Busy') badgeColor = 'bg-amber-500 text-slate-900';
               else if (table.status === 'Dirty') badgeColor = 'bg-slate-500';
               else if (table.status === 'Reserved') badgeColor = 'bg-purple-600';
@@ -319,28 +319,38 @@ const TablesPage: React.FC = () => {
               return (
                 <div 
                   key={table.table_id} 
-                  className="relative bg-white rounded-xl p-5 shadow-sm hover:shadow-md border border-gray-200 flex flex-col gap-3 transition-all duration-200 cursor-pointer"
+                  className="relative bg-white rounded-2xl p-2.5 sm:p-5 shadow-xs hover:shadow-md border border-gray-200/90 flex flex-col gap-2 transition-all duration-200 cursor-pointer overflow-hidden"
                   onClick={() => handleTableSelect(table.table_number)}
                 >
-                  <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${badgeColor}`}>
+                  {/* Top-Right Modern Corner Tag (Mobile: top-right corner tag, Desktop: pill badge) */}
+                  <div className={`absolute top-0 right-0 px-2 py-0.5 sm:px-3 sm:py-1 rounded-bl-xl sm:rounded-bl-none sm:rounded-full sm:top-3 sm:right-3 text-[9px] sm:text-[10px] font-extrabold text-white uppercase tracking-wider ${badgeColor}`}>
                     {table.status}
                   </div>
-                  <div className="text-3xl font-bold text-black mt-2.5 text-left">{table.table_number}</div>
-                  <div className="text-sm text-gray-500 mb-2 text-left">{table.capacity} Seats</div>
 
+                  {/* Table Header */}
+                  <div className="text-left pt-1 sm:pt-0 border-b border-gray-100/80 pb-1.5">
+                    <h3 className="text-xs xs:text-sm sm:text-xl font-black text-gray-900 leading-tight truncate pr-14 sm:pr-20">
+                      {table.table_number}
+                    </h3>
+                    <p className="text-[10px] sm:text-xs text-gray-400 font-bold mt-0.5">
+                      {table.capacity} Seats
+                    </p>
+                  </div>
+
+                  {/* Occupied Session Box */}
                   {table.status === 'Occupied' && table.current_session && (
-                    <div className="flex flex-col gap-2 py-2.5 border-t border-b border-gray-100">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-500">Server:</span>
-                        <span className="font-medium text-black">{table.current_session.staff_name || 'Staff'}</span>
+                    <div className="bg-slate-50/80 rounded-xl p-1.5 sm:p-2.5 flex flex-col gap-0.5 sm:gap-1 text-[10px] sm:text-xs border border-slate-100/80">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 font-medium">Server</span>
+                        <span className="font-bold text-gray-800 truncate max-w-[65px] sm:max-w-none">{table.current_session.staff_name || 'Staff'}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm text-orange-500 font-medium">
-                        <span className="flex items-center"><Clock size={14} className="inline mr-1" /> Elapsed:</span>
+                      <div className="flex justify-between items-center text-amber-600 font-bold">
+                        <span className="flex items-center gap-1"><Clock size={10} className="shrink-0" /> Elapsed</span>
                         <span>{getMinutesElapsed(table.current_session.updated_at)}</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-500">Current total:</span>
-                        <span className="font-bold text-green-600 text-base">
+                      <div className="flex justify-between items-center pt-1 border-t border-slate-200/60 mt-0.5">
+                        <span className="text-gray-500 font-medium">Total</span>
+                        <span className="font-black text-emerald-600 text-xs sm:text-base">
                           ₹{(table.current_session.current_total || 0).toFixed(2)}
                         </span>
                       </div>
@@ -348,48 +358,50 @@ const TablesPage: React.FC = () => {
                   )}
 
                   {table.status === 'Dirty' && (
-                    <div className="text-sm text-red-500 font-medium my-2 text-left">Needs Cleaning</div>
+                    <div className="bg-rose-50/60 rounded-xl p-1.5 text-center text-[10px] sm:text-xs text-rose-600 font-extrabold border border-rose-100">
+                      Needs Cleaning
+                    </div>
                   )}
 
                   {table.status === 'Reserved' && table.current_session && (
-                    <div className="flex flex-col gap-2 py-2.5 border-t border-b border-gray-100">
-                      <div className="flex items-center gap-2 text-sm text-gray-700">
-                        <Clock size={14} className="inline mr-1" />
-                        <span>7:30 PM</span>
+                    <div className="bg-purple-50/60 rounded-xl p-1.5 flex flex-col gap-0.5 text-[10px] sm:text-xs border border-purple-100">
+                      <div className="flex items-center gap-1 text-purple-700 font-semibold">
+                        <Clock size={10} className="shrink-0" /> 7:30 PM
                       </div>
-                      <div className="flex items-center gap-2 text-sm text-gray-750 font-medium">
-                        <span>{table.current_session.customer_name || 'Sarah Jenkins'}</span>
+                      <div className="font-bold text-purple-900 truncate">
+                        {table.current_session.customer_name || 'Reserved'}
                       </div>
                     </div>
                   )}
 
-                  <div className="flex gap-2.5 flex-wrap mt-auto" onClick={(e) => e.stopPropagation()}>
+                  {/* Action Buttons with Compact Height & Modern Radius for Mobile */}
+                  <div className="flex gap-1.5 sm:gap-2 mt-auto pt-1 w-full" onClick={(e) => e.stopPropagation()}>
                     {table.status === 'Available' && (
-                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-green-600 text-white hover:bg-green-700 w-full" onClick={() => handleAddItems(table.table_number)}>
-                        <Receipt size={14} /> OPEN TAB
+                      <button className="w-full px-2 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black cursor-pointer flex items-center justify-center gap-1 transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs active:scale-95" onClick={() => handleAddItems(table.table_number)}>
+                        <Receipt size={12} /> OPEN TAB
                       </button>
                     )}
 
                     {table.status === 'Occupied' && (
-                      <>
-                        <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92]" onClick={() => handleAddItems(table.table_number)}>
-                          <Plus size={14} /> ADD ITEMS
+                      <div className="grid grid-cols-2 gap-1.5 w-full">
+                        <button className="px-1.5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black cursor-pointer flex items-center justify-center gap-1 transition-all duration-200 bg-[#0077b6] hover:bg-[#005f92] text-white shadow-2xs active:scale-95" onClick={() => handleAddItems(table.table_number)}>
+                          <Plus size={11} /> <span className="truncate">ADD</span>
                         </button>
-                        <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92]" onClick={() => handlePayNow(table.table_number)}>
-                          <CreditCard size={14} /> PAY NOW
+                        <button className="px-1.5 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black cursor-pointer flex items-center justify-center gap-1 transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs active:scale-95" onClick={() => handlePayNow(table.table_number)}>
+                          <CreditCard size={11} /> <span className="truncate">PAY</span>
                         </button>
-                      </>
+                      </div>
                     )}
 
                     {table.status === 'Dirty' && (
-                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-gray-500 text-white hover:bg-gray-600 w-full" onClick={() => handleMarkCleaned(table.table_number)}>
-                        <Check size={14} /> TABLE CLEANED
+                      <button className="w-full px-2 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black cursor-pointer flex items-center justify-center gap-1 transition-all duration-200 bg-slate-600 hover:bg-slate-700 text-white shadow-2xs active:scale-95" onClick={() => handleMarkCleaned(table.table_number)}>
+                        <Check size={12} /> CLEANED
                       </button>
                     )}
 
                     {table.status === 'Reserved' && (
-                      <button className="flex-1 min-w-[120px] px-3 py-2.5 rounded-md text-xs font-semibold cursor-pointer flex items-center justify-center gap-1.5 transition-all duration-200 bg-[#0077b6] text-white hover:bg-[#005f92] w-full" onClick={() => handleMarkArrived(table.table_number)}>
-                        <Check size={14} /> ARRIVED
+                      <button className="w-full px-2 py-1.5 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black cursor-pointer flex items-center justify-center gap-1 transition-all duration-200 bg-[#0077b6] hover:bg-[#005f92] text-white shadow-2xs active:scale-95" onClick={() => handleMarkArrived(table.table_number)}>
+                        <Check size={12} /> ARRIVED
                       </button>
                     )}
                   </div>
