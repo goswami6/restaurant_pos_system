@@ -63,8 +63,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    const apiPath = req.url.replace(/^\/api/, '');
-    const targetUrl = `https://restroadmin.free.nf/api${apiPath}`;
+    let subPath = '';
+    if (req.query && req.query.path) {
+      subPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path;
+    } else {
+      subPath = (req.url || '').replace(/^\/api\/?/, '').replace(/^\[\.\.\.path\]\/?/, '').split('?')[0];
+    }
+    const queryString = (req.url || '').includes('?') ? '?' + (req.url || '').split('?')[1] : '';
+    const targetUrl = `https://restroadmin.free.nf/api/${subPath}${queryString}`;
 
     let reqBody = null;
     if (req.method === 'POST' || req.method === 'PUT') {
@@ -74,7 +80,7 @@ export default async function handler(req, res) {
     const result = await fetchWithBypass(targetUrl, req.method || 'GET', reqBody, req.headers);
 
     res.status(result.status);
-    if (result.body.startsWith('{') || result.body.startsWith('[')) {
+    if (result.body && (result.body.startsWith('{') || result.body.startsWith('['))) {
       res.setHeader('Content-Type', 'application/json');
     }
     return res.send(result.body);
