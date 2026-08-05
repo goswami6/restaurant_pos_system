@@ -226,12 +226,16 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
                     const statusFormatted = (apiOrder.order_status || '').toUpperCase();
 
+                    const orderTime = apiOrder.created_at || apiOrder.order_date || apiOrder.created_date || apiOrder.updated_at || apiOrder.timestamp || apiOrder.date;
+
                     return {
                         order_id: String(apiOrder.order_id),
                         table_number: tableNum,
                         table_number_id: apiOrder.table_number_id ? parseInt(apiOrder.table_number_id) : null,
                         type: typeFormatted,
-                        time: apiOrder.created_at || new Date().toISOString(),
+                        time: orderTime,
+                        created_at: orderTime,
+                        updated_at: orderTime,
                         total: parseFloat(apiOrder.bill?.grand_total || 0),
                         status: statusFormatted,
                         subtotal: parseFloat(apiOrder.bill?.subtotal || 0),
@@ -386,6 +390,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             });
 
             if (activeOrder) {
+                const orderTime = activeOrder.created_at || activeOrder.updated_at || activeOrder.time;
                 return { 
                     ...t, 
                     status: 'Occupied', 
@@ -393,7 +398,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
                         active_order_id: activeOrder.order_id, 
                         order_status: activeOrder.order_status || activeOrder.status || 'PENDING', 
                         staff_name: activeOrder.staff_name || activeOrder.guest_name || user?.username || 'Ravi', 
-                        updated_at: activeOrder.created_at || activeOrder.time, 
+                        updated_at: orderTime, 
+                        created_at: orderTime,
                         current_total: activeOrder.bill?.grand_total ?? activeOrder.total ?? 0, 
                         total_items: (activeOrder.items || []).reduce((s, i) => s + (parseInt(i.quantity || i.qty) || 1), 0), 
                         items: activeOrder.items || [] 
@@ -534,10 +540,31 @@ export const POSProvider = ({ user, onLogout, children }) => {
         setCartModified(true);
     };
 
-    // ── Utility ──────────────────────────────────────────────────────────────
     const getMinutesElapsed = (isoString) => {
-        if (!isoString) return '0m';
-        const mins = Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 60000));
+        if (!isoString) return '1s';
+        let formattedString = String(isoString).trim();
+        if (formattedString.includes(' ')) {
+            formattedString = formattedString.replace(' ', 'T');
+        }
+        let date = new Date(formattedString);
+        if (isNaN(date.getTime())) {
+            date = new Date(formattedString + 'Z');
+        }
+        if (isNaN(date.getTime())) return '1s';
+
+        let diffMs = Date.now() - date.getTime();
+        if (diffMs < 0) {
+            const absMs = Math.abs(diffMs);
+            if (absMs < 86400000) {
+                diffMs = (absMs % (3600 * 1000));
+            } else {
+                diffMs = 0;
+            }
+        }
+
+        const secs = Math.max(1, Math.floor(diffMs / 1000));
+        if (secs < 60) return `${secs}s`;
+        const mins = Math.floor(secs / 60);
         if (mins < 60) return `${mins}m`;
         const hrs = Math.floor(mins / 60);
         const remainMins = mins % 60;

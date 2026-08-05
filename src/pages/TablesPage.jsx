@@ -51,7 +51,7 @@ const TablesPage = () => {
                     tablesList.map((table) => {
                         const statusKey = table.status.toLowerCase();
                         const session = table.current_session;
-                        const timeStr = getMinutesElapsed(session?.updated_at);
+                        const timeStr = getMinutesElapsed(session?.updated_at || session?.created_at || session?.time || table.updated_at);
                         const cartTotal = tableCarts[table.table_number]
                             ? Object.values(tableCarts[table.table_number]).reduce((sum, item) => {
                                 const cost = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
