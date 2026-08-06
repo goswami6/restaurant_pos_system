@@ -110,26 +110,26 @@ const HistoryPage = () => {
                                 )}
                             </div>
         
-                            {/* Search and Filters Header Toolbar (Ultra-Compact 2-Row Design) */}
+                            {/* Search and Filters Header Toolbar (Responsive Mobile & Tablet Optimized) */}
                             <div className="d-flex flex-column gap-2 mb-3">
                                 {/* Top Line: Search + Order Type + Inline Date Range Capsule */}
                                 <div className="row g-2 align-items-center">
-                                    <div className="col-12 col-md-4">
+                                    <div className="col-12 col-sm-6 col-lg-4">
                                         <input 
                                             type="text" 
                                             className="form-control" 
                                             placeholder="Search by Order ID or Table..." 
                                             value={historySearchQuery}
                                             onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                            style={{ height: '36px', fontSize: '0.82rem' }}
+                                            style={{ height: '38px', fontSize: '0.82rem' }}
                                         />
                                     </div>
-                                    <div className="col-6 col-md-3">
+                                    <div className="col-12 col-sm-6 col-lg-3">
                                         <select 
                                             className="form-select"
                                             value={historyTypeFilter}
                                             onChange={(e) => setHistoryTypeFilter(e.target.value)}
-                                            style={{ height: '36px', fontSize: '0.82rem' }}
+                                            style={{ height: '38px', fontSize: '0.82rem' }}
                                         >
                                             <option value="All">All Order Types</option>
                                             <option value="Dine-In">Dine-In</option>
@@ -137,43 +137,43 @@ const HistoryPage = () => {
                                             <option value="Delivery">Delivery</option>
                                         </select>
                                     </div>
-                                    <div className="col-6 col-md-5">
-                                        <div className="d-flex align-items-center gap-1 bg-white p-1 rounded-3 border border-slate-200" style={{ height: '36px' }}>
+                                    <div className="col-12 col-lg-5">
+                                        <div className="d-flex align-items-center flex-nowrap gap-1 bg-white p-1 rounded-3 border border-slate-200" style={{ height: '38px', minWidth: '0' }}>
                                             <div 
-                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-2 border border-slate-200"
-                                                style={{ cursor: 'pointer' }}
+                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-2 border border-slate-200"
+                                                style={{ cursor: 'pointer', minWidth: '0', overflow: 'hidden' }}
                                                 onClick={(e) => {
                                                     const input = e.currentTarget.querySelector('input');
                                                     if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
                                                 }}
                                             >
-                                                <span className="fw-black text-slate-500 uppercase" style={{ fontSize: '0.65rem' }}>FROM</span>
+                                                <span className="fw-black text-slate-500 uppercase flex-shrink-0" style={{ fontSize: '0.62rem' }}>FROM</span>
                                                 <input 
                                                     type="date" 
                                                     value={startDate}
                                                     onChange={(e) => setStartDate(e.target.value)}
-                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none w-100"
-                                                    style={{ fontSize: '0.78rem', cursor: 'pointer' }}
+                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none flex-fill"
+                                                    style={{ fontSize: '0.72rem', cursor: 'pointer', minWidth: '0', width: '100%' }}
                                                 />
                                             </div>
 
-                                            <span className="text-slate-400 fw-bold" style={{ fontSize: '0.75rem' }}>→</span>
+                                            <span className="text-slate-400 fw-bold px-0.5 flex-shrink-0" style={{ fontSize: '0.75rem' }}>→</span>
 
                                             <div 
-                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-2 border border-slate-200"
-                                                style={{ cursor: 'pointer' }}
+                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-2 border border-slate-200"
+                                                style={{ cursor: 'pointer', minWidth: '0', overflow: 'hidden' }}
                                                 onClick={(e) => {
                                                     const input = e.currentTarget.querySelector('input');
                                                     if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
                                                 }}
                                             >
-                                                <span className="fw-black text-slate-500 uppercase" style={{ fontSize: '0.65rem' }}>TO</span>
+                                                <span className="fw-black text-slate-500 uppercase flex-shrink-0" style={{ fontSize: '0.62rem' }}>TO</span>
                                                 <input 
                                                     type="date" 
                                                     value={endDate}
                                                     onChange={(e) => setEndDate(e.target.value)}
-                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none w-100"
-                                                    style={{ fontSize: '0.78rem', cursor: 'pointer' }}
+                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none flex-fill"
+                                                    style={{ fontSize: '0.72rem', cursor: 'pointer', minWidth: '0', width: '100%' }}
                                                 />
                                             </div>
 
@@ -181,9 +181,9 @@ const HistoryPage = () => {
                                                 <button 
                                                     type="button"
                                                     onClick={() => { setStartDate(''); setEndDate(''); }}
-                                                    className="btn btn-link text-danger p-0 px-1 font-bold border-0 text-decoration-none"
+                                                    className="btn btn-link text-danger p-0 px-1 font-bold border-0 text-decoration-none flex-shrink-0"
                                                     title="Clear date filter"
-                                                    style={{ fontSize: '0.8rem' }}
+                                                    style={{ fontSize: '0.85rem' }}
                                                 >
                                                     ✕
                                                 </button>
@@ -192,12 +192,15 @@ const HistoryPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Bottom Line: Quick Presets & Status Pills */}
-                                <div className="d-flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                                {/* Bottom Line: Quick Presets & Status Pills (Touch-scrollable on Mobile & Tablet) */}
+                                <div 
+                                    className="d-flex align-items-center gap-1.5 overflow-x-auto no-scrollbar py-1 text-nowrap"
+                                    style={{ WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}
+                                >
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('ALL')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 flex-shrink-0 ${
                                             !startDate && !endDate && historyStatusFilter === 'All'
                                                 ? 'btn-primary text-white'
                                                 : 'btn-light text-secondary border-slate-200'
@@ -209,7 +212,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('TODAY')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 flex-shrink-0 ${
                                             startDate && startDate === endDate
                                                 ? 'btn-primary text-white'
                                                 : 'btn-light text-secondary border-slate-200'
@@ -221,7 +224,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('YESTERDAY')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200 flex-shrink-0"
                                     >
                                         📆 Yesterday
                                     </button>
@@ -229,7 +232,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('THIS_WEEK')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200 flex-shrink-0"
                                     >
                                         📊 This Week
                                     </button>
@@ -237,17 +240,17 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('THIS_MONTH')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200 flex-shrink-0"
                                     >
                                         🗓️ This Month
                                     </button>
 
-                                    <span className="text-slate-300 mx-1">|</span>
+                                    <span className="text-slate-300 mx-1 flex-shrink-0">|</span>
 
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'COMPLETED' ? 'All' : 'COMPLETED')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 flex-shrink-0 ${
                                             historyStatusFilter === 'COMPLETED'
                                                 ? 'btn-success text-white'
                                                 : 'btn-light text-success border-success-subtle'
@@ -259,7 +262,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'PENDING' ? 'All' : 'PENDING')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 flex-shrink-0 ${
                                             historyStatusFilter === 'PENDING'
                                                 ? 'btn-warning text-dark'
                                                 : 'btn-light text-warning border-warning-subtle'
@@ -271,7 +274,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'CANCELLED' ? 'All' : 'CANCELLED')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 flex-shrink-0 ${
                                             historyStatusFilter === 'CANCELLED'
                                                 ? 'btn-danger text-white'
                                                 : 'btn-light text-danger border-danger-subtle'
