@@ -77,127 +77,138 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 font-sans selection:bg-[#0077b6]/30 relative overflow-hidden" style={{ backgroundColor: '#0f172a' }}>
-      {/* Decorative ambient lighting circles matching website navbar/theme */}
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 font-sans selection:bg-[#0077b6]/30 relative overflow-hidden">
+      {/* Decorative ambient lighting circles */}
       <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#0077b6]/15 rounded-full blur-3xl pointer-events-none animate-pulse duration-[6000ms]"></div>
       <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse duration-[8000ms]"></div>
 
-      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-slate-100 transform transition-all duration-500">
+      {/* Main Outer Card Frame */}
+      <div className="relative w-full max-w-md bg-[#0f172a] rounded-[32px] shadow-2xl overflow-hidden border border-slate-800">
         
-        {/* Branding & Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0077b6]/10 border border-[#0077b6]/20 rounded-2xl mb-3 text-3xl shadow-sm text-[#0077b6]">
-            🍽️
+        {/* Top Header Block (Matches screenshot header with circular badge) */}
+        <div className="bg-[#0f172a] text-white p-7 pb-14 relative flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-serif font-extrabold tracking-tight text-white mb-0.5">
+              Restaurant
+            </h1>
+            <p className="text-slate-300 font-serif text-lg tracking-wide">
+              pos system
+            </p>
           </div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-1">
-            Welcome to <span className="text-[#0077b6]">Restaurant POS</span>
-          </h2>
-          <p className="text-slate-500 text-xs sm:text-sm font-medium">Sign in to access order management & billing system</p>
-        </div>
 
-        {/* Demo Credentials Auto-Fill Pill Card matching website theme */}
-        <div 
-          onClick={handleFillDemo}
-          className="group mb-5 p-3.5 bg-sky-50 hover:bg-sky-100/70 border border-sky-200/80 rounded-2xl cursor-pointer transition-all duration-300 flex items-center justify-between shadow-xs"
-          title="Click to auto-fill demo credentials"
-        >
-          <div className="flex items-center gap-3">
-            <span className="text-[#0077b6] text-xl group-hover:scale-110 transition-transform">⚡</span>
-            <div>
-              <div className="text-[11px] font-bold text-[#0077b6] uppercase tracking-wider flex items-center gap-1.5">
-                <span>Demo Credentials</span>
+          {/* Floating Circular Badge with Shadow (Matching screenshot logo design) */}
+          <div className="relative -mr-1">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-slate-100 to-white p-1.5 shadow-2xl border-4 border-[#0f172a] flex items-center justify-center transform transition-transform hover:scale-105">
+              <div className="w-full h-full rounded-full bg-[#0f172a]/5 flex items-center justify-center text-3xl shadow-inner border border-slate-200/60">
+                🍽️
               </div>
-              <p className="text-xs text-slate-600 font-mono mt-0.5">
-                Phone: <strong className="text-slate-900">8269420494</strong> | Pass: <strong className="text-slate-900">12345678</strong>
-              </p>
             </div>
           </div>
-          <span className="px-2.5 py-1 bg-[#0077b6] text-white text-[10px] font-bold rounded-lg group-hover:bg-[#005f92] transition-colors shadow-xs">
-            Auto-fill
-          </span>
         </div>
 
-        {/* Alert Error */}
-        {error && (
-          <div className="mb-5 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
-            <span className="text-rose-500 text-base">⚠️</span>
-            <span>{error}</span>
-          </div>
-        )}
+        {/* Curved Body Panel (Matching screenshot curved white body) */}
+        <div className="bg-[#f3f4f6] text-slate-900 p-6 sm:p-8 rounded-t-[36px] -mt-6 relative shadow-inner">
+          
+          <h2 className="text-2xl font-serif font-extrabold text-slate-900 mb-5">
+            Login
+          </h2>
 
-        {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              Phone Number
-            </label>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm">
-                <i className="bi bi-telephone"></i>
-              </span>
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter 10-digit phone number"
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0077b6] focus:bg-white focus:ring-2 focus:ring-[#0077b6]/20 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold"
-              />
+          {/* Demo Credentials Auto-Fill Pill Card */}
+          <div 
+            onClick={handleFillDemo}
+            className="group mb-5 p-3 bg-white hover:bg-slate-50 border border-slate-200/80 rounded-2xl cursor-pointer transition-all duration-300 flex items-center justify-between shadow-xs"
+            title="Click to auto-fill demo credentials"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="text-[#0077b6] text-lg group-hover:scale-110 transition-transform">⚡</span>
+              <div>
+                <div className="text-[10px] font-bold text-[#0077b6] uppercase tracking-wider flex items-center gap-1">
+                  <span>Demo Mode</span>
+                </div>
+                <p className="text-[11px] text-slate-600 font-mono mt-0.5">
+                  Phone: <strong className="text-slate-900">8269420494</strong> | Pass: <strong className="text-slate-900">12345678</strong>
+                </p>
+              </div>
             </div>
+            <span className="px-2.5 py-1 bg-[#0f172a] text-white text-[10px] font-bold rounded-lg group-hover:bg-[#0077b6] transition-colors shadow-xs">
+              Auto-fill
+            </span>
           </div>
 
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+          {/* Alert Error */}
+          {error && (
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+              <span className="text-rose-500 text-base">⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-serif font-bold text-slate-500 uppercase tracking-wider mb-1">
+                Phone Number
+              </label>
+              <div className="relative">
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="8269420494"
+                  className="w-full px-4 py-2.5 bg-white border border-slate-300/80 focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/10 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold shadow-xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-serif font-bold text-slate-500 uppercase tracking-wider mb-1">
                 Password
               </label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-300/80 focus:border-[#0f172a] focus:ring-2 focus:ring-[#0f172a]/10 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold shadow-xs"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
+                  onClick={() => setShowPassword(!showPassword)}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                </button>
+              </div>
             </div>
-            <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm">
-                <i className="bi bi-lock"></i>
-              </span>
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0077b6] focus:bg-white focus:ring-2 focus:ring-[#0077b6]/20 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold"
-              />
+
+            {/* Action Button (Matching screenshot pill button style) */}
+            <div className="pt-2 flex justify-center">
               <button
-                type="button"
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
-                onClick={() => setShowPassword(!showPassword)}
-                title={showPassword ? "Hide password" : "Show password"}
+                type="submit"
+                disabled={loading}
+                className="py-2.5 px-10 bg-[#0f172a] hover:bg-[#0077b6] active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all duration-300 shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  <span>Sign in</span>
+                )}
               </button>
             </div>
+          </form>
+
+          {/* Footer */}
+          <div className="mt-6 text-center text-[10px] font-medium text-slate-400">
+            POS Management &copy; {new Date().getFullYear()}
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 px-4 bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all duration-300 shadow-md shadow-[#0077b6]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-          >
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Signing in...</span>
-              </>
-            ) : (
-              <>
-                <span>Sign In</span>
-                <span>→</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        {/* Footer */}
-        <div className="mt-6 text-center text-[11px] text-slate-400 font-medium">
-          Restaurant POS System &copy; {new Date().getFullYear()}
         </div>
       </div>
     </div>
