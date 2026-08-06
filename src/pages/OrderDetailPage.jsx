@@ -366,7 +366,7 @@ const OrderDetailPage = () => {
                                 <p className="text-muted mt-2">Loading menus...</p>
                             </div>
                         ) : (
-                            <div className="row g-3 g-sm-4 gy-3 gy-sm-4 mt-md-3 mt-lg-4" style={isPaid ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
+                            <div className="row g-2 g-sm-2.5 mt-2" style={isPaid ? { opacity: 0.5, pointerEvents: 'none' } : {}}>
                                 {filteredItems.length > 0 ? (
                                     filteredItems.map((item) => {
                                         const dietary = getDietaryInfo(item);
@@ -383,7 +383,7 @@ const OrderDetailPage = () => {
                                         const cartQty = getItemCartQty(item.item_id);
 
                                         return (
-                                            <div className="col-6 col-sm-4 col-md-4 col-lg-3 mb-3 mb-sm-4" key={item.item_id}>
+                                            <div className="col-6 col-sm-4 col-md-4 col-lg-3 mb-2" key={item.item_id}>
                                                 <div 
                                                     className={`menu-card position-relative d-flex flex-column align-items-start justify-content-between p-2.5 p-sm-3 h-100 ${cartQty > 0 ? 'border-amber-500 bg-amber-500/5 shadow-sm' : ''}`}
                                                     onClick={() => handleItemClick(item)}
