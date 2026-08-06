@@ -58,18 +58,30 @@ const HistoryPage = () => {
         if (type === 'TODAY') {
             setStartDate(todayStr);
             setEndDate(todayStr);
+        } else if (type === 'YESTERDAY') {
+            const yest = new Date(today);
+            yest.setDate(yest.getDate() - 1);
+            setStartDate(formatYMD(yest));
+            setEndDate(formatYMD(yest));
         } else if (type === 'THIS_WEEK') {
             const startOfWeek = new Date(today);
             startOfWeek.setDate(today.getDate() - today.getDay());
             setStartDate(formatYMD(startOfWeek));
             setEndDate(todayStr);
+        } else if (type === 'THIS_MONTH') {
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            setStartDate(formatYMD(startOfMonth));
+            setEndDate(todayStr);
         } else if (type === 'ALL') {
             setStartDate('');
             setEndDate('');
-            setHistoryStatusFilter('All');
+            setHistorySearchQuery('');
             setHistoryTypeFilter('All');
+            setHistoryStatusFilter('All');
         }
     };
+
+    const hasActiveFilters = historySearchQuery || historyTypeFilter !== 'All' || historyStatusFilter !== 'All' || startDate || endDate;
 
     return (
         <div className="container-fluid py-3 py-sm-4 px-2 px-sm-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
@@ -77,13 +89,26 @@ const HistoryPage = () => {
                 <div className={activeOrderSummary ? "col-lg-8 col-md-7" : "col-12"}>
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                         <div className="card-body p-3 p-sm-4">
-                            <h5 className="fw-bold text-slate-900 mb-1 d-flex align-items-center">
-                                <i className="bi bi-clock-history text-primary fs-5 me-2"></i>
-                                <span>Order History</span>
-                            </h5>
-                            <p className="text-muted small mb-3 mb-sm-4 d-none d-sm-block">Search and view details of placed and paid orders</p>
+                            <div className="d-flex align-items-center justify-content-between mb-3">
+                                <div>
+                                    <h5 className="fw-bold text-slate-900 mb-1 d-flex align-items-center">
+                                        <i className="bi bi-clock-history text-primary fs-5 me-2"></i>
+                                        <span>Order History</span>
+                                    </h5>
+                                    <p className="text-muted small mb-0 d-none d-sm-block">Search and view details of placed and paid orders</p>
+                                </div>
+                                {hasActiveFilters && (
+                                    <button
+                                        type="button"
+                                        onClick={() => applyQuickPreset('ALL')}
+                                        className="btn btn-sm btn-outline-secondary font-bold text-xs d-flex align-items-center gap-1 rounded-2"
+                                    >
+                                        <span>↺</span> Reset All
+                                    </button>
+                                )}
+                            </div>
         
-                            {/* Search and Filters Header Toolbar (Exact ReactEMenu UI) */}
+                            {/* Search and Filters Header Toolbar */}
                             <div className="d-flex flex-column gap-3 mb-4">
                                 <div className="row g-2">
                                     <div className="col-12 col-md-6">
@@ -103,7 +128,7 @@ const HistoryPage = () => {
                                             onChange={(e) => setHistoryTypeFilter(e.target.value)}
                                             style={{ height: '38px', fontSize: '0.85rem' }}
                                         >
-                                            <option value="All">All Types</option>
+                                            <option value="All">All Order Types</option>
                                             <option value="Dine-In">Dine-In</option>
                                             <option value="Takeaway">Takeaway</option>
                                             <option value="Delivery">Delivery</option>
@@ -152,10 +177,26 @@ const HistoryPage = () => {
 
                                     <button
                                         type="button"
+                                        onClick={() => applyQuickPreset('YESTERDAY')}
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
+                                    >
+                                        📆 Yesterday
+                                    </button>
+
+                                    <button
+                                        type="button"
                                         onClick={() => applyQuickPreset('THIS_WEEK')}
                                         className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
                                     >
-                                        📆 This Week
+                                        📊 This Week
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => applyQuickPreset('THIS_MONTH')}
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
+                                    >
+                                        🗓️ This Month
                                     </button>
 
                                     <span className="text-slate-300 mx-1">|</span>
@@ -197,7 +238,7 @@ const HistoryPage = () => {
                                     </button>
                                 </div>
 
-                                {/* Custom Date Range Pill Bar (Identical to ReactEMenu UI) */}
+                                {/* Custom Date Range Pill Bar */}
                                 <div className="d-flex align-items-center gap-2 p-2 bg-white rounded-3 border border-slate-200 shadow-2xs">
                                     <div className="flex-fill d-flex align-items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-2 border border-slate-200">
                                         <span className="text-muted fw-extrabold uppercase text-[10px]" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>FROM</span>
