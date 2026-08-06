@@ -210,11 +210,11 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                         marginBottom: showBillSummary ? '8px' : '0px'
                     }}
                 >
-                    <div className="p-2.5 rounded-3 mb-1" style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}>
-                        <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
-                            <span className="d-flex align-items-center gap-1.5">
+                    <div className="p-2.5 rounded-3 mb-1 bg-white border border-slate-200 shadow-2xs">
+                        <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom border-dashed" style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1e293b' }}>
+                            <span className="d-flex align-items-center gap-1.5 text-slate-500 uppercase fw-bold" style={{ fontSize: '0.7rem', letterSpacing: '0.5px' }}>
                                 <span style={{ fontSize: '0.85rem' }}>🧾</span>
-                                Bill Breakdown
+                                <span>Billing Breakdown</span>
                             </span>
                             <button 
                                 type="button" 
@@ -225,22 +225,26 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             ></button>
                         </div>
                         <div className="d-flex justify-content-between mb-1" style={{ fontSize: '0.78rem' }}>
-                            <span className="text-muted">Subtotal</span>
+                            <span className="text-slate-600">Subtotal</span>
                             <span className="fw-semibold text-slate-800">₹{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="d-flex justify-content-between mb-1" style={{ fontSize: '0.78rem' }}>
-                            <span className="text-muted">Tax ({posSettings.taxRate}%)</span>
-                            <span className="fw-semibold text-slate-800">₹{tax.toFixed(2)}</span>
+                        <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                            <span>CGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
+                            <span>+₹{(tax / 2).toFixed(2)}</span>
+                        </div>
+                        <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                            <span>SGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
+                            <span>+₹{(tax / 2).toFixed(2)}</span>
                         </div>
                         {(posSettings.serviceCharge > 0 && serviceCharge > 0) && (
-                            <div className="d-flex justify-content-between mb-2" style={{ fontSize: '0.78rem' }}>
-                                <span className="text-muted">Service Charge ({posSettings.serviceCharge}%)</span>
-                                <span className="fw-semibold text-slate-800">₹{serviceCharge.toFixed(2)}</span>
+                            <div className="d-flex justify-content-between mb-1 text-slate-500" style={{ fontSize: '0.75rem' }}>
+                                <span>Service Charge ({posSettings.serviceCharge}%)</span>
+                                <span>+₹{serviceCharge.toFixed(2)}</span>
                             </div>
                         )}
 
                         {/* Grand Total Badge Row */}
-                        <div className="d-flex justify-content-between align-items-center px-2.5 py-1.5 rounded-2"
+                        <div className="d-flex justify-content-between align-items-center px-2.5 py-1.5 rounded-2 mt-2"
                             style={{ background: '#1e293b', color: '#fff' }}>
                             <strong style={{ fontSize: '0.88rem', letterSpacing: '0.01em' }}>Grand Total</strong>
                             <span style={{
