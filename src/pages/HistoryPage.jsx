@@ -114,7 +114,7 @@ const HistoryPage = () => {
                             <div className="d-flex flex-column gap-2 mb-3">
                                 {/* Top Line: Search + Order Type + Inline Date Range Capsule */}
                                 <div className="row g-2 align-items-center">
-                                    <div className="col-12 col-sm-6 col-lg-4">
+                                    <div className={`col-12 ${activeOrderSummary ? 'col-sm-7 col-xl-4' : 'col-sm-6 col-lg-4'}`}>
                                         <input 
                                             type="text" 
                                             className="form-control" 
@@ -124,7 +124,7 @@ const HistoryPage = () => {
                                             style={{ height: '38px', fontSize: '0.82rem' }}
                                         />
                                     </div>
-                                    <div className="col-12 col-sm-6 col-lg-3">
+                                    <div className={`col-12 ${activeOrderSummary ? 'col-sm-5 col-xl-3' : 'col-sm-6 col-lg-3'}`}>
                                         <select 
                                             className="form-select"
                                             value={historyTypeFilter}
@@ -137,7 +137,7 @@ const HistoryPage = () => {
                                             <option value="Delivery">Delivery</option>
                                         </select>
                                     </div>
-                                    <div className="col-12 col-lg-5">
+                                    <div className={`col-12 ${activeOrderSummary ? 'col-xl-5' : 'col-lg-5'}`}>
                                         <div className="d-flex align-items-center flex-nowrap gap-1 bg-white p-1 rounded-3 border border-slate-200" style={{ height: '38px', minWidth: '0' }}>
                                             <div 
                                                 className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-2 border border-slate-200"
