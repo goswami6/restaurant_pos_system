@@ -4,6 +4,7 @@ import { API_BASE_URL } from './config';
 const Login = ({ onLogin }) => {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +45,7 @@ const Login = ({ onLogin }) => {
     } catch (err) {
       console.warn('Live API login failed, trying fallback demo credentials. Error:', err.message);
       
-      // Fallback local check for the demo credentials requested
+      // Fallback local check for demo credentials
       if (phone.trim() === '8269420494' && password.trim() === '12345678') {
         const mockSuccessResponse = {
           "id": "1",
@@ -76,96 +77,106 @@ const Login = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/40 p-4 font-sans selection:bg-amber-500/30">
-      {/* Decorative ambient light circles */}
-      <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none animate-pulse duration-[6000ms]"></div>
-      <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none animate-pulse duration-[8000ms]"></div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4 font-sans selection:bg-[#0077b6]/30 relative overflow-hidden" style={{ backgroundColor: '#0f172a' }}>
+      {/* Decorative ambient lighting circles matching website navbar/theme */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-[#0077b6]/15 rounded-full blur-3xl pointer-events-none animate-pulse duration-[6000ms]"></div>
+      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse duration-[8000ms]"></div>
 
-      <div className="relative w-full max-w-md bg-slate-900/75 backdrop-blur-xl border border-slate-800/80 rounded-2xl shadow-2xl p-8 transform transition-all duration-500 hover:border-slate-700/60">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 border border-slate-100 transform transition-all duration-500">
         
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-2xl mb-4 text-3xl shadow-inner shadow-amber-500/5">
+        {/* Branding & Header */}
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#0077b6]/10 border border-[#0077b6]/20 rounded-2xl mb-3 text-3xl shadow-sm text-[#0077b6]">
             🍽️
           </div>
-          <h2 className="text-2xl font-bold tracking-tight text-white mb-1">
-            Welcome to <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">My Restaurant POS</span>
+          <h2 className="text-2xl font-extrabold tracking-tight text-slate-900 mb-1">
+            Welcome to <span className="text-[#0077b6]">Restaurant POS</span>
           </h2>
-          <p className="text-slate-400 text-sm">Sign in to manage your system</p>
+          <p className="text-slate-500 text-xs sm:text-sm font-medium">Sign in to access order management & billing system</p>
         </div>
 
-        {/* Demo Credentials Info Box */}
+        {/* Demo Credentials Auto-Fill Pill Card matching website theme */}
         <div 
           onClick={handleFillDemo}
-          className="group mb-6 p-4 bg-amber-950/20 hover:bg-amber-950/30 border border-amber-500/20 rounded-xl cursor-pointer transition-all duration-300 flex items-start gap-3"
+          className="group mb-5 p-3.5 bg-sky-50 hover:bg-sky-100/70 border border-sky-200/80 rounded-2xl cursor-pointer transition-all duration-300 flex items-center justify-between shadow-xs"
+          title="Click to auto-fill demo credentials"
         >
-          <span className="text-amber-400 text-lg mt-0.5 group-hover:scale-110 transition-transform">💡</span>
-          <div>
-            <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-              Demo Mode
-              <span className="inline-block px-1.5 py-0.5 bg-amber-500/20 text-[10px] text-amber-300 rounded-md font-medium border border-amber-500/20 animate-pulse">
-                Click to Auto-fill
-              </span>
+          <div className="flex items-center gap-3">
+            <span className="text-[#0077b6] text-xl group-hover:scale-110 transition-transform">⚡</span>
+            <div>
+              <div className="text-[11px] font-bold text-[#0077b6] uppercase tracking-wider flex items-center gap-1.5">
+                <span>Demo Credentials</span>
+              </div>
+              <p className="text-xs text-slate-600 font-mono mt-0.5">
+                Phone: <strong className="text-slate-900">8269420494</strong> | Pass: <strong className="text-slate-900">12345678</strong>
+              </p>
             </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Phone: <strong className="text-white">8269420494</strong><br />
-              Password: <strong className="text-white">12345678</strong>
-            </p>
           </div>
+          <span className="px-2.5 py-1 bg-[#0077b6] text-white text-[10px] font-bold rounded-lg group-hover:bg-[#005f92] transition-colors shadow-xs">
+            Auto-fill
+          </span>
         </div>
 
         {/* Alert Error */}
         {error && (
-          <div className="mb-6 p-3 bg-red-950/30 border border-red-500/30 text-red-200 text-sm rounded-lg flex items-center gap-2 animate-shake">
-            <span className="text-red-400">⚠️</span>
+          <div className="mb-5 p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl flex items-center gap-2">
+            <span className="text-rose-500 text-base">⚠️</span>
             <span>{error}</span>
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               Phone Number
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                📞
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm">
+                <i className="bi bi-telephone"></i>
               </span>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Enter Phone Number (e.g. 8269420494)"
-                className="w-full pl-10 pr-4 py-3 bg-slate-950/50 border border-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-white placeholder-slate-600 outline-none transition-all duration-300 text-sm"
+                placeholder="Enter 10-digit phone number"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0077b6] focus:bg-white focus:ring-2 focus:ring-[#0077b6]/20 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold"
               />
             </div>
           </div>
 
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                 Password
               </label>
             </div>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-500">
-                🔒
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm">
+                <i className="bi bi-lock"></i>
               </span>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-3 bg-slate-950/50 border border-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 rounded-xl text-white placeholder-slate-600 outline-none transition-all duration-300 text-sm"
+                placeholder="Enter password"
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-[#0077b6] focus:bg-white focus:ring-2 focus:ring-[#0077b6]/20 rounded-xl text-slate-900 placeholder-slate-400 outline-none transition-all duration-300 text-sm font-semibold"
               />
+              <button
+                type="button"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                <i className={`bi ${showPassword ? 'bi-eye-slash' : 'bi-eye'}`}></i>
+              </button>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 active:scale-[0.98] text-white font-semibold rounded-xl transition-all duration-300 shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3 px-4 bg-[#0077b6] hover:bg-[#005f92] active:scale-[0.98] text-white font-bold text-sm rounded-xl transition-all duration-300 shadow-md shadow-[#0077b6]/20 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed mt-2"
           >
             {loading ? (
               <>
@@ -176,14 +187,17 @@ const Login = ({ onLogin }) => {
                 <span>Signing in...</span>
               </>
             ) : (
-              <span>Sign In</span>
+              <>
+                <span>Sign In</span>
+                <span>→</span>
+              </>
             )}
           </button>
         </form>
 
         {/* Footer */}
-        <div className="mt-8 text-center text-xs text-slate-500">
-          Restaurant Management System &copy; {new Date().getFullYear()}
+        <div className="mt-6 text-center text-[11px] text-slate-400 font-medium">
+          Restaurant POS System &copy; {new Date().getFullYear()}
         </div>
       </div>
     </div>
