@@ -111,7 +111,7 @@ const HistoryPage = () => {
                             {/* Search and Filters Header Toolbar */}
                             <div className="d-flex flex-column gap-3 mb-4">
                                 <div className="row g-2">
-                                    <div className="col-12 col-md-6">
+                                    <div className="col-12 col-md-8">
                                         <input 
                                             type="text" 
                                             className="form-control" 
@@ -121,7 +121,7 @@ const HistoryPage = () => {
                                             style={{ height: '38px', fontSize: '0.85rem' }}
                                         />
                                     </div>
-                                    <div className="col-6 col-md-3">
+                                    <div className="col-12 col-md-4">
                                         <select 
                                             className="form-select"
                                             value={historyTypeFilter}
@@ -132,19 +132,6 @@ const HistoryPage = () => {
                                             <option value="Dine-In">Dine-In</option>
                                             <option value="Takeaway">Takeaway</option>
                                             <option value="Delivery">Delivery</option>
-                                        </select>
-                                    </div>
-                                    <div className="col-6 col-md-3">
-                                        <select 
-                                            className="form-select"
-                                            value={historyStatusFilter}
-                                            onChange={(e) => setHistoryStatusFilter(e.target.value)}
-                                            style={{ height: '38px', fontSize: '0.85rem' }}
-                                        >
-                                            <option value="All">All Statuses</option>
-                                            <option value="PAID">PAID</option>
-                                            <option value="PENDING">PENDING</option>
-                                            <option value="CANCELLED">CANCELLED</option>
                                         </select>
                                     </div>
                                 </div>
