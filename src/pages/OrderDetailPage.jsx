@@ -223,7 +223,7 @@ const OrderDetailPage = () => {
                             <span className="text-primary">#{order.order_id}</span>
                         </h6>
                         <span className="text-muted d-block text-truncate" style={{ fontSize: '0.7rem', marginTop: '1px' }}>
-                            {order.table_number !== 'N/A' ? order.table_number : 'Direct'} • {order.type} • {new Date(order.time).toLocaleDateString('en-GB')}
+                            {(posSettings?.isEnableTables && order.table_number && order.table_number !== 'N/A') ? `${order.table_number} • ` : ''}{order.type} • {new Date(order.time).toLocaleDateString('en-GB')}
                         </span>
                     </div>
                 </div>

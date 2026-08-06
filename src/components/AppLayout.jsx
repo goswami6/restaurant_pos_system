@@ -92,8 +92,8 @@ const AppLayout = () => {
                     <span>Date: {new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                    <span>{orderType === 'DINE-IN' ? `Dine In: ${tableId || 'N/A'}` : `Type: ${orderType}`}</span>
-                    <span>{(posSettings?.isEnableTables || Boolean(tableId) || orderType === 'DINE-IN') ? 'Waiter' : 'Cashier'}: {user?.username || user?.name || 'Ravi'}</span>
+                    <span>{(posSettings?.isEnableTables && orderType === 'DINE-IN' && tableId) ? `Dine In: ${tableId}` : `Type: ${orderType}`}</span>
+                    <span>{posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: {user?.username || user?.name || 'Ravi'}</span>
                 </div>
 
                 <div style={{ borderTop: '1px dashed #000', margin: '4px 0' }}></div>

@@ -418,8 +418,12 @@ const HistoryPage = () => {
                                         </div>
                                         <div className="d-flex flex-wrap gap-2 align-items-center text-xs text-muted">
                                             <span><strong>Order ID:</strong> #{activeOrderSummary.order_id}</span>
-                                            <span className="text-secondary">|</span>
-                                            <span><strong>Table:</strong> {activeOrderSummary.table_number || 'N/A'}</span>
+                                            {posSettings?.isEnableTables && (
+                                                <>
+                                                    <span className="text-secondary">|</span>
+                                                    <span><strong>Table:</strong> {activeOrderSummary.table_number || 'N/A'}</span>
+                                                </>
+                                            )}
                                             <span className="text-secondary">|</span>
                                             <span><strong>Type:</strong> {activeOrderSummary.type}</span>
                                             <span className="text-secondary">|</span>

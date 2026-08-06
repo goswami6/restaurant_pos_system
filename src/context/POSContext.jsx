@@ -257,7 +257,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
                 if (prevOrderIdsRef.current.size > 0) {
                     mappedOrders.forEach(ord => {
                         if (!prevOrderIdsRef.current.has(ord.order_id)) {
-                            showToast('success', `🔔 New Order #${ord.order_id}!`, `Placed for ${ord.table_number} • Total ₹${ord.total.toFixed(2)}`);
+                            showToast('success', `🔔 New Order #${ord.order_id}!`, `${(posSettings?.isEnableTables && ord.table_number && ord.table_number !== 'N/A') ? `Placed for ${ord.table_number} • ` : ''}Total ₹${ord.total.toFixed(2)}`);
                         }
                     });
                 }

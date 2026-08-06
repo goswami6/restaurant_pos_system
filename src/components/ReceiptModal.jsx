@@ -80,8 +80,8 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                     <span>Date: ${formattedDate}</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                    <span>${selectedHistoryOrder.table_number ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type}`}</span>
-                    <span>${(posSettings?.isEnableTables || Boolean(selectedHistoryOrder.table_number) || selectedHistoryOrder.type === 'DINE-IN') ? 'Waiter' : 'Cashier'}: ${selectedHistoryOrder.server || 'Ravi'}</span>
+                    <span>${(posSettings?.isEnableTables && selectedHistoryOrder.table_number && selectedHistoryOrder.table_number !== 'N/A') ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`}</span>
+                    <span>${posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: ${selectedHistoryOrder.server || 'Ravi'}</span>
                 </div>
 
                 <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
@@ -184,8 +184,8 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                         <span>Date: {formattedDate}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                        <span>{selectedHistoryOrder.table_number ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type}`}</span>
-                        <span>{(posSettings?.isEnableTables || Boolean(selectedHistoryOrder.table_number) || selectedHistoryOrder.type === 'DINE-IN') ? 'Waiter' : 'Cashier'}: {selectedHistoryOrder.server || 'Ravi'}</span>
+                        <span>{(posSettings?.isEnableTables && selectedHistoryOrder.table_number && selectedHistoryOrder.table_number !== 'N/A') ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`}</span>
+                        <span>{posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: {selectedHistoryOrder.server || 'Ravi'}</span>
                     </div>
 
                     <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
