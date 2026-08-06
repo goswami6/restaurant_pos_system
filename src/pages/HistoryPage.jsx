@@ -87,7 +87,7 @@ const HistoryPage = () => {
 
     return (
         <div className="container-fluid py-3 py-sm-4 px-2 px-sm-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
-            <div className="row g-3 g-sm-4">
+            <div className="row g-3 g-sm-4 align-items-start">
                 <div className={activeOrderSummary ? "col-lg-8 col-md-7" : "col-12"}>
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                         <div className="card-body p-3 p-sm-4">
@@ -401,7 +401,7 @@ const HistoryPage = () => {
                 {activeOrderSummary && (
                     <>
                         <div className="d-block d-md-none history-backdrop-mobile" onClick={() => setActiveOrderSummary(null)}></div>
-                        <div className="col-lg-4 col-md-5 history-summary-drawer">
+                        <div className="col-lg-4 col-md-5 history-summary-drawer" style={{ position: 'sticky', top: '1rem', alignSelf: 'flex-start', zIndex: 10 }}>
                             <div className="card shadow-sm border-0 rounded-3 bg-white h-100">
                                 <div className="card-body p-0 d-flex flex-column" style={{ maxHeight: 'calc(100vh - 175px)', minHeight: '380px' }}>
                                     <div className="p-3 border-bottom bg-light rounded-top-3">
