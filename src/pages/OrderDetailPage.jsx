@@ -640,20 +640,22 @@ const OrderDetailPage = () => {
                                 </button>
 
                                 {/* 2. Print */}
-                                <button
-                                    className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
-                                    style={{ 
-                                        background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
-                                        whiteSpace: 'nowrap', 
-                                        borderRadius: '9px',
-                                        height: '36px',
-                                        boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
-                                    }}
-                                    onClick={() => setShowReceiptPrint(true)}
-                                >
-                                    <span style={{ fontSize: '11px' }}>🖨️</span>
-                                    <span>Print</span>
-                                </button>
+                                {orderStatus !== 'CANCELLED' && (
+                                    <button
+                                        className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                                        style={{ 
+                                            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
+                                            whiteSpace: 'nowrap', 
+                                            borderRadius: '9px',
+                                            height: '36px',
+                                            boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
+                                        }}
+                                        onClick={() => setShowReceiptPrint(true)}
+                                    >
+                                        <span style={{ fontSize: '11px' }}>🖨️</span>
+                                        <span>Print</span>
+                                    </button>
+                                )}
 
                                 {/* 3. Discard */}
                                 <button 
