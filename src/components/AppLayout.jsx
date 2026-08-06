@@ -29,6 +29,12 @@ const AppLayout = () => {
         setOrderType,
     } = usePOS();
 
+    React.useEffect(() => {
+        if (posSettings && posSettings.isEnableTables === false && (location.pathname === '/tables' || location.pathname === '/')) {
+            navigate('/order', { replace: true });
+        }
+    }, [posSettings?.isEnableTables, location.pathname, navigate]);
+
     const navTo = (path) => navigate('/' + path);
 
     return (
