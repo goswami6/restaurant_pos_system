@@ -110,25 +110,26 @@ const HistoryPage = () => {
                                 )}
                             </div>
         
-                            {/* Search and Filters Header Toolbar */}
-                            <div className="d-flex flex-column gap-3 mb-4">
-                                <div className="row g-2">
-                                    <div className="col-12 col-md-8">
+                            {/* Search and Filters Header Toolbar (Ultra-Compact 2-Row Design) */}
+                            <div className="d-flex flex-column gap-2 mb-3">
+                                {/* Top Line: Search + Order Type + Inline Date Range Capsule */}
+                                <div className="row g-2 align-items-center">
+                                    <div className="col-12 col-md-4">
                                         <input 
                                             type="text" 
                                             className="form-control" 
                                             placeholder="Search by Order ID or Table..." 
                                             value={historySearchQuery}
                                             onChange={(e) => setHistorySearchQuery(e.target.value)}
-                                            style={{ height: '38px', fontSize: '0.85rem' }}
+                                            style={{ height: '36px', fontSize: '0.82rem' }}
                                         />
                                     </div>
-                                    <div className="col-12 col-md-4">
+                                    <div className="col-6 col-md-3">
                                         <select 
                                             className="form-select"
                                             value={historyTypeFilter}
                                             onChange={(e) => setHistoryTypeFilter(e.target.value)}
-                                            style={{ height: '38px', fontSize: '0.85rem' }}
+                                            style={{ height: '36px', fontSize: '0.82rem' }}
                                         >
                                             <option value="All">All Order Types</option>
                                             <option value="Dine-In">Dine-In</option>
@@ -136,14 +137,67 @@ const HistoryPage = () => {
                                             <option value="Delivery">Delivery</option>
                                         </select>
                                     </div>
+                                    <div className="col-6 col-md-5">
+                                        <div className="d-flex align-items-center gap-1 bg-white p-1 rounded-3 border border-slate-200" style={{ height: '36px' }}>
+                                            <div 
+                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-2 border border-slate-200"
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={(e) => {
+                                                    const input = e.currentTarget.querySelector('input');
+                                                    if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
+                                                }}
+                                            >
+                                                <span className="fw-black text-slate-500 uppercase" style={{ fontSize: '0.65rem' }}>FROM</span>
+                                                <input 
+                                                    type="date" 
+                                                    value={startDate}
+                                                    onChange={(e) => setStartDate(e.target.value)}
+                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none w-100"
+                                                    style={{ fontSize: '0.78rem', cursor: 'pointer' }}
+                                                />
+                                            </div>
+
+                                            <span className="text-slate-400 fw-bold" style={{ fontSize: '0.75rem' }}>→</span>
+
+                                            <div 
+                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-2 py-0.5 rounded-2 border border-slate-200"
+                                                style={{ cursor: 'pointer' }}
+                                                onClick={(e) => {
+                                                    const input = e.currentTarget.querySelector('input');
+                                                    if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
+                                                }}
+                                            >
+                                                <span className="fw-black text-slate-500 uppercase" style={{ fontSize: '0.65rem' }}>TO</span>
+                                                <input 
+                                                    type="date" 
+                                                    value={endDate}
+                                                    onChange={(e) => setEndDate(e.target.value)}
+                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none w-100"
+                                                    style={{ fontSize: '0.78rem', cursor: 'pointer' }}
+                                                />
+                                            </div>
+
+                                            {(startDate || endDate) && (
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => { setStartDate(''); setEndDate(''); }}
+                                                    className="btn btn-link text-danger p-0 px-1 font-bold border-0 text-decoration-none"
+                                                    title="Clear date filter"
+                                                    style={{ fontSize: '0.8rem' }}
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                {/* Quick Presets Row */}
-                                <div className="d-flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                                {/* Bottom Line: Quick Presets & Status Pills */}
+                                <div className="d-flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('ALL')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
                                             !startDate && !endDate && historyStatusFilter === 'All'
                                                 ? 'btn-primary text-white'
                                                 : 'btn-light text-secondary border-slate-200'
@@ -155,7 +209,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('TODAY')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
                                             startDate && startDate === endDate
                                                 ? 'btn-primary text-white'
                                                 : 'btn-light text-secondary border-slate-200'
@@ -167,7 +221,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('YESTERDAY')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
                                     >
                                         📆 Yesterday
                                     </button>
@@ -175,7 +229,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('THIS_WEEK')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
                                     >
                                         📊 This Week
                                     </button>
@@ -183,7 +237,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => applyQuickPreset('THIS_MONTH')}
-                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 btn-light text-secondary border-slate-200"
+                                        className="btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 btn-light text-secondary border-slate-200"
                                     >
                                         🗓️ This Month
                                     </button>
@@ -193,7 +247,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'COMPLETED' ? 'All' : 'COMPLETED')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
                                             historyStatusFilter === 'COMPLETED'
                                                 ? 'btn-success text-white'
                                                 : 'btn-light text-success border-success-subtle'
@@ -205,7 +259,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'PENDING' ? 'All' : 'PENDING')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
                                             historyStatusFilter === 'PENDING'
                                                 ? 'btn-warning text-dark'
                                                 : 'btn-light text-warning border-warning-subtle'
@@ -217,7 +271,7 @@ const HistoryPage = () => {
                                     <button
                                         type="button"
                                         onClick={() => setHistoryStatusFilter(historyStatusFilter === 'CANCELLED' ? 'All' : 'CANCELLED')}
-                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
+                                        className={`btn btn-sm text-xs font-bold rounded-pill border px-3 py-1 ${
                                             historyStatusFilter === 'CANCELLED'
                                                 ? 'btn-danger text-white'
                                                 : 'btn-light text-danger border-danger-subtle'
@@ -225,44 +279,6 @@ const HistoryPage = () => {
                                     >
                                         🔴 Cancelled
                                     </button>
-                                </div>
-
-                                {/* Custom Date Range Pill Bar */}
-                                <div className="d-flex align-items-center gap-2 p-2 bg-white rounded-3 border border-slate-200 shadow-2xs">
-                                    <div className="flex-fill d-flex align-items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-2 border border-slate-200">
-                                        <span className="text-muted fw-extrabold uppercase text-[10px]" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>FROM</span>
-                                        <input 
-                                            type="date" 
-                                            value={startDate}
-                                            onChange={(e) => setStartDate(e.target.value)}
-                                            className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none"
-                                            style={{ fontSize: '0.82rem', height: 'auto' }}
-                                        />
-                                    </div>
-
-                                    <span className="text-slate-400 fw-extrabold px-1">→</span>
-
-                                    <div className="flex-fill d-flex align-items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-2 border border-slate-200">
-                                        <span className="text-muted fw-extrabold uppercase text-[10px]" style={{ fontSize: '0.68rem', letterSpacing: '0.5px' }}>TO</span>
-                                        <input 
-                                            type="date" 
-                                            value={endDate}
-                                            onChange={(e) => setEndDate(e.target.value)}
-                                            className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none"
-                                            style={{ fontSize: '0.82rem', height: 'auto' }}
-                                        />
-                                    </div>
-
-                                    {(startDate || endDate) && (
-                                        <button 
-                                            type="button"
-                                            onClick={() => { setStartDate(''); setEndDate(''); }}
-                                            className="btn btn-outline-danger btn-sm px-2.5 py-1 text-xs fw-bold rounded-2 cursor-pointer flex-shrink-0"
-                                            title="Clear date filter"
-                                        >
-                                            Clear ✕
-                                        </button>
-                                    )}
                                 </div>
                             </div>
         
