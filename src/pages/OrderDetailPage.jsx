@@ -619,77 +619,89 @@ const OrderDetailPage = () => {
                                 </div>
                             </div>
 
-                            {/* Action Buttons — 1 single horizontal row with 4 micro-action buttons matching BillPanel */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                            {/* Action Buttons — 1 single horizontal row with equal flex 1fr grid */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                                 {/* 1. Update Order */}
                                 <button
-                                    className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                                    className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                                     style={{ 
                                         background: isPaid ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
                                         whiteSpace: 'nowrap', 
-                                        borderRadius: '9px',
+                                        borderRadius: '8px',
                                         height: '36px',
+                                        padding: '4px 2px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
                                         boxShadow: isPaid ? 'none' : '0 2px 5px rgba(16, 185, 129, 0.25)',
                                         cursor: isPaid ? 'not-allowed' : 'pointer'
                                     }}
                                     onClick={handleSave}
                                     disabled={isPaid}
                                 >
-                                    <span style={{ fontSize: '11px' }}>⚡</span>
+                                    <span style={{ fontSize: '0.75rem' }}>⚡</span>
                                     <span>Update</span>
                                 </button>
 
                                 {/* 2. Print */}
                                 {orderStatus !== 'CANCELLED' && (
                                     <button
-                                        className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                                         style={{ 
                                             background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
                                             whiteSpace: 'nowrap', 
-                                            borderRadius: '9px',
+                                            borderRadius: '8px',
                                             height: '36px',
+                                            padding: '4px 2px',
+                                            fontSize: '0.72rem',
+                                            fontWeight: 700,
                                             boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
                                         }}
                                         onClick={() => setShowReceiptPrint(true)}
                                     >
-                                        <span style={{ fontSize: '11px' }}>🖨️</span>
+                                        <span style={{ fontSize: '0.75rem' }}>🖨️</span>
                                         <span>Print</span>
                                     </button>
                                 )}
 
                                 {/* 3. Discard */}
                                 <button 
-                                    className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                                    className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                                     style={{ 
                                         background: isPaid ? '#94a3b8' : 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
                                         whiteSpace: 'nowrap', 
-                                        borderRadius: '9px',
+                                        borderRadius: '8px',
                                         height: '36px',
+                                        padding: '4px 2px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
                                         boxShadow: isPaid ? 'none' : '0 2px 5px rgba(30, 41, 59, 0.25)',
                                         cursor: isPaid ? 'not-allowed' : 'pointer'
                                     }} 
                                     onClick={resetChanges}
                                     disabled={isPaid}
                                 >
-                                    <span style={{ fontSize: '11px' }}>↺</span>
+                                    <span style={{ fontSize: '0.75rem' }}>↺</span>
                                     <span>Discard</span>
                                 </button>
 
                                 {/* 4. Cancel */}
                                 <button
-                                    className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                                    className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                                     style={{ 
                                         background: (isPaid || order.status === 'CANCELLED') ? '#94a3b8' : 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', 
                                         whiteSpace: 'nowrap', 
-                                        borderRadius: '9px',
+                                        borderRadius: '8px',
                                         height: '36px',
+                                        padding: '4px 2px',
+                                        fontSize: '0.72rem',
+                                        fontWeight: 700,
                                         boxShadow: (isPaid || order.status === 'CANCELLED') ? 'none' : '0 2px 5px rgba(244, 63, 94, 0.25)',
                                         cursor: (isPaid || order.status === 'CANCELLED') ? 'not-allowed' : 'pointer'
                                     }}
                                     onClick={handleCancelClick}
                                     disabled={isPaid || order.status === 'CANCELLED'}
                                 >
-                                    <span style={{ fontSize: '11px' }}>✕</span>
+                                    <span style={{ fontSize: '0.75rem' }}>✕</span>
                                     <span>Cancel</span>
                                 </button>
                             </div>

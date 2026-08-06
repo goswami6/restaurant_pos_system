@@ -255,59 +255,68 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                     </div>
                 </div>
 
-                {/* Action Buttons — 1 single horizontal row with micro-interactions */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {/* Action Buttons — 1 single horizontal row with equal flex 1fr grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
                     {/* 1. Place Order / Update Order */}
                     {cartItems.length > 0 ? (
                         <button
-                            className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                             style={{ 
                                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
                                 whiteSpace: 'nowrap', 
-                                borderRadius: '9px',
+                                borderRadius: '8px',
                                 height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
                                 boxShadow: '0 2px 5px rgba(16, 185, 129, 0.25)'
                             }}
                             onClick={sendOrderToKitchen}
                         >
-                            <span style={{ fontSize: '11px' }}>⚡</span>
+                            <span style={{ fontSize: '0.75rem' }}>⚡</span>
                             <span>{activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? 'Update' : 'Order'}</span>
                         </button>
                     ) : (
                         <button 
-                            className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-semibold text-slate-400 border border-slate-200 bg-slate-100" 
-                            style={{ whiteSpace: 'nowrap', borderRadius: '9px', height: '36px' }} 
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-slate-400 border border-slate-200 bg-slate-100" 
+                            style={{ whiteSpace: 'nowrap', borderRadius: '8px', height: '36px', padding: '4px 2px', fontSize: '0.72rem', fontWeight: 600 }} 
                             disabled
                         >
-                            <span style={{ fontSize: '11px', opacity: 0.5 }}>⚡</span>
+                            <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>⚡</span>
                             <span>Order</span>
                         </button>
                     )}
 
                     {/* 2. Print (Direct Browser Print) */}
                     <button
-                        className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                         style={{ 
                             background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
                             whiteSpace: 'nowrap', 
-                            borderRadius: '9px',
+                            borderRadius: '8px',
                             height: '36px',
+                            padding: '4px 2px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
                             boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
                         }}
                         onClick={handlePrintKOT}
                     >
-                        <span style={{ fontSize: '11px' }}>🖨️</span>
+                        <span style={{ fontSize: '0.75rem' }}>🖨️</span>
                         <span>Print</span>
                     </button>
 
                     {/* 3. Review (Opens Receipt Preview Modal) */}
                     <button 
-                        className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                         style={{ 
                             background: 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
                             whiteSpace: 'nowrap', 
-                            borderRadius: '9px',
+                            borderRadius: '8px',
                             height: '36px',
+                            padding: '4px 2px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
                             boxShadow: '0 2px 5px rgba(30, 41, 59, 0.25)'
                         }} 
                         onClick={() => {
@@ -318,20 +327,23 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             setShowPreviewModal(true);
                         }}
                     >
-                        <span style={{ fontSize: '11px' }}>📋</span>
+                        <span style={{ fontSize: '0.75rem' }}>📖</span>
                         <span>Review</span>
                     </button>
 
-                    {/* 4. Cancel */}
-                    <button
-                        className="btn d-flex align-items-center justify-content-center gap-1 py-2 px-1 text-[11px] font-bold text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                    {/* 4. Cancel Order / Clear Cart */}
+                    <button 
+                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                         style={{ 
-                            background: 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', 
+                            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
                             whiteSpace: 'nowrap', 
-                            borderRadius: '9px',
+                            borderRadius: '8px',
                             height: '36px',
-                            boxShadow: '0 2px 5px rgba(244, 63, 94, 0.25)'
-                        }}
+                            padding: '4px 2px',
+                            fontSize: '0.72rem',
+                            fontWeight: 700,
+                            boxShadow: '0 2px 5px rgba(239, 68, 68, 0.25)'
+                        }} 
                         onClick={async () => {
                             if (activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id) {
                                 await cancelActiveOrder(activeTableInfo.current_session.active_order_id, activeTableInfo.table_number);
