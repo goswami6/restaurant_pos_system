@@ -27,7 +27,9 @@ const HistoryPage = () => {
         const matchesType = historyTypeFilter === 'All' || 
                             order.type.toUpperCase() === historyTypeFilter.toUpperCase();
         const matchesStatus = historyStatusFilter === 'All' || 
-                              order.status.toUpperCase() === historyStatusFilter.toUpperCase();
+                              (historyStatusFilter === 'COMPLETED' 
+                                ? (order.status.toUpperCase() === 'COMPLETED' || order.status.toUpperCase() === 'PAID') 
+                                : order.status.toUpperCase() === historyStatusFilter.toUpperCase());
 
         let matchesDate = true;
         if (order.time) {
@@ -190,14 +192,14 @@ const HistoryPage = () => {
 
                                     <button
                                         type="button"
-                                        onClick={() => setHistoryStatusFilter(historyStatusFilter === 'PAID' ? 'All' : 'PAID')}
+                                        onClick={() => setHistoryStatusFilter(historyStatusFilter === 'COMPLETED' ? 'All' : 'COMPLETED')}
                                         className={`btn btn-sm text-xs font-bold rounded-pill border px-3 ${
-                                            historyStatusFilter === 'PAID'
+                                            historyStatusFilter === 'COMPLETED'
                                                 ? 'btn-success text-white'
                                                 : 'btn-light text-success border-success-subtle'
                                         }`}
                                     >
-                                        🟢 Paid
+                                        🟢 Completed
                                     </button>
 
                                     <button
@@ -279,7 +281,7 @@ const HistoryPage = () => {
                                     </thead>
                                     <tbody>
                                         {filteredHistory.map((order) => {
-                                            const isPaid = order.status === 'PAID';
+                                            const isPaid = order.status === 'PAID' || order.status === 'COMPLETED';
                                             const isActive = activeOrderSummary?.order_id === order.order_id;
                                             return (
                                                 <tr key={order.order_id} style={isActive ? { backgroundColor: '#f8fafc' } : {}}>
@@ -303,7 +305,7 @@ const HistoryPage = () => {
                                                             order.status === 'PENDING' ? 'bg-warning text-dark' : 
                                                             order.status ? 'bg-info text-dark' : 'bg-secondary text-white'
                                                         }`}>
-                                                            {order.status || 'N/A'}
+                                                            {order.status === 'PAID' ? 'COMPLETED' : (order.status || 'N/A')}
                                                         </span>
                                                     </td>
                                                     <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
