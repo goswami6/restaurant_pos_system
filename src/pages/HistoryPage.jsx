@@ -330,22 +330,25 @@ const HistoryPage = () => {
                                                     <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
                                                         <div className="d-flex justify-content-end gap-1 flex-nowrap">
                                                             <button 
-                                                                className="btn btn-sm btn-outline-dark"
+                                                                className="btn btn-sm btn-outline-dark rounded-2 px-2.5 py-1"
                                                                 onClick={() => setActiveOrderSummary(order)}
+                                                                title="View Details"
                                                             >
-                                                                Details
+                                                                <i className="bi bi-eye"></i>
                                                             </button>
                                                             {order.status !== 'CANCELLED' && (
                                                                 <button 
-                                                                    className="btn btn-sm btn-outline-secondary"
+                                                                    className="btn btn-sm btn-outline-secondary rounded-2 px-2.5 py-1"
                                                                     onClick={() => setSelectedHistoryOrder(order)}
+                                                                    title="Print Receipt"
                                                                 >
-                                                                    Print
+                                                                    <i className="bi bi-printer"></i>
                                                                 </button>
                                                             )}
                                                             {(order.status === 'PENDING' || order.status === 'SERVED') && (
                                                                 <button 
-                                                                    className="btn btn-sm btn-success text-white"
+                                                                    className="btn btn-sm btn-success text-white rounded-2 px-2.5 py-1"
+                                                                    title="Mark Paid"
                                                                     onClick={async () => {
                                                                         const nextPaidIds = JSON.parse(localStorage.getItem('pos_paid_order_ids') || '[]');
                                                                         if (!nextPaidIds.includes(String(order.order_id))) {
@@ -378,7 +381,7 @@ const HistoryPage = () => {
                                                                         toast.success(`Order ${order.order_id} marked as COMPLETED.`);
                                                                     }}
                                                                 >
-                                                                    Mark Paid
+                                                                    <i className="bi bi-check-circle"></i>
                                                                 </button>
                                                             )}
                                                         </div>
@@ -401,9 +404,9 @@ const HistoryPage = () => {
                 {activeOrderSummary && (
                     <>
                         <div className="d-block d-md-none history-backdrop-mobile" onClick={() => setActiveOrderSummary(null)}></div>
-                        <div className="col-lg-4 col-md-5 history-summary-drawer" style={{ position: 'sticky', top: '1rem', alignSelf: 'flex-start', zIndex: 10 }}>
-                            <div className="card shadow-sm border-0 rounded-3 bg-white h-100">
-                                <div className="card-body p-0 d-flex flex-column" style={{ maxHeight: 'calc(100vh - 175px)', minHeight: '380px' }}>
+                        <div className="col-lg-4 col-md-5 history-summary-drawer" style={{ position: 'sticky', top: '0', alignSelf: 'flex-start', zIndex: 10, maxHeight: 'calc(100vh - 140px)' }}>
+                            <div className="card shadow-sm border-0 rounded-3 bg-white d-flex flex-column" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+                                <div className="card-body p-0 d-flex flex-column overflow-hidden" style={{ maxHeight: 'calc(100vh - 140px)' }}>
                                     <div className="p-3 border-bottom bg-light rounded-top-3">
                                         <div className="d-flex justify-content-between align-items-center mb-2">
                                             <h6 className="fw-bold mb-0 text-slate-900">Order Bill summary</h6>
@@ -430,7 +433,7 @@ const HistoryPage = () => {
                                     </div>
                                     
                                     {/* Items scroll */}
-                                    <div className="p-3" style={{ flex: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 380px)' }}>
+                                    <div className="p-3 flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 350px)' }}>
                                         {activeOrderSummary.items && activeOrderSummary.items.length === 0 ? (
                                             <div className="text-center py-5 text-muted">No items in this order.</div>
                                         ) : (
