@@ -11,43 +11,7 @@ export const usePOS = () => {
     return ctx;
 };
 
-// Robust local fallback data
-const FALLBACK_MENU = {
-    "version": "1.0.0",
-    "last_updated": "2026-05-15T10:30:00Z",
-    "categories": [
-        {
-            "category_id": "5",
-            "category_name": "Biryani",
-            "image_url": null,
-            "items": [
-                {
-                    "item_id": "5", "category_id": "5", "item_name": "Veg Biryani",
-                    "price": "299.00", "tax_percentage": "5.00", "dietary_info": "Veg", "image": null,
-                    "variants": [
-                        { "id": "OPT-01", "name": "Rare", "price": 0.00 },
-                        { "id": "OPT-02", "name": "Medium Rare", "price": 0.00 },
-                        { "id": "OPT-03", "name": "Well Done", "price": 0.00 }
-                    ],
-                    "addons": []
-                }
-            ]
-        },
-        {
-            "category_id": "6",
-            "category_name": "Starters",
-            "image_url": null,
-            "items": [
-                {
-                    "item_id": "6", "category_id": "6", "item_name": "Paneer Tikka",
-                    "price": "399.00", "tax_percentage": "5.00", "dietary_info": "Veg", "image": null,
-                    "variants": [], "addons": []
-                }
-            ]
-        },
-        { "category_id": "7", "category_name": "Main Course", "image_url": null, "items": [] }
-    ]
-};
+
 
 export const POSProvider = ({ user, onLogout, children }) => {
     const navigate = useNavigate();
@@ -127,8 +91,47 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const menuItems = useMemo(() => categories.reduce((acc, cat) => [...acc, ...(cat.items || [])], []), [categories]);
 
     // ── mergeLocalStatus ────────────────────────────────────────────────────
-    const mergeLocalStatus = (nextData, prev) => {
+    const mergeLocalStatus = (nextData, prev, currentOrders = orderHistory) => {
+        // Map active table orders (PREPARING, PENDING, READY, CONFIRMED)
+        const activeTableOrders = new Map();
+        (currentOrders || []).forEach(ord => {
+            const st = (ord.status || '').toUpperCase();
+            if (st === 'PREPARING' || st === 'PENDING' || st === 'READY' || st === 'CONFIRMED' || st === 'IN_PROGRESS') {
+                const rawTN = String(ord.table_number || '').trim();
+                if (rawTN && rawTN.toUpperCase() !== 'N/A') {
+                    activeTableOrders.set(rawTN.toLowerCase(), ord);
+                    const numOnly = rawTN.replace(/[^0-9]/g, '');
+                    if (numOnly) {
+                        activeTableOrders.set(numOnly, ord);
+                        activeTableOrders.set(`table #${numOnly}`, ord);
+                        activeTableOrders.set(`table ${numOnly}`, ord);
+                    }
+                }
+            }
+        });
+
         const mergeTablesList = (list) => (list || []).map(t => {
+            const tName = String(t.table_number || t.table_name || t.table_id || '').trim();
+            const tNumOnly = tName.replace(/[^0-9]/g, '');
+            const activeOrd = activeTableOrders.get(tName.toLowerCase()) || (tNumOnly ? activeTableOrders.get(tNumOnly) : null);
+
+            const statusRaw = (t.status || 'Available').toUpperCase();
+            const isOccupied = statusRaw === 'OCCUPIED' || !!activeOrd;
+
+            if (isOccupied) {
+                return {
+                    ...t,
+                    status: 'Occupied',
+                    current_session: t.current_session || (activeOrd ? {
+                        active_order_id: activeOrd.order_id,
+                        total_amount: activeOrd.total,
+                        items_count: activeOrd.items?.length || 0,
+                        order_type: activeOrd.type,
+                        created_at: activeOrd.created_at || activeOrd.time,
+                    } : null)
+                };
+            }
+
             const prevTable = (() => {
                 if (prev?.tables) {
                     const found = prev.tables.find(pt => pt.table_number === t.table_number);
@@ -143,13 +146,14 @@ export const POSProvider = ({ user, onLogout, children }) => {
                 return null;
             })();
 
-            if (prevTable) {
-                if (prevTable.status === 'Dirty') return { ...t, status: 'Dirty', current_session: prevTable.current_session };
-                if (prevTable.status === 'Occupied' && (t.status === 'Available' || !t.current_session)) {
-                    return { ...t, status: 'Occupied', current_session: prevTable.current_session };
-                }
+            if (prevTable && prevTable.status === 'Dirty') {
+                return { ...t, status: 'Dirty', current_session: prevTable.current_session };
             }
-            return t;
+
+            return {
+                ...t,
+                status: t.status || 'Available'
+            };
         });
 
         let merged = { ...nextData };
@@ -228,6 +232,25 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
                     const orderTime = apiOrder.created_at || apiOrder.order_date || apiOrder.created_date || apiOrder.updated_at || apiOrder.timestamp || apiOrder.date;
 
+                    const itemsMapped = (apiOrder.items || []).map(item => ({
+                        id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
+                        item_id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
+                        name: item.name || item.item_name || 'Item',
+                        price: parseFloat(item.unit_price || item.price || item.total_price || 0),
+                        qty: parseInt(item.quantity || item.qty || 1),
+                        selectedVariant: item.variant_name ? { id: item.variant_name, name: item.variant_name, price: 0 } : null,
+                        notes: item.notes || ''
+                    }));
+
+                    const itemsSum = itemsMapped.reduce((s, i) => s + (i.price * i.qty), 0);
+                    const calculatedTotal = parseFloat(
+                        apiOrder.bill?.grand_total ?? 
+                        apiOrder.grand_total ?? 
+                        apiOrder.total_amount ?? 
+                        apiOrder.total ?? 
+                        (itemsSum > 0 ? itemsSum : 0)
+                    );
+
                     return {
                         order_id: String(apiOrder.order_id),
                         table_number: tableNum,
@@ -236,20 +259,12 @@ export const POSProvider = ({ user, onLogout, children }) => {
                         time: orderTime,
                         created_at: orderTime,
                         updated_at: orderTime,
-                        total: parseFloat(apiOrder.bill?.grand_total || 0),
+                        total: calculatedTotal,
                         status: statusFormatted,
-                        subtotal: parseFloat(apiOrder.bill?.subtotal || 0),
+                        subtotal: parseFloat(apiOrder.bill?.subtotal || calculatedTotal),
                         tax: parseFloat(apiOrder.bill?.tax_amount || 0),
                         serviceCharge: parseFloat(apiOrder.bill?.service_charge || 0),
-                        items: (apiOrder.items || []).map(item => ({
-                            id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
-                            item_id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
-                            name: item.name,
-                            price: parseFloat(item.unit_price || 0),
-                            qty: parseInt(item.quantity || 1),
-                            selectedVariant: item.variant_name ? { id: item.variant_name, name: item.variant_name, price: 0 } : null,
-                            notes: item.notes || ''
-                        }))
+                        items: itemsMapped
                     };
                 });
 
@@ -265,6 +280,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
                 mappedOrders.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
                 setOrderHistory(mappedOrders);
+                setTablesData(prev => mergeLocalStatus(prev, prev, mappedOrders));
             }
         } catch (error) {
             console.warn('API orders fetch failed:', error.message);
@@ -375,37 +391,53 @@ export const POSProvider = ({ user, onLogout, children }) => {
         }
 
         return list.map(t => {
-            const cleanTableNum = String(t.table_number || '').replace(/[^0-9]/g, '');
+            const cleanTableNum = String(t.table_number || t.table_name || '').replace(/[^0-9]/g, '');
             const cleanTableId = String(t.table_id || '').replace(/[^0-9]/g, '');
 
             const activeOrder = orderHistory.find(oh => {
                 const statusStr = String(oh.order_status || oh.status || '').toUpperCase();
-                if (statusStr !== 'PENDING') return false;
+                // Active order statuses that occupy a table
+                if (statusStr === 'COMPLETED' || statusStr === 'CANCELLED' || statusStr === 'PAID') return false;
 
                 const cleanOrderTableNum = String(oh.table_name || oh.table_number || '').replace(/[^0-9]/g, '');
                 const orderTableId = String(oh.table_number_id || '');
 
                 return (cleanTableNum && cleanOrderTableNum && cleanTableNum === cleanOrderTableNum) ||
-                       (cleanTableId && orderTableId && cleanTableId === orderTableId);
+                    (cleanTableId && orderTableId && cleanTableId === orderTableId);
             });
 
-            if (activeOrder) {
-                const orderTime = activeOrder.created_at || activeOrder.updated_at || activeOrder.time;
-                return { 
-                    ...t, 
-                    status: 'Occupied', 
-                    current_session: { 
-                        active_order_id: activeOrder.order_id, 
-                        order_status: activeOrder.order_status || activeOrder.status || 'PENDING', 
-                        staff_name: activeOrder.staff_name || activeOrder.guest_name || user?.username || 'Ravi', 
-                        updated_at: orderTime, 
+            const statusRaw = String(t.status || 'Available').toUpperCase();
+            const isOccupied = statusRaw === 'OCCUPIED' || !!activeOrder;
+
+            if (isOccupied) {
+                const orderTime = activeOrder ? (activeOrder.created_at || activeOrder.updated_at || activeOrder.time) : (t.current_session?.updated_at || t.updated_at);
+                const itemsList = activeOrder?.items || t.current_session?.items || [];
+                const computedItemsTotal = itemsList.reduce((s, i) => s + (parseFloat(i.price || i.unit_price || 0) * parseInt(i.qty || i.quantity || 1)), 0);
+                const totalAmount = activeOrder ? (activeOrder.total || activeOrder.bill?.grand_total || computedItemsTotal) : (t.current_session?.current_total || t.current_session?.total_amount || computedItemsTotal || 0);
+
+                return {
+                    ...t,
+                    status: 'Occupied',
+                    current_session: {
+                        active_order_id: activeOrder?.order_id || t.current_session?.active_order_id || 'N/A',
+                        order_status: activeOrder?.order_status || activeOrder?.status || t.current_session?.order_status || 'PENDING',
+                        staff_name: activeOrder?.staff_name || activeOrder?.guest_name || t.current_session?.staff_name || user?.username || 'Ravi',
+                        updated_at: orderTime,
                         created_at: orderTime,
-                        current_total: activeOrder.bill?.grand_total ?? activeOrder.total ?? 0, 
-                        total_items: (activeOrder.items || []).reduce((s, i) => s + (parseInt(i.quantity || i.qty) || 1), 0), 
-                        items: activeOrder.items || [] 
-                    } 
+                        current_total: totalAmount,
+                        total_items: itemsList.reduce((s, i) => s + (parseInt(i.quantity || i.qty) || 1), 0),
+                        items: itemsList
+                    }
                 };
             }
+
+            if (statusRaw === 'DIRTY' || t.status === 'Dirty') {
+                return { ...t, status: 'Dirty' };
+            }
+            if (statusRaw === 'RESERVED' || t.status === 'Reserved') {
+                return { ...t, status: 'Reserved' };
+            }
+
             return { ...t, status: 'Available', current_session: null };
         });
     }, [tablesData, orderHistory, user?.username]);
@@ -449,7 +481,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
                 const formattedName = String(itemName).endsWith('(Active Order)') ? String(itemName) : `${String(itemName)} (Active Order)`;
                 const cartKey = item.variant_id ? `${item.item_id}_${item.variant_id}` : String(item.item_id || item.id || Math.random());
                 newCart[cartKey] = {
-                    id: cartKey, 
+                    id: cartKey,
                     item_id: String(item.item_id || item.id || '1'),
                     name: formattedName,
                     price: parseFloat(item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0)) || 0,
@@ -474,7 +506,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const tableInfo = tablesList.find(t => t.table_number === tableId);
             const isModified = tableModified[tableId] || false;
             setCartModified(isModified);
-            
+
             if (isModified && tableCarts[tableId] !== undefined) {
                 setCart(tableCarts[tableId]);
             } else {
@@ -503,6 +535,36 @@ export const POSProvider = ({ user, onLogout, children }) => {
     }, 0);
     const serviceCharge = subtotal * (posSettings.serviceCharge / 100);
     const grandTotal = subtotal + tax + serviceCharge;
+
+    const parseUtcDate = (val) => {
+        if (!val) return new Date();
+        let str = String(val).trim();
+        if (str.includes(' ') && !str.includes('T')) {
+            str = str.replace(' ', 'T');
+        }
+        if (!str.endsWith('Z') && !/[+-]\d{2}:?\d{2}$/.test(str)) {
+            str += 'Z';
+        }
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? new Date(val) : d;
+    };
+
+    const getMinutesElapsed = (isoString) => {
+        if (!isoString) return '1s';
+        const date = parseUtcDate(isoString);
+        if (isNaN(date.getTime())) return '1s';
+
+        let diffMs = Date.now() - date.getTime();
+        if (diffMs < 0) diffMs = 0;
+
+        const secs = Math.max(1, Math.floor(diffMs / 1000));
+        if (secs < 60) return `${secs}s`;
+        const mins = Math.floor(secs / 60);
+        if (mins < 60) return `${mins}m`;
+        const hrs = Math.floor(mins / 60);
+        const remMins = mins % 60;
+        return `${hrs}h ${remMins}m`;
+    };
 
     // ── Cart Actions ─────────────────────────────────────────────────────────
     const addToCart = (item, variant = null, notes = '') => {
@@ -540,38 +602,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         setCartModified(true);
     };
 
-    const getMinutesElapsed = (isoString) => {
-        if (!isoString) return '1s';
-        let formattedString = String(isoString).trim();
-        if (formattedString.includes(' ')) {
-            formattedString = formattedString.replace(' ', 'T');
-        }
-        let date = new Date(formattedString);
-        if (isNaN(date.getTime())) {
-            date = new Date(formattedString + 'Z');
-        }
-        if (isNaN(date.getTime())) return '1s';
 
-        let diffMs = Date.now() - date.getTime();
-        if (diffMs < 0) {
-            const absMs = Math.abs(diffMs);
-            if (absMs < 86400000) {
-                diffMs = (absMs % (3600 * 1000));
-            } else {
-                diffMs = 0;
-            }
-        }
-
-        const secs = Math.max(1, Math.floor(diffMs / 1000));
-        if (secs < 60) return `${secs}s`;
-        const mins = Math.floor(secs / 60);
-        if (mins < 60) return `${mins}m`;
-        const hrs = Math.floor(mins / 60);
-        const remainMins = mins % 60;
-        if (hrs < 24) return `${hrs}h ${remainMins}m`;
-        const days = Math.floor(hrs / 24);
-        return `${days}d ${Math.floor(hrs % 24)}h`;
-    };
 
     // ── sendOrderToKitchen ───────────────────────────────────────────────────
     const sendOrderToKitchen = async () => {
@@ -682,11 +713,26 @@ export const POSProvider = ({ user, onLogout, children }) => {
             created_at: new Date().toISOString()
         };
 
-        const markOccupied = (oid) => {
+        const markOccupied = async (oid) => {
             setTablesData(prev => {
                 const update = t => t.table_number === tableId ? { ...t, status: 'Occupied', current_session: { active_order_id: oid, staff_id: parseInt(user?.id) || 100, staff_name: user?.username || 'Ravi', guest_count: t.capacity || 4, updated_at: new Date().toISOString(), total_items: cartItems.reduce((s, i) => s + i.qty, 0), current_total: parseFloat(grandTotal.toFixed(2)) } } : t;
                 return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
             });
+            if (tableId) {
+                try {
+                    await fetch(`${API_BASE_URL}/tables/status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            table_number: tableId,
+                            status: 'Occupied',
+                            current_session: { active_order_id: oid, staff_id: parseInt(user?.id) || 100, staff_name: user?.username || 'Ravi', guest_count: 4, updated_at: new Date().toISOString(), current_total: parseFloat(grandTotal.toFixed(2)) }
+                        })
+                    });
+                } catch (e) {
+                    console.warn('Backend table status POST failed:', e);
+                }
+            }
         };
 
         try {
@@ -737,17 +783,17 @@ export const POSProvider = ({ user, onLogout, children }) => {
         }
         const activeOrd = activeTableInfo?.current_session?.active_order_id;
         const targetStatus = posSettings.autoCleanTables ? 'Available' : 'Dirty';
-        
+
         setTablesData(prev => {
             const session = { last_order_id: activeOrd || `ORD-${Math.floor(10000 + Math.random() * 90000)}`, updated_at: new Date().toISOString() };
             const update = t => t.table_number === tableId ? { ...t, status: targetStatus, current_session: session } : t;
             return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
         });
         showToast(`Total Paid: ₹${grandTotal.toFixed(2)}\nTable marked as ${targetStatus}.`, 'success', `Payment Processed for Table ${tableId}`);
-        
+
         if (activeOrd) {
             setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
-            
+
             // 1. PUT API call to update backend database order status
             try {
                 const tableIdNum = activeTableInfo?.table_id ? parseInt(activeTableInfo.table_id) : null;
@@ -802,7 +848,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         if (activeOrd) {
             setPaidOrderIds(prev => { const next = [...prev, String(activeOrd)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
             setOrderHistory(prev => prev.map(oh => oh.order_id === activeOrd ? { ...oh, status: 'PAID' } : oh));
-            
+
             // 1. PUT API call to update backend database
             try {
                 const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
@@ -821,7 +867,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const pendingOrder = orderHistory.find(oh => oh.table_number === tNum && oh.status === 'PENDING');
             if (pendingOrder) {
                 setPaidOrderIds(prev => { const next = [...prev, String(pendingOrder.order_id)]; localStorage.setItem('pos_paid_order_ids', JSON.stringify(next)); return next; });
-                
+
                 // 1. PUT API call to update backend database
                 try {
                     const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
@@ -889,8 +935,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
     // ── checkInTable ─────────────────────────────────────────────────────────
     const checkInTable = (tNum) => {
-        setTableId(tNum); 
-        setCart({}); 
+        setTableId(tNum);
+        setCart({});
         setCartModified(false);
         if (tNum) {
             setTableCarts(prev => ({ ...prev, [tNum]: {} }));

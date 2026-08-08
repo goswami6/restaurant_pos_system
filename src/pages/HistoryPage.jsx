@@ -345,10 +345,10 @@ const HistoryPage = () => {
                                                                     <i className="bi bi-printer"></i>
                                                                 </button>
                                                             )}
-                                                            {(order.status === 'PENDING' || order.status === 'SERVED') && (
+                                                            {!isPaid && order.status !== 'CANCELLED' && (
                                                                 <button 
                                                                     className="btn btn-sm btn-success text-white rounded-2 px-2.5 py-1"
-                                                                    title="Mark Paid"
+                                                                    title="Mark Paid / Complete"
                                                                     onClick={async () => {
                                                                         const nextPaidIds = JSON.parse(localStorage.getItem('pos_paid_order_ids') || '[]');
                                                                         if (!nextPaidIds.includes(String(order.order_id))) {
@@ -383,7 +383,7 @@ const HistoryPage = () => {
                                                                 >
                                                                     <i className="bi bi-check-circle"></i>
                                                                 </button>
-                                                            )}
+                                                             )}
                                                         </div>
                                                     </td>
                                                 </tr>

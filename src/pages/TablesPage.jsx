@@ -79,8 +79,9 @@ const TablesPage = () => {
                                             <div>
                                                 <div className="label">Status</div>
                                                 <span className={`badge mt-1 ${
-                                                    session.order_status === 'COMPLETED' ? 'bg-success' :
-                                                    session.order_status === 'SERVED' ? 'bg-info text-dark' :
+                                                    session.order_status === 'COMPLETED' || session.order_status === 'PAID' ? 'bg-success' :
+                                                    session.order_status === 'READY' ? 'bg-emerald-600 text-white' :
+                                                    session.order_status === 'PREPARING' ? 'bg-primary text-white' :
                                                     session.order_status === 'CANCELLED' ? 'bg-danger' :
                                                     'bg-warning text-dark'
                                                 }`} style={{ fontSize: '0.72rem' }}>
