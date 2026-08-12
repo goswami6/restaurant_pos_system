@@ -41,63 +41,65 @@ const Navbar = ({ setShowReservationModal }) => {
     return (
         <header className="position-relative" style={{ zIndex: 1000 }}>
             <nav className="top-nav">
-                {/* Mobile Header Bar (Clean & Modern with Real Bootstrap Icons) */}
-                <div className="d-flex d-md-none align-items-center justify-content-between w-100 py-0 px-1 gap-2">
-                    {/* Clean Hamburger Icon Button */}
+                {/* Mobile Header Bar (Clean & Symmetrical for Small Screens) */}
+                <div className="d-flex d-md-none align-items-center justify-content-between w-100 py-1 px-1 text-white position-relative" style={{ minHeight: '44px' }}>
+                    {/* Left: Hamburger Menu Icon */}
                     <button 
                         onClick={() => setMobileMenuOpen(true)}
                         aria-label="Toggle navigation menu"
-                        style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#ffffff',
-                            padding: '4px 6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer'
-                        }}
+                        className="btn border-0 p-1 text-white d-flex align-items-center justify-content-center"
+                        style={{ width: '36px', height: '36px' }}
                     >
-                        <i className="bi bi-list text-white fs-3"></i>
+                        <i className="bi bi-list fs-3 text-white"></i>
                     </button>
 
-                    {/* Centered Page Title with Real Icon */}
+                    {/* Center: Page Title */}
                     <div 
+                        className="d-flex align-items-center gap-1.5 font-extrabold text-white uppercase tracking-wider"
                         style={{
-                            color: '#ffffff',
                             fontWeight: 800,
-                            fontSize: '0.95rem',
-                            letterSpacing: '0.05em',
-                            textTransform: 'uppercase',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
+                            fontSize: '0.92rem',
+                            letterSpacing: '0.04em'
                         }}
                     >
                         <i className={`bi ${currentItem.iconClass} text-info`}></i>
                         <span>{currentItem.label}</span>
                     </div>
 
-                    <div className="d-flex align-items-center gap-1">
+                    {/* Right: Symmetrical Action Buttons (Same 30px height) */}
+                    <div className="d-flex align-items-center gap-1.5">
                         <button
                             type="button"
                             onClick={handleManualRefresh}
-                            className="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center p-1 rounded-2"
+                            className="btn btn-sm text-white d-inline-flex align-items-center justify-content-center rounded-2 p-0"
+                            style={{
+                                width: '30px',
+                                height: '30px',
+                                background: 'rgba(255,255,255,0.08)',
+                                border: '1px solid rgba(255,255,255,0.2)',
+                                fontSize: '0.85rem'
+                            }}
                             title="Refresh Data"
                             disabled={isRefreshing}
                         >
                             <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin-anim' : ''}`}></i>
                         </button>
-                        {/* Reservation Button */}
-                        {posSettings.isEnableTables ? (
+                        {posSettings.isEnableTables && (
                             <button 
-                                className="btn-reservation" 
+                                className="btn-reservation d-inline-flex align-items-center justify-content-center font-extrabold" 
                                 onClick={() => setShowReservationModal(true)}
-                                style={{ padding: '5px 10px', fontSize: '0.72rem', borderRadius: '8px', margin: 0 }}
+                                style={{
+                                    height: '30px',
+                                    padding: '0 10px',
+                                    fontSize: '0.72rem',
+                                    borderRadius: '8px',
+                                    margin: 0,
+                                    lineHeight: 1
+                                }}
                             >
                                 + Res
                             </button>
-                        ) : null}
+                        )}
                     </div>
                 </div>
 
