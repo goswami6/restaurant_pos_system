@@ -340,27 +340,31 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const response = await fetch(`${API_BASE_URL}/settings/pos/${restaurantId}`);
             if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
             const data = await response.json();
-            console.log("POSContext: fetched settings raw data =", JSON.stringify(data));
             if (data) {
-                const fetchedTaxRate = parseSettingNum(data.financials?.tax_rate_percentage, 5.00);
-                const finalIsEnableTables = parseSettingBool(data.hardware_and_preferences?.is_enable_tables, false);
-                console.log("POSContext: evaluated isEnableTables =", finalIsEnableTables);
+                const fetchedTaxRate = parseSettingNum(
+                    data.tax_rate ?? data.financials?.tax_rate_percentage, 
+                    5.00
+                );
+                const finalIsEnableTables = parseSettingBool(
+                    data.is_enable_tables ?? data.hardware_and_preferences?.is_enable_tables, 
+                    false
+                );
                 setPosSettings({
-                    restaurantName: data.restaurant_info?.name || 'Big Ben Restaurant',
-                    address: data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel',
-                    city: data.restaurant_info?.city || 'Mumbai',
-                    state: data.restaurant_info?.state || 'Maharashtra',
-                    pincode: data.restaurant_info?.pincode || '400013',
-                    gstin: data.restaurant_info?.gstin || data.restaurant_info?.gst_number || '27AAAAA0000A1Z5',
-                    fssaiNo: data.restaurant_info?.fssai_no || data.restaurant_info?.fssai_number || '10019022009876',
+                    restaurantName: data.restaurant_name || data.restaurant_info?.name || 'Big Ben Restaurant',
+                    address: data.restaurant_address || data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Hinjewadi',
+                    city: data.city || data.restaurant_info?.city || 'Pune',
+                    state: data.state || data.restaurant_info?.state || 'Maharashtra',
+                    pincode: data.pincode || data.restaurant_info?.pincode || '411056',
+                    gstin: data.gstin || data.restaurant_info?.gstin || data.restaurant_info?.gst_number || '27CCCCCC0000A1Z5',
+                    fssaiNo: data.fssai_no || data.restaurant_info?.fssai_no || data.restaurant_info?.fssai_number || '10019022009777',
                     taxRate: fetchedTaxRate,
-                    cgst: parseSettingNum(data.financials?.cgst, fetchedTaxRate / 2),
-                    sgst: parseSettingNum(data.financials?.sgst, fetchedTaxRate / 2),
-                    serviceCharge: parseSettingNum(data.financials?.service_charge_percentage, 10.00),
-                    enableThermalPrinting: parseSettingBool(data.hardware_and_preferences?.enable_web_serial_thermal_printing, true),
-                    autoCleanTables: parseSettingBool(data.hardware_and_preferences?.auto_clean_dirty_tables, false),
-                    isRestaurantServesLiquor: parseSettingBool(data.financials?.is_restaurant_serves_liquor, false),
-                    stateVatTaxRate: parseSettingNum(data.financials?.state_vat_tax_rate, 0.00),
+                    cgst: parseSettingNum(data.cgst ?? data.financials?.cgst, fetchedTaxRate / 2),
+                    sgst: parseSettingNum(data.sgst ?? data.financials?.sgst, fetchedTaxRate / 2),
+                    serviceCharge: parseSettingNum(data.service_charge ?? data.financials?.service_charge_percentage, 5.00),
+                    enableThermalPrinting: parseSettingBool(data.enable_thermal_printing ?? data.hardware_and_preferences?.enable_web_serial_thermal_printing, false),
+                    autoCleanTables: parseSettingBool(data.auto_clean_tables ?? data.hardware_and_preferences?.auto_clean_dirty_tables, false),
+                    isRestaurantServesLiquor: parseSettingBool(data.is_restaurant_serves_liquor ?? data.financials?.is_restaurant_serves_liquor, false),
+                    stateVatTaxRate: parseSettingNum(data.state_vat_tax_rate ?? data.financials?.state_vat_tax_rate, 0.00),
                     isEnableTables: finalIsEnableTables
                 });
             }
@@ -376,9 +380,6 @@ export const POSProvider = ({ user, onLogout, children }) => {
     useEffect(() => {
         fetchTables();
         fetchOrders();
-        const pollInterval = import.meta.env.DEV ? 60000 : 20000;
-        const interval = setInterval(() => { fetchTables(); fetchOrders(); }, pollInterval);
-        return () => clearInterval(interval);
     }, [user?.restaurant_id, user?.restaurent_id]);
 
     // ── tablesList (memoized, with order sessions merged) ───────────────────

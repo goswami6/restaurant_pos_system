@@ -3,10 +3,23 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { usePOS } from '../context/POSContext';
 
 const Navbar = ({ setShowReservationModal }) => {
-    const { posSettings } = usePOS();
+    const { posSettings, fetchTables, fetchOrders, showToast } = usePOS();
     const navigate = useNavigate();
     const location = useLocation();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const handleManualRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([fetchTables(), fetchOrders()]);
+            showToast('success', '🔄 Sync Complete', 'Tables & Orders refreshed');
+        } catch (err) {
+            console.warn('Manual refresh failed:', err.message);
+        } finally {
+            setTimeout(() => setIsRefreshing(false), 500);
+        }
+    };
 
     const currentPath = location.pathname.replace('/', '') || 'order';
     const navTo = (path) => {
@@ -29,7 +42,7 @@ const Navbar = ({ setShowReservationModal }) => {
         <header className="position-relative" style={{ zIndex: 1000 }}>
             <nav className="top-nav">
                 {/* Mobile Header Bar (Clean & Modern with Real Bootstrap Icons) */}
-                <div className="d-flex d-md-none align-items-center justify-content-between w-100 py-0 px-1">
+                <div className="d-flex d-md-none align-items-center justify-content-between w-100 py-0 px-1 gap-2">
                     {/* Clean Hamburger Icon Button */}
                     <button 
                         onClick={() => setMobileMenuOpen(true)}
@@ -65,16 +78,27 @@ const Navbar = ({ setShowReservationModal }) => {
                         <span>{currentItem.label}</span>
                     </div>
 
-                    {/* Reservation Button */}
-                    {posSettings.isEnableTables ? (
-                        <button 
-                            className="btn-reservation" 
-                            onClick={() => setShowReservationModal(true)}
-                            style={{ padding: '5px 10px', fontSize: '0.72rem', borderRadius: '8px', margin: 0 }}
+                    <div className="d-flex align-items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={handleManualRefresh}
+                            className="btn btn-sm btn-outline-light d-flex align-items-center justify-content-center p-1 rounded-2"
+                            title="Refresh Data"
+                            disabled={isRefreshing}
                         >
-                            + Res
+                            <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin-anim' : ''}`}></i>
                         </button>
-                    ) : <div style={{ width: '32px' }} />}
+                        {/* Reservation Button */}
+                        {posSettings.isEnableTables ? (
+                            <button 
+                                className="btn-reservation" 
+                                onClick={() => setShowReservationModal(true)}
+                                style={{ padding: '5px 10px', fontSize: '0.72rem', borderRadius: '8px', margin: 0 }}
+                            >
+                                + Res
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
 
                 {/* Desktop Navigation Links with Real Icons */}
@@ -94,12 +118,23 @@ const Navbar = ({ setShowReservationModal }) => {
                     })}
                 </ul>
 
-                {/* Desktop Reservation Button */}
-                {posSettings.isEnableTables && (
-                    <button className="btn-reservation d-none d-md-flex" onClick={() => setShowReservationModal(true)}>
-                        <span>+ New Reservation</span>
+                {/* Desktop Action Area: Refresh + Reservation Button */}
+                <div className="d-none d-md-flex align-items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleManualRefresh}
+                        className="btn btn-sm btn-outline-light text-xs font-bold rounded-2 px-2.5 py-1.5 d-flex align-items-center gap-1.5"
+                        disabled={isRefreshing}
+                    >
+                        <i className={`bi bi-arrow-clockwise ${isRefreshing ? 'spin-anim' : ''}`}></i>
+                        <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                     </button>
-                )}
+                    {posSettings.isEnableTables && (
+                        <button className="btn-reservation" onClick={() => setShowReservationModal(true)}>
+                            <span>+ New Reservation</span>
+                        </button>
+                    )}
+                </div>
             </nav>
 
             {/* Mobile Offcanvas Left-to-Right Side Drawer Overlay */}
