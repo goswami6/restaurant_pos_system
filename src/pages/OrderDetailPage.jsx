@@ -647,7 +647,7 @@ const OrderDetailPage = () => {
                                 </button>
 
                                 {/* 2. Print */}
-                                {orderStatus !== 'CANCELLED' && (
+                                {order.status !== 'CANCELLED' && (
                                     <button
                                         className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                                         style={{ 
