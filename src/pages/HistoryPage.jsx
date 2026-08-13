@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import ReceiptModal from '../components/ReceiptModal';
@@ -17,9 +17,78 @@ const HistoryPage = () => {
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
 
-    // Modern Interactive Calendar Picker state
+    // Pagination State
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+
+    // Single Unified Calendar State
     const [showCalendarModal, setShowCalendarModal] = useState(false);
     const [calendarViewDate, setCalendarViewDate] = useState(() => new Date());
+    const [tempStartDate, setTempStartDate] = useState(startDate);
+    const [tempEndDate, setTempEndDate] = useState(endDate);
+
+    const openCalendarModal = () => {
+        setTempStartDate(startDate);
+        setTempEndDate(endDate);
+        if (startDate) {
+            setCalendarViewDate(new Date(startDate));
+        } else {
+            setCalendarViewDate(new Date());
+        }
+        setShowCalendarModal(true);
+    };
+
+    const handleDateClick = (dateStr) => {
+        if (!tempStartDate || (tempStartDate && tempEndDate)) {
+            setTempStartDate(dateStr);
+            setTempEndDate('');
+        } else if (tempStartDate && !tempEndDate) {
+            if (dateStr >= tempStartDate) {
+                setTempEndDate(dateStr);
+            } else {
+                setTempStartDate(dateStr);
+                setTempEndDate('');
+            }
+        }
+    };
+
+    const applyCalendarRange = () => {
+        setStartDate(tempStartDate);
+        setEndDate(tempEndDate || tempStartDate);
+        setShowCalendarModal(false);
+    };
+
+    const clearDateRange = () => {
+        setStartDate('');
+        setEndDate('');
+        setTempStartDate('');
+        setTempEndDate('');
+    };
+
+    const getCalendarDays = () => {
+        const year = calendarViewDate.getFullYear();
+        const month = calendarViewDate.getMonth();
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const days = [];
+        for (let i = 0; i < firstDay; i++) {
+            days.push(null);
+        }
+        for (let d = 1; d <= daysInMonth; d++) {
+            const dateObj = new Date(year, month, d);
+            const yyyy = dateObj.getFullYear();
+            const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const dd = String(dateObj.getDate()).padStart(2, '0');
+            days.push({ dayNum: d, dateStr: `${yyyy}-${mm}-${dd}` });
+        }
+        return days;
+    };
+
+    // Reset pagination to page 1 on filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [historySearchQuery, historyTypeFilter, historyStatusFilter, startDate, endDate]);
 
     const filteredHistory = orderHistory.filter(order => {
         const matchesSearch = String(order.order_id || '').toLowerCase().includes(historySearchQuery.toLowerCase()) ||
@@ -51,6 +120,10 @@ const HistoryPage = () => {
 
         return matchesSearch && matchesType && matchesStatus && matchesDate;
     });
+
+    const totalPages = Math.ceil(filteredHistory.length / pageSize) || 1;
+    const startIndex = (currentPage - 1) * pageSize;
+    const paginatedHistory = filteredHistory.slice(startIndex, startIndex + pageSize);
 
     const applyQuickPreset = (type) => {
         const today = new Date();
@@ -114,7 +187,7 @@ const HistoryPage = () => {
                             <div className="d-flex flex-column gap-2 mb-3">
                                 {/* Top Line: Search + Order Type + Inline Date Range Capsule */}
                                 <div className="row g-2 align-items-center">
-                                    <div className={`col-12 ${activeOrderSummary ? 'col-sm-7 col-xl-4' : 'col-sm-6 col-lg-4'}`}>
+                                    <div className="col-12 col-sm-6 col-md-5 col-lg-4">
                                         <input 
                                             type="text" 
                                             className="form-control" 
@@ -124,71 +197,48 @@ const HistoryPage = () => {
                                             style={{ height: '38px', fontSize: '0.82rem' }}
                                         />
                                     </div>
-                                    <div className={`col-12 ${activeOrderSummary ? 'col-sm-5 col-xl-3' : 'col-sm-6 col-lg-3'}`}>
+                                    <div className="col-12 col-sm-6 col-md-3 col-lg-2">
                                         <select 
                                             className="form-select"
                                             value={historyTypeFilter}
                                             onChange={(e) => setHistoryTypeFilter(e.target.value)}
                                             style={{ height: '38px', fontSize: '0.82rem' }}
                                         >
-                                            <option value="All">All Order Types</option>
+                                            <option value="All">All Types</option>
                                             <option value="Dine-In">Dine-In</option>
                                             <option value="Takeaway">Takeaway</option>
                                             <option value="Delivery">Delivery</option>
                                         </select>
                                     </div>
-                                    <div className={`col-12 ${activeOrderSummary ? 'col-xl-5' : 'col-lg-5'}`}>
-                                        <div className="d-flex align-items-center flex-nowrap gap-1 bg-white p-1 rounded-3 border border-slate-200" style={{ height: '38px', minWidth: '0' }}>
-                                            <div 
-                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-2 border border-slate-200"
-                                                style={{ cursor: 'pointer', minWidth: '0', overflow: 'hidden' }}
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.querySelector('input');
-                                                    if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
-                                                }}
-                                            >
-                                                <span className="fw-black text-slate-500 uppercase flex-shrink-0" style={{ fontSize: '0.62rem' }}>FROM</span>
-                                                <input 
-                                                    type="date" 
-                                                    value={startDate}
-                                                    onChange={(e) => setStartDate(e.target.value)}
-                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none flex-fill"
-                                                    style={{ fontSize: '0.72rem', cursor: 'pointer', minWidth: '0', width: '100%' }}
-                                                />
-                                            </div>
-
-                                            <span className="text-slate-400 fw-bold px-0.5 flex-shrink-0" style={{ fontSize: '0.75rem' }}>→</span>
-
-                                            <div 
-                                                className="flex-fill d-flex align-items-center gap-1 bg-slate-50 px-1.5 py-0.5 rounded-2 border border-slate-200"
-                                                style={{ cursor: 'pointer', minWidth: '0', overflow: 'hidden' }}
-                                                onClick={(e) => {
-                                                    const input = e.currentTarget.querySelector('input');
-                                                    if (input && input.showPicker) { try { input.showPicker(); } catch(err) {} }
-                                                }}
-                                            >
-                                                <span className="fw-black text-slate-500 uppercase flex-shrink-0" style={{ fontSize: '0.62rem' }}>TO</span>
-                                                <input 
-                                                    type="date" 
-                                                    value={endDate}
-                                                    onChange={(e) => setEndDate(e.target.value)}
-                                                    className="form-control border-0 p-0 bg-transparent text-slate-800 fw-bold shadow-none flex-fill"
-                                                    style={{ fontSize: '0.72rem', cursor: 'pointer', minWidth: '0', width: '100%' }}
-                                                />
-                                            </div>
-
-                                            {(startDate || endDate) && (
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => { setStartDate(''); setEndDate(''); }}
-                                                    className="btn btn-link text-danger p-0 px-1 font-bold border-0 text-decoration-none flex-shrink-0"
-                                                    title="Clear date filter"
-                                                    style={{ fontSize: '0.85rem' }}
+                                    <div className="col-12 col-sm-auto">
+                                        <button
+                                            type="button"
+                                            onClick={openCalendarModal}
+                                            className="btn btn-outline-secondary d-flex align-items-center justify-content-between px-3 text-slate-700 bg-white font-medium rounded-3 border-slate-200"
+                                            style={{ height: '38px', fontSize: '0.82rem', minWidth: '190px', maxWidth: '250px' }}
+                                        >
+                                            <span className="d-flex align-items-center gap-2 overflow-hidden text-truncate">
+                                                <i className="bi bi-calendar3 text-primary"></i>
+                                                {startDate ? (
+                                                    <span className="fw-bold text-slate-900">
+                                                        {startDate} {endDate && endDate !== startDate ? `→ ${endDate}` : ''}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-slate-500">Select Date...</span>
+                                                )}
+                                            </span>
+                                            {(startDate || endDate) ? (
+                                                <span
+                                                    onClick={(e) => { e.stopPropagation(); clearDateRange(); }}
+                                                    className="badge bg-slate-200 text-slate-700 hover:bg-danger hover:text-white ms-2"
+                                                    title="Clear Date Filter"
                                                 >
                                                     ✕
-                                                </button>
+                                                </span>
+                                            ) : (
+                                                <i className="bi bi-chevron-down text-slate-400 text-xs ms-1"></i>
                                             )}
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
 
@@ -299,7 +349,7 @@ const HistoryPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {filteredHistory.map((order) => {
+                                        {paginatedHistory.map((order) => {
                                             const isPaid = order.status === 'PAID' || order.status === 'COMPLETED';
                                             const isActive = activeOrderSummary?.order_id === order.order_id;
                                             return (
@@ -313,10 +363,10 @@ const HistoryPage = () => {
                                                             {order.order_id}
                                                         </span>
                                                     </td>
-                                                    {posSettings.isEnableTables && <td style={{ whiteSpace: 'nowrap' }}>{order.table_number}</td>}
-                                                    <td style={{ whiteSpace: 'nowrap' }}>{order.type}</td>
-                                                    <td className="small text-muted" style={{ whiteSpace: 'nowrap' }}>{new Date(order.time).toLocaleString()}</td>
-                                                    <td className="fw-bold text-slate-800" style={{ whiteSpace: 'nowrap' }}>₹{parseFloat(order.total).toFixed(2)}</td>
+                                                    {posSettings.isEnableTables && <td style={{ whiteSpace: 'nowrap' }}>{(!order.table_number || String(order.table_number).toUpperCase() === 'N/A') ? 'Empty' : order.table_number}</td>}
+                                                    <td style={{ whiteSpace: 'nowrap' }}>{(!order.type || String(order.type).toUpperCase() === 'N/A') ? 'Empty' : order.type}</td>
+                                                    <td className="small text-muted" style={{ whiteSpace: 'nowrap' }}>{order.time ? new Date(order.time).toLocaleString() : 'Empty'}</td>
+                                                    <td className="fw-bold text-slate-800" style={{ whiteSpace: 'nowrap' }}>₹{parseFloat(order.total || 0).toFixed(2)}</td>
                                                     <td style={{ whiteSpace: 'nowrap' }}>
                                                         <span className={`badge ${
                                                             order.status === 'PAID' || order.status === 'COMPLETED' ? 'bg-success' : 
@@ -324,7 +374,7 @@ const HistoryPage = () => {
                                                             order.status === 'PENDING' ? 'bg-warning text-dark' : 
                                                             order.status ? 'bg-info text-dark' : 'bg-secondary text-white'
                                                         }`}>
-                                                            {order.status === 'PAID' ? 'COMPLETED' : (order.status || 'N/A')}
+                                                            {order.status === 'PAID' ? 'COMPLETED' : (!order.status || String(order.status).toUpperCase() === 'N/A') ? 'Empty' : order.status}
                                                         </span>
                                                     </td>
                                                     <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
@@ -396,6 +446,68 @@ const HistoryPage = () => {
                                         )}
                                     </tbody>
                                 </table>
+                                {/* ── Sleek Modern Pagination Bar (Matches Design 1-to-1) ───────────────── */}
+                             {filteredHistory.length > 0 && (
+                                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-3 pt-3 mt-3 border-top" style={{ borderTop: '1px solid #f1f5f9' }}>
+                                     {/* Left: Previous + Numbers + Next */}
+                                     <div className="d-flex align-items-center gap-2 flex-wrap">
+                                         <button
+                                             type="button"
+                                             disabled={currentPage === 1}
+                                             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                             className="btn btn-link text-decoration-none d-flex align-items-center gap-1 p-1 text-slate-600 font-medium text-xs border-0"
+                                             style={{ opacity: currentPage === 1 ? 0.4 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                                         >
+                                             <i className="bi bi-chevron-left"></i>
+                                             <span>Previous</span>
+                                         </button>
+
+                                         <div className="d-flex align-items-center gap-1">
+                                             {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                                 .filter(page => page === 1 || page === totalPages || Math.abs(page - currentPage) <= 2)
+                                                 .map((page, index, array) => {
+                                                     const showEllipsis = index > 0 && page - array[index - 1] > 1;
+                                                     const isActive = currentPage === page;
+                                                     return (
+                                                         <React.Fragment key={page}>
+                                                             {showEllipsis && <span className="text-slate-400 text-xs px-1">...</span>}
+                                                             <button
+                                                                 type="button"
+                                                                 onClick={() => setCurrentPage(page)}
+                                                                 className="btn p-0 d-flex align-items-center justify-content-center font-bold text-xs rounded-circle transition-all cursor-pointer"
+                                                                 style={{
+                                                                     width: '32px',
+                                                                     height: '32px',
+                                                                     backgroundColor: isActive ? '#6366f1' : 'transparent',
+                                                                     color: isActive ? '#ffffff' : '#475569',
+                                                                     boxShadow: isActive ? '0 4px 12px rgba(99, 102, 241, 0.35)' : 'none',
+                                                                     border: 'none'
+                                                                 }}
+                                                             >
+                                                                 {page}
+                                                             </button>
+                                                         </React.Fragment>
+                                                     );
+                                                 })}
+                                         </div>
+
+                                         <button
+                                             type="button"
+                                             disabled={currentPage === totalPages}
+                                             onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                             className="btn btn-link text-decoration-none d-flex align-items-center gap-1 p-1 text-slate-600 font-medium text-xs border-0"
+                                             style={{ opacity: currentPage === totalPages ? 0.4 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                                         >
+                                             <span>Next</span>
+                                             <i className="bi bi-chevron-right"></i>
+                                         </button>
+                                     </div>
+
+                                     <div className="text-slate-500 text-xs font-medium">
+                                         Showing <span className="fw-bold text-slate-700">{Math.min(startIndex + pageSize, filteredHistory.length)}</span> of <span className="fw-bold text-slate-700">{filteredHistory.length.toLocaleString()}</span> results
+                                     </div>
+                                 </div>
+                             )}
                             </div>
                         </div>
                     </div>
@@ -421,17 +533,17 @@ const HistoryPage = () => {
                                             {posSettings?.isEnableTables && (
                                                 <>
                                                     <span className="text-secondary">|</span>
-                                                    <span><strong>Table:</strong> {activeOrderSummary.table_number || 'N/A'}</span>
+                                                    <span><strong>Table:</strong> {(!activeOrderSummary.table_number || String(activeOrderSummary.table_number).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.table_number}</span>
                                                 </>
                                             )}
                                             <span className="text-secondary">|</span>
-                                            <span><strong>Type:</strong> {activeOrderSummary.type}</span>
+                                            <span><strong>Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.type}</span>
                                             <span className="text-secondary">|</span>
                                             <span className={`badge ${
                                                 activeOrderSummary.status === 'COMPLETED' || activeOrderSummary.status === 'PAID' ? 'bg-success' : 
                                                 activeOrderSummary.status === 'SERVED' ? 'bg-info text-dark' : 'bg-warning text-dark'
                                             }`} style={{ fontSize: '0.65rem' }}>
-                                                {activeOrderSummary.status}
+                                                {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : (!activeOrderSummary.status || String(activeOrderSummary.status).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.status}
                                             </span>
                                         </div>
                                     </div>
@@ -524,6 +636,128 @@ const HistoryPage = () => {
                 )}
             </div>
         
+            {/* ── Single Unified Range Calendar Modal ───────────────────────── */}
+            {showCalendarModal && (
+                <div className="modal show d-block" style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', zIndex: 1060 }}>
+                    <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '360px' }}>
+                        <div className="modal-content border-0 rounded-4 shadow-lg overflow-hidden" style={{ backgroundColor: '#f5f3ff' }}>
+                            <div className="p-3 d-flex align-items-center justify-content-between border-bottom" style={{ borderColor: '#e9d5ff' }}>
+                                <h6 className="fw-bold mb-0 d-flex align-items-center gap-2" style={{ color: '#581c87' }}>
+                                    <i className="bi bi-calendar-event"></i>
+                                    <span>Select Date Range</span>
+                                </h6>
+                                <button type="button" className="btn-close" onClick={() => setShowCalendarModal(false)}></button>
+                            </div>
+
+                            <div className="p-3">
+                                {/* Month Header Navigation */}
+                                <div className="d-flex align-items-center justify-content-between mb-3 px-1">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold"
+                                        style={{ color: '#6b21a8' }}
+                                        onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
+                                    >
+                                        ‹
+                                    </button>
+                                    <span className="fw-bold" style={{ color: '#3b0764', fontSize: '0.95rem' }}>
+                                        {calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold"
+                                        style={{ color: '#6b21a8' }}
+                                        onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))}
+                                    >
+                                        ›
+                                    </button>
+                                </div>
+
+                                {/* Weekday Labels */}
+                                <div className="d-grid gap-1 text-center mb-2" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+                                    {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
+                                        <span key={i} className="text-xs font-bold" style={{ color: '#a855f7' }}>{d}</span>
+                                    ))}
+                                </div>
+
+                                {/* Calendar Grid */}
+                                <div className="d-grid gap-1 text-center mb-3" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
+                                    {getCalendarDays().map((item, idx) => {
+                                        if (!item) return <div key={idx}></div>;
+                                        const isStart = tempStartDate === item.dateStr;
+                                        const isEnd = tempEndDate === item.dateStr;
+                                        const inRange = tempStartDate && tempEndDate && item.dateStr > tempStartDate && item.dateStr < tempEndDate;
+                                        const isSelected = isStart || isEnd;
+
+                                        return (
+                                            <div
+                                                key={idx}
+                                                onClick={() => handleDateClick(item.dateStr)}
+                                                className="d-flex align-items-center justify-content-center transition-all"
+                                                style={{
+                                                    height: '36px',
+                                                    backgroundColor: inRange ? '#ede9fe' : 'transparent',
+                                                    borderRadius: isStart ? '50% 0 0 50%' : isEnd ? '0 50% 50% 0' : inRange ? '0' : '50%',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <div
+                                                    className="d-flex align-items-center justify-content-center font-semibold text-xs rounded-circle"
+                                                    style={{
+                                                        width: '32px',
+                                                        height: '32px',
+                                                        backgroundColor: isSelected ? '#7c3aed' : 'transparent',
+                                                        color: isSelected ? '#ffffff' : inRange ? '#5b21b6' : '#334155',
+                                                        boxShadow: isSelected ? '0 4px 10px rgba(124, 58, 237, 0.35)' : 'none'
+                                                    }}
+                                                >
+                                                    {item.dayNum}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                {/* Selected Info Summary */}
+                                <div className="p-2 rounded-3 text-center mb-3 border" style={{ backgroundColor: '#ffffff', borderColor: '#ddd6fe' }}>
+                                    <span className="text-xs font-medium" style={{ color: '#4c1d95' }}>
+                                        {tempStartDate ? (
+                                            <>
+                                                Selected: <strong>{tempStartDate}</strong> {tempEndDate ? `to ${tempEndDate}` : '(Select End Date)'}
+                                            </>
+                                        ) : (
+                                            'Click a date to select Start Date'
+                                        )}
+                                    </span>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="d-flex gap-2">
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm btn-light border-0 text-slate-600 font-bold flex-fill py-2"
+                                        onClick={() => {
+                                            setTempStartDate('');
+                                            setTempEndDate('');
+                                        }}
+                                    >
+                                        Reset
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="btn btn-sm font-bold text-white flex-fill py-2"
+                                        style={{ backgroundColor: '#7c3aed' }}
+                                        onClick={applyCalendarRange}
+                                    >
+                                        Apply Range
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <ReceiptModal 
                 selectedHistoryOrder={selectedHistoryOrder}
                 setSelectedHistoryOrder={setSelectedHistoryOrder}
