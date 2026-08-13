@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../config';
 
 export const POSContext = createContext(null);
@@ -79,11 +80,16 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const [selectedItemForModal, setSelectedItemForModal] = useState(null);
     const [chosenVariant, setChosenVariant] = useState(null);
 
-    // ── Toast ────────────────────────────────────────────────────────────────
+    // ── Toast (react-hot-toast) ───────────────────────────────────────────────
     const showToast = (message, type = 'success', title = '') => {
-        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-        setToast({ message, type, title });
-        toastTimeoutRef.current = setTimeout(() => setToast(null), 4000);
+        const text = title ? `${title}: ${message}` : message;
+        if (type === 'error') {
+            toast.error(text);
+        } else if (type === 'info') {
+            toast(text, { icon: 'ℹ️' });
+        } else {
+            toast.success(text);
+        }
     };
 
     // ── Derived: categories & menu items ────────────────────────────────────

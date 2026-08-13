@@ -219,24 +219,6 @@ const AppLayout = () => {
                     </div>
                 </div>
             )}
-
-            {/* ── Toast Notification ──────────────────────────── */}
-            {toast && (
-                <div className="fixed bottom-6 right-6 z-50 animate-slide-in max-w-sm w-full backdrop-blur-md shadow-2xl rounded-2xl p-4 transition-all duration-300 transform scale-100" style={{ backgroundColor: '#1e293b', border: '1px solid #334155', color: '#f8fafc' }}>
-                    <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: toast.type === 'success' ? '#065f46' : toast.type === 'error' ? '#991b1b' : '#1e3a8a', color: toast.type === 'success' ? '#34d399' : toast.type === 'error' ? '#f87171' : '#60a5fa' }}>
-                            {toast.type === 'success' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                            {toast.type === 'error' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
-                            {toast.type === 'info' && <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-                        </div>
-                        <div className="flex-1 pt-0.5 text-start">
-                            {toast.title && <h4 className="text-sm font-bold mb-1" style={{ color: '#ffffff', margin: 0 }}>{toast.title}</h4>}
-                            <p className="text-xs whitespace-pre-line leading-relaxed" style={{ color: '#cbd5e1', margin: 0 }}>{toast.message}</p>
-                        </div>
-                        <button onClick={() => setToast(null)} className="btn-close btn-close-white ms-auto" aria-label="Close" style={{ filter: 'none', opacity: 0.8 }}></button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
