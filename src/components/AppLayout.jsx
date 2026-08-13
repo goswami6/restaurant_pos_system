@@ -11,7 +11,7 @@ const AppLayout = () => {
     const location = useLocation();
     const {
         user, onLogout,
-        toast, setToast,
+        confirmModal, closeConfirm,
         showReservationModal, setShowReservationModal,
         resCustomerName, setResCustomerName,
         resCustomerPhone, setResCustomerPhone,
@@ -216,6 +216,76 @@ const AppLayout = () => {
                                 <button type="submit" className="btn btn-primary text-white">Confirm Reservation</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* ── Sleek Modern Confirmation Modal ───────────────────────── */}
+            {confirmModal?.isOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-confirm-backdrop"
+                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.65)' }}
+                >
+                    <div
+                        className="rounded-3xl shadow-2xl overflow-hidden max-w-md w-full text-center animate-confirm-card"
+                        style={{ backgroundColor: '#ffffff', border: '1px solid #e2e8f0' }}
+                    >
+                        {/* Accent Top Bar */}
+                        <div style={{ height: '5px', backgroundColor: confirmModal.confirmVariant === 'danger' ? '#ef4444' : '#0f172a' }}></div>
+
+                        <div className="p-6">
+                            {/* Icon Badge */}
+                            <div
+                                className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"
+                                style={{
+                                    backgroundColor: confirmModal.confirmVariant === 'danger' ? '#fef2f2' : '#f0f9ff',
+                                    color: confirmModal.confirmVariant === 'danger' ? '#dc2626' : '#0284c7',
+                                    border: `1px solid ${confirmModal.confirmVariant === 'danger' ? '#fecaca' : '#bae6fd'}`,
+                                    fontSize: '1.5rem'
+                                }}
+                            >
+                                <i className={`bi ${confirmModal.confirmVariant === 'danger' ? 'bi-exclamation-triangle-fill' : 'bi-info-circle-fill'}`}></i>
+                            </div>
+
+                            <h3 className="text-xl font-bold mb-2 tracking-tight" style={{ color: '#0f172a' }}>
+                                {confirmModal.title || 'Are you sure?'}
+                            </h3>
+
+                            <p className="text-sm mb-6 leading-relaxed" style={{ color: '#475569', fontWeight: 500 }}>
+                                {confirmModal.message || 'Please confirm to proceed with this action.'}
+                            </p>
+
+                            <div className="flex items-center justify-center gap-3 pt-4" style={{ borderTop: '1px solid #f1f5f9' }}>
+                                <button
+                                    type="button"
+                                    onClick={closeConfirm}
+                                    className="btn font-bold px-4 py-2.5 rounded-xl cursor-pointer transition-all shadow-sm"
+                                    style={{
+                                        backgroundColor: '#f1f5f9',
+                                        color: '#334155',
+                                        border: '1px solid #cbd5e1',
+                                        minWidth: '120px',
+                                        fontSize: '0.875rem'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmModal.onConfirm}
+                                    className="btn font-bold px-4 py-2.5 rounded-xl cursor-pointer shadow-md transition-all"
+                                    style={{
+                                        backgroundColor: confirmModal.confirmVariant === 'danger' ? '#dc2626' : '#0f172a',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        minWidth: '140px',
+                                        fontSize: '0.875rem'
+                                    }}
+                                >
+                                    {confirmModal.confirmText || 'Confirm'}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

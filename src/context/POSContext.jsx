@@ -60,8 +60,6 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const [tableCarts, setTableCarts] = useState({});
     const [orderType, setOrderType] = useState('DINE-IN');
     const [selectedDetailOrder, setSelectedDetailOrder] = useState(null);
-    const [toast, setToast] = useState(null);
-    const toastTimeoutRef = useRef(null);
 
     // ── Reservation Modal State ──────────────────────────────────────────────
     const [showReservationModal, setShowReservationModal] = useState(false);
@@ -80,15 +78,30 @@ export const POSProvider = ({ user, onLogout, children }) => {
     const [selectedItemForModal, setSelectedItemForModal] = useState(null);
     const [chosenVariant, setChosenVariant] = useState(null);
 
-    // ── Toast (react-hot-toast) ───────────────────────────────────────────────
-    const showToast = (message, type = 'success', title = '') => {
-        const text = title ? `${title}: ${message}` : message;
-        if (type === 'error') {
-            toast.error(text);
-        } else if (type === 'info') {
-            toast(text, { icon: 'ℹ️' });
+    // ── Toast (react-hot-toast, minimal clean text) ───────────────────────────
+    const showToast = (arg1, arg2 = 'success', arg3 = '') => {
+        let type = 'success';
+        let message = '';
+
+        if (arg1 === 'success' || arg1 === 'error' || arg1 === 'info') {
+            type = arg1;
+            message = arg3 || arg2 || 'Updated successfully';
         } else {
-            toast.success(text);
+            message = arg1 || 'Updated successfully';
+            type = (arg2 === 'error' || arg2 === 'info') ? arg2 : 'success';
+        }
+
+        const cleanMsg = String(message)
+            .replace(/^Order Updated:\s*/i, '')
+            .replace(/Order ID:\s*\w+[\s\S]*/i, 'Order sent to kitchen successfully')
+            .trim();
+
+        if (type === 'error') {
+            toast.error(cleanMsg || 'An error occurred');
+        } else if (type === 'info') {
+            toast(cleanMsg || 'Info', { icon: 'ℹ️' });
+        } else {
+            toast.success(cleanMsg || 'Updated successfully');
         }
     };
 
@@ -98,11 +111,13 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
     // ── mergeLocalStatus ────────────────────────────────────────────────────
     const mergeLocalStatus = (nextData, prev, currentOrders = orderHistory) => {
-        // Map active table orders (PREPARING, PENDING, READY, CONFIRMED)
+        // Map active table orders (excluding paid/completed/cancelled)
         const activeTableOrders = new Map();
         (currentOrders || []).forEach(ord => {
             const st = (ord.status || '').toUpperCase();
-            if (st === 'PREPARING' || st === 'PENDING' || st === 'READY' || st === 'CONFIRMED' || st === 'IN_PROGRESS') {
+            const oidStr = String(ord.order_id || ord.id || '');
+            const isPaid = (paidOrderIds || []).includes(oidStr) || st === 'PAID' || st === 'COMPLETED' || st === 'CANCELLED';
+            if (!isPaid && (st === 'PREPARING' || st === 'PENDING' || st === 'READY' || st === 'CONFIRMED' || st === 'IN_PROGRESS')) {
                 const rawTN = String(ord.table_number || '').trim();
                 if (rawTN && rawTN.toUpperCase() !== 'N/A') {
                     activeTableOrders.set(rawTN.toLowerCase(), ord);
@@ -122,7 +137,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const activeOrd = activeTableOrders.get(tName.toLowerCase()) || (tNumOnly ? activeTableOrders.get(tNumOnly) : null);
 
             const statusRaw = (t.status || 'Available').toUpperCase();
-            const isOccupied = statusRaw === 'OCCUPIED' || !!activeOrd;
+            const isOccupied = statusRaw !== 'AVAILABLE' && (statusRaw === 'OCCUPIED' || !!activeOrd);
 
             if (isOccupied) {
                 return {
@@ -652,17 +667,28 @@ export const POSProvider = ({ user, onLogout, children }) => {
             };
 
             try {
-                const response = await fetch(`${API_BASE_URL}/order/update`, {
+                let response = await fetch(`${API_BASE_URL}/order/update`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatePayload)
+                    body: JSON.stringify({
+                        order_id: existingOrderId,
+                        order_status: 'PENDING',
+                        ...updatePayload
+                    })
                 });
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                // Refresh tables from backend so current_total & session are up-to-date
+
+                if (!response.ok) {
+                    await fetch(`${API_BASE_URL}/order/update-status/${existingOrderId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ order_status: 'PENDING', status: 'PENDING' })
+                    });
+                }
+            } catch (err) {
+                console.warn('Order update API info:', err.message);
+            } finally {
                 fetchTables();
                 fetchOrders();
-            } catch (err) {
-                console.warn('Order update API failed (local state still updated):', err.message);
             }
 
             setTablesData(prev => {
@@ -673,7 +699,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             setTableCarts(prev => ({ ...prev, [tableId]: cart }));
             setTableModified(prev => ({ ...prev, [tableId]: false }));
             setOrderHistory(prev => prev.map(oh => String(oh.order_id) === String(existingOrderId) ? { ...oh, items: cartItems, total: parseFloat(grandTotal.toFixed(2)), status: 'PENDING' } : oh));
-            showToast(`Order #${existingOrderId} updated with ${cartItems.length} item(s).`, 'success', 'Order Updated');
+            showToast('Order updated successfully', 'success');
             return;
         }
 
@@ -720,26 +746,11 @@ export const POSProvider = ({ user, onLogout, children }) => {
             created_at: new Date().toISOString()
         };
 
-        const markOccupied = async (oid) => {
+        const markOccupied = (oid) => {
             setTablesData(prev => {
                 const update = t => t.table_number === tableId ? { ...t, status: 'Occupied', current_session: { active_order_id: oid, staff_id: parseInt(user?.id) || 100, staff_name: user?.username || 'Ravi', guest_count: t.capacity || 4, updated_at: new Date().toISOString(), total_items: cartItems.reduce((s, i) => s + i.qty, 0), current_total: parseFloat(grandTotal.toFixed(2)) } } : t;
                 return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
             });
-            if (tableId) {
-                try {
-                    await fetch(`${API_BASE_URL}/tables/status`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            table_number: tableId,
-                            status: 'Occupied',
-                            current_session: { active_order_id: oid, staff_id: parseInt(user?.id) || 100, staff_name: user?.username || 'Ravi', guest_count: 4, updated_at: new Date().toISOString(), current_total: parseFloat(grandTotal.toFixed(2)) }
-                        })
-                    });
-                } catch (e) {
-                    console.warn('Backend table status POST failed:', e);
-                }
-            }
         };
 
         try {
@@ -749,6 +760,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const oid = data.data?.order_id || data.order_id || generatedOrderId;
             markOccupied(oid);
             setOrderHistory(prev => [{ order_id: oid, table_number: tableId, type: orderType.charAt(0).toUpperCase() + orderType.slice(1).toLowerCase(), total: parseFloat(grandTotal.toFixed(2)), subtotal: parseFloat(subtotal.toFixed(2)), tax: parseFloat(tax.toFixed(2)), serviceCharge: parseFloat(serviceCharge.toFixed(2)), items: cartItems, time: new Date().toISOString(), status: 'PENDING' }, ...prev]);
+            fetchTables();
             fetchOrders();
             showToast(`Order ID: ${oid}\nStatus: PENDING\nTotal: ₹${grandTotal.toFixed(2)}`, 'success', 'Order Sent to Kitchen');
             setCart({});
@@ -817,20 +829,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             }
         }
 
-        // 2. Call table status update API to set status to Dirty/Available on the server
-        try {
-            await fetch(`${API_BASE_URL}/tables/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    table_number: tableId,
-                    status: targetStatus,
-                    current_session: activeOrd ? { last_order_id: activeOrd } : null
-                })
-            });
-        } catch (statusErr) {
-            console.warn("Table status update API failed:", statusErr.message);
-        }
+
 
         setOrderHistory(prev => prev.map(oh => oh.table_number === tableId && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
         fetchOrders();
@@ -893,20 +892,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             setOrderHistory(prev => prev.map(oh => oh.table_number === tNum && oh.status === 'PENDING' ? { ...oh, status: 'PAID' } : oh));
         }
 
-        // 2. Call table status update API to set status to Dirty/Available on the server
-        try {
-            await fetch(`${API_BASE_URL}/tables/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    table_number: tNum,
-                    status: targetStatus,
-                    current_session: activeOrd ? { last_order_id: activeOrd } : null
-                })
-            });
-        } catch (statusErr) {
-            console.warn("Table status update API failed:", statusErr.message);
-        }
+
 
         fetchOrders();
         fetchTables();
@@ -918,19 +904,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
     // ── markTableAsAvailable ─────────────────────────────────────────────────
     const markTableAsAvailable = async (tNum) => {
-        try {
-            await fetch(`${API_BASE_URL}/tables/status`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    table_number: tNum,
-                    status: 'Available',
-                    current_session: null
-                })
-            });
-        } catch (statusErr) {
-            console.warn("Table status update API failed:", statusErr.message);
-        }
+
 
         setTablesData(prev => {
             const update = t => t.table_number === tNum ? { ...t, status: 'Available', current_session: null } : t;
@@ -952,75 +926,97 @@ export const POSProvider = ({ user, onLogout, children }) => {
         navigate('/order');
         showToast('Starting a new order.', 'success', `Taking order for Table ${tNum}`);
     };
+    // ── Confirm Modal State ──────────────────────────────────────────────────
+    const [confirmModal, setConfirmModal] = useState({
+        isOpen: false,
+        title: '',
+        message: '',
+        confirmText: 'Confirm',
+        confirmVariant: 'danger',
+        onConfirm: null
+    });
+
+    const showConfirm = ({ title, message, confirmText = 'Confirm', confirmVariant = 'danger', onConfirm }) => {
+        setConfirmModal({
+            isOpen: true,
+            title,
+            message,
+            confirmText,
+            confirmVariant,
+            onConfirm: async () => {
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                if (onConfirm) await onConfirm();
+            }
+        });
+    };
+
+    const closeConfirm = () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+    };
 
     // ── cancelActiveOrder ────────────────────────────────────────────────────
-    const cancelActiveOrder = async (orderId, tableNum) => {
-        if (!window.confirm(`Are you sure you want to cancel Order #${orderId}?`)) {
-            return;
-        }
+    const cancelActiveOrder = (orderId, tableNum) => {
+        const cleanOrderId = String(orderId || '').replace(/^#/, '');
+        const cleanTableNum = tableNum ? String(tableNum).replace(/^Table\s*/i, '').trim() : '';
 
-        try {
-            const tableInfo = tablesList.find(t => t.table_number === tableNum);
-            const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
+        showConfirm({
+            title: `Cancel Order ${cleanOrderId}?`,
+            message: `Are you sure you want to cancel Order ${cleanOrderId}?`,
+            confirmText: 'Yes, Cancel Order',
+            confirmVariant: 'danger',
+            onConfirm: async () => {
+                try {
+                    const tableInfo = tablesList.find(t => t.table_number === tableNum);
+                    const tableIdNum = tableInfo?.table_id ? parseInt(tableInfo.table_id) : null;
 
-            // 1. Update status to CANCELLED on backend
-            try {
-                await fetch(`${API_BASE_URL}/order/update-status/${orderId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_status: 'CANCELLED',
-                        table_number_id: tableIdNum
-                    })
-                });
-            } catch (err) {
-                console.warn('Failed to update status to CANCELLED on server:', err.message);
+                    // 1. Update status to CANCELLED on backend
+                    try {
+                        await fetch(`${API_BASE_URL}/order/update-status/${orderId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                order_status: 'CANCELLED',
+                                table_number_id: tableIdNum
+                            })
+                        });
+                    } catch (err) {
+                        console.warn('Failed to update status to CANCELLED on server:', err.message);
+                    } finally {
+                        fetchTables();
+                        fetchOrders();
+                    }
+
+                    // 2. Update local state
+                    setTablesData(prev => {
+                        const update = t => t.table_number === tableNum ? { ...t, status: 'Available', current_session: null } : t;
+                        return {
+                            ...prev,
+                            sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })),
+                            tables: (prev.tables || []).map(update)
+                        };
+                    });
+
+                    // Update local order history status to CANCELLED
+                    setOrderHistory(prev => prev.map(oh => String(oh.order_id) === String(orderId) ? { ...oh, status: 'CANCELLED' } : oh));
+
+                    // Clear cart
+                    setCart({});
+                    setCartModified(false);
+                    if (tableNum) {
+                        setTableCarts(prev => ({ ...prev, [tableNum]: {} }));
+                        setTableModified(prev => ({ ...prev, [tableNum]: false }));
+                    }
+
+                    fetchOrders();
+                    fetchTables();
+
+                    showToast(`Order #${orderId} cancelled`, 'success');
+                } catch (error) {
+                    console.error("Failed to cancel order:", error);
+                    showToast("Failed to cancel order: " + error.message, 'error');
+                }
             }
-
-            // 2. Call table status update API to free the table
-            try {
-                await fetch(`${API_BASE_URL}/tables/status`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        table_number: tableNum,
-                        status: 'Available',
-                        current_session: null
-                    })
-                });
-            } catch (statusErr) {
-                console.warn("Table status update API failed:", statusErr.message);
-            }
-
-            // 3. Update local state
-            setTablesData(prev => {
-                const update = t => t.table_number === tableNum ? { ...t, status: 'Available', current_session: null } : t;
-                return {
-                    ...prev,
-                    sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })),
-                    tables: (prev.tables || []).map(update)
-                };
-            });
-
-            // Update local order history status to CANCELLED
-            setOrderHistory(prev => prev.map(oh => String(oh.order_id) === String(orderId) ? { ...oh, status: 'CANCELLED' } : oh));
-
-            // Clear cart
-            setCart({});
-            setCartModified(false);
-            if (tableNum) {
-                setTableCarts(prev => ({ ...prev, [tableNum]: {} }));
-                setTableModified(prev => ({ ...prev, [tableNum]: false }));
-            }
-
-            fetchOrders();
-            fetchTables();
-
-            showToast(`Order #${orderId} has been CANCELLED.`, 'success', 'Order Cancelled');
-        } catch (error) {
-            console.error("Failed to cancel order:", error);
-            showToast("Failed to cancel order: " + error.message, 'error', 'Cancel Failed');
-        }
+        });
     };
 
     // ── handleAddItems ────────────────────────────────────────────────────────
@@ -1058,7 +1054,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         if (!resSelectedTableNum) { showToast('Please select a table.', 'error', 'Missing Table'); return; }
         try {
             const currentSessionObj = { active_order_id: null, staff_id: user?.id || 9, staff_name: user?.username || 'Ravi Sen', guest_count: parseInt(resGuestCount) || 4, customer_name: resCustomerName, customer_phone: resCustomerPhone, reservation_time: resTime, updated_at: new Date().toISOString(), total_items: 0, current_total: 0.00, items: [] };
-            await fetch(`${API_BASE_URL}/tables/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ table_number: resSelectedTableNum, status: 'Reserved', current_session: currentSessionObj }) });
+
             setTablesData(prev => {
                 const update = t => t.table_number === resSelectedTableNum ? { ...t, status: 'Reserved', current_session: currentSessionObj } : t;
                 return { ...prev, sections: (prev.sections || []).map(sec => ({ ...sec, tables: (sec.tables || []).map(update) })), tables: (prev.tables || []).map(update) };
@@ -1232,8 +1228,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
         resSelectedTableNum, setResSelectedTableNum,
         resGuestCount, setResGuestCount,
         resTime, setResTime,
-        // Toast
-        toast, setToast, showToast,
+        // Toast & Confirm Modal
+        showToast, confirmModal, closeConfirm, showConfirm,
         // Detail view
         selectedDetailOrder, setSelectedDetailOrder,
         // Actions
