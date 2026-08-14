@@ -519,26 +519,26 @@ const HistoryPage = () => {
                         <div className="col-lg-4 col-md-5 history-summary-drawer" style={{ position: 'sticky', top: '0', alignSelf: 'flex-start', zIndex: 10, maxHeight: 'calc(100vh - 140px)' }}>
                             <div className="card shadow-sm border-0 rounded-3 bg-white d-flex flex-column" style={{ maxHeight: 'calc(100vh - 140px)' }}>
                                 <div className="card-body p-0 d-flex flex-column overflow-hidden" style={{ maxHeight: 'calc(100vh - 140px)' }}>
-                                    <div className="p-3 border-bottom bg-light rounded-top-3">
-                                        <div className="d-flex justify-content-between align-items-center mb-2">
-                                            <h6 className="fw-bold mb-0 text-slate-900">Order Bill summary</h6>
+                                    <div className="p-2.5 px-3 border-bottom bg-slate-50 rounded-top-3">
+                                        <div className="d-flex justify-content-between align-items-center mb-1.5">
+                                            <h6 className="fw-bold mb-0 text-slate-900" style={{ fontSize: '0.92rem' }}>Order Bill summary</h6>
                                             <button 
                                                 className="btn-close" 
                                                 onClick={() => setActiveOrderSummary(null)}
-                                                style={{ fontSize: '0.8rem' }}
+                                                style={{ fontSize: '0.75rem' }}
                                             ></button>
                                         </div>
-                                        <div className="d-flex flex-wrap gap-2 align-items-center text-xs text-muted">
-                                            <span><strong>Order ID:</strong> #{activeOrderSummary.order_id}</span>
+                                        <div className="d-flex flex-wrap gap-2 align-items-center text-xs text-slate-800 fw-medium">
+                                            <span className="text-slate-800"><strong className="text-slate-900">Order ID:</strong> #{activeOrderSummary.order_id}</span>
                                             {posSettings?.isEnableTables && (
                                                 <>
-                                                    <span className="text-secondary">|</span>
-                                                    <span><strong>Table:</strong> {(!activeOrderSummary.table_number || String(activeOrderSummary.table_number).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.table_number}</span>
+                                                    <span className="text-slate-400">|</span>
+                                                    <span className="text-slate-800"><strong className="text-slate-900">Table:</strong> {(!activeOrderSummary.table_number || String(activeOrderSummary.table_number).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.table_number}</span>
                                                 </>
                                             )}
-                                            <span className="text-secondary">|</span>
-                                            <span><strong>Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.type}</span>
-                                            <span className="text-secondary">|</span>
+                                            <span className="text-slate-400">|</span>
+                                            <span className="text-slate-800"><strong className="text-slate-900">Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.type}</span>
+                                            <span className="text-slate-400">|</span>
                                             <span className={`badge ${
                                                 activeOrderSummary.status === 'COMPLETED' || activeOrderSummary.status === 'PAID' ? 'bg-success' : 
                                                 activeOrderSummary.status === 'SERVED' ? 'bg-info text-dark' : 'bg-warning text-dark'
@@ -609,25 +609,25 @@ const HistoryPage = () => {
                                             <strong className="text-slate-900 fs-6">Grand Total</strong>
                                             <strong className="text-primary fs-5">₹{parseFloat(activeOrderSummary.total || 0).toFixed(2)}</strong>
                                         </div>
-                                        <div className="text-center text-muted fw-bold uppercase pb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
-                                            Payment state: {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : activeOrderSummary.status} | Bill: {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : activeOrderSummary.status}
+                                        <div className="d-flex justify-content-center pt-2">
+                                            {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
+                                                <button 
+                                                    className="btn btn-sm btn-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm" 
+                                                    style={{ letterSpacing: '0.2px' }}
+                                                    onClick={() => onViewDetailOrder(activeOrderSummary)}
+                                                >
+                                                    <i className="bi bi-pencil-square"></i> Modify Order / Add Items
+                                                </button>
+                                            ) : activeOrderSummary.status !== 'CANCELLED' ? (
+                                                <button 
+                                                    className="btn btn-sm btn-outline-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm"
+                                                    style={{ letterSpacing: '0.2px' }}
+                                                    onClick={() => setSelectedHistoryOrder(activeOrderSummary)}
+                                                >
+                                                    <i className="bi bi-printer"></i> Print Receipt
+                                                </button>
+                                            ) : null}
                                         </div>
-                                        
-                                        {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
-                                            <button 
-                                                className="btn btn-dark w-100 fw-bold py-1.5 mt-1" 
-                                                onClick={() => onViewDetailOrder(activeOrderSummary)}
-                                            >
-                                                Modify Order / Add Items
-                                            </button>
-                                        ) : activeOrderSummary.status !== 'CANCELLED' ? (
-                                            <button 
-                                                className="btn btn-outline-dark w-100 fw-bold py-1.5 mt-1"
-                                                onClick={() => setSelectedHistoryOrder(activeOrderSummary)}
-                                            >
-                                                Print Receipt
-                                            </button>
-                                        ) : null}
                                     </div>
                                 </div>
                             </div>
