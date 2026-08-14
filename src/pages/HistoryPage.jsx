@@ -549,7 +549,7 @@ const HistoryPage = () => {
                                     </div>
                                     
                                     {/* Items scroll */}
-                                    <div className="p-3 flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 350px)' }}>
+                                    <div className="p-3 flex-grow-1" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 270px)' }}>
                                         {activeOrderSummary.items && activeOrderSummary.items.length === 0 ? (
                                             <div className="text-center py-5 text-muted">No items in this order.</div>
                                         ) : (
@@ -577,52 +577,52 @@ const HistoryPage = () => {
                                     </div>
                                     
                                     {/* Calculation summary (Matches reactemenu 1-to-1) */}
-                                    <div className="p-3 bg-slate-50 border-top border-dashed rounded-bottom-3 mt-auto">
-                                        <h6 className="text-slate-400 uppercase tracking-widest border-bottom border-dashed pb-2 mb-2 text-center fw-bold" style={{ fontSize: '0.7rem', letterSpacing: '1px' }}>
+                                    <div className="p-2.5 px-3 bg-slate-50 border-top border-dashed rounded-bottom-3 mt-auto">
+                                        <h6 className="text-slate-500 uppercase tracking-widest border-bottom border-dashed pb-1.5 mb-1.5 text-center fw-bold" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>
                                             Billing breakdown
                                         </h6>
-                                        <div className="d-flex justify-content-between mb-1 text-slate-600 text-xs">
+                                        <div className="d-flex justify-content-between mb-0.5 text-slate-800 text-xs fw-semibold">
                                             <span>Subtotal</span>
-                                            <span className="fw-semibold text-slate-800">₹{parseFloat(activeOrderSummary.subtotal || 0).toFixed(2)}</span>
+                                            <span>₹{parseFloat(activeOrderSummary.subtotal || 0).toFixed(2)}</span>
                                         </div>
-                                        <div className="d-flex justify-content-between mb-1 text-slate-500 text-xs ps-2">
+                                        <div className="d-flex justify-content-between mb-0.5 text-slate-800 text-xs ps-2 fw-medium">
                                             <span>CGST ({(parseFloat(posSettings.taxRate || 5) / 2).toFixed(1)}%)</span>
                                             <span>+₹{(parseFloat(activeOrderSummary.tax || 0) / 2).toFixed(2)}</span>
                                         </div>
-                                        <div className="d-flex justify-content-between mb-1 text-slate-500 text-xs ps-2">
+                                        <div className="d-flex justify-content-between mb-0.5 text-slate-800 text-xs ps-2 fw-medium">
                                             <span>SGST ({(parseFloat(posSettings.taxRate || 5) / 2).toFixed(1)}%)</span>
                                             <span>+₹{(parseFloat(activeOrderSummary.tax || 0) / 2).toFixed(2)}</span>
                                         </div>
                                         {parseFloat(activeOrderSummary.serviceCharge || 0) > 0 && (
-                                            <div className="d-flex justify-content-between mb-1 text-slate-500 text-xs">
+                                            <div className="d-flex justify-content-between mb-0.5 text-slate-800 text-xs ps-2 fw-medium">
                                                 <span>Service Charge ({posSettings.serviceCharge}%)</span>
                                                 <span>+₹{parseFloat(activeOrderSummary.serviceCharge || 0).toFixed(2)}</span>
                                             </div>
                                         )}
                                         {parseFloat(activeOrderSummary.discount || 0) > 0 && (
-                                            <div className="d-flex justify-content-between mb-1 text-danger text-xs">
+                                            <div className="d-flex justify-content-between mb-0.5 text-danger text-xs ps-2 fw-medium">
                                                 <span>Discount</span>
                                                 <span>-₹{parseFloat(activeOrderSummary.discount || 0).toFixed(2)}</span>
                                             </div>
                                         )}
-                                        <div className="border-top border-dashed pt-2 mt-2 d-flex justify-content-between align-items-center mb-2">
+                                        <div className="border-top border-dashed pt-1.5 mt-1.5 d-flex justify-content-between align-items-center mb-1">
                                             <strong className="text-slate-900 fs-6">Grand Total</strong>
                                             <strong className="text-primary fs-5">₹{parseFloat(activeOrderSummary.total || 0).toFixed(2)}</strong>
                                         </div>
-                                        <div className="text-center text-muted fw-bold uppercase pb-2" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
+                                        <div className="text-center text-muted fw-bold uppercase pb-1" style={{ fontSize: '0.65rem', letterSpacing: '0.5px' }}>
                                             Payment state: {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : activeOrderSummary.status} | Bill: {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : activeOrderSummary.status}
                                         </div>
                                         
                                         {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
                                             <button 
-                                                className="btn btn-dark w-100 fw-bold py-2 mt-1" 
+                                                className="btn btn-dark w-100 fw-bold py-1.5 mt-1" 
                                                 onClick={() => onViewDetailOrder(activeOrderSummary)}
                                             >
                                                 Modify Order / Add Items
                                             </button>
                                         ) : activeOrderSummary.status !== 'CANCELLED' ? (
                                             <button 
-                                                className="btn btn-outline-dark w-100 fw-bold py-2 mt-1"
+                                                className="btn btn-outline-dark w-100 fw-bold py-1.5 mt-1"
                                                 onClick={() => setSelectedHistoryOrder(activeOrderSummary)}
                                             >
                                                 Print Receipt
