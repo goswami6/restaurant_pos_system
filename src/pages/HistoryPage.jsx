@@ -5,6 +5,20 @@ import ReceiptModal from '../components/ReceiptModal';
 import { usePOS } from '../context/POSContext';
 import { API_BASE_URL } from '../config';
 
+const getStatusBadgeClass = (status) => {
+    const s = String(status || '').toUpperCase();
+    if (s === 'PAID' || s === 'COMPLETED' || s === 'SERVED') {
+        return 'bg-success text-white';
+    }
+    if (s === 'CANCELLED' || s === 'REJECTED') {
+        return 'bg-danger text-white';
+    }
+    if (s === 'PENDING' || s === 'PLACED' || s === 'ACTIVE') {
+        return 'bg-warning text-dark';
+    }
+    return 'bg-secondary text-white';
+};
+
 const HistoryPage = () => {
     const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders } = usePOS();
     const navigate = useNavigate();
@@ -360,20 +374,15 @@ const HistoryPage = () => {
                                                             style={{ cursor: 'pointer', textDecoration: 'underline' }}
                                                             onClick={() => setActiveOrderSummary(order)}
                                                         >
-                                                            {order.order_id}
+                                                            {String(order.order_id).replace(/^#/i, '')}
                                                         </span>
                                                     </td>
                                                     {posSettings.isEnableTables && <td style={{ whiteSpace: 'nowrap' }}>{(!order.table_number || String(order.table_number).toUpperCase() === 'N/A') ? 'Empty' : order.table_number}</td>}
                                                     <td style={{ whiteSpace: 'nowrap' }}>{(!order.type || String(order.type).toUpperCase() === 'N/A') ? 'Empty' : order.type}</td>
-                                                    <td className="small text-muted" style={{ whiteSpace: 'nowrap' }}>{order.time ? new Date(order.time).toLocaleString() : 'Empty'}</td>
+                                                    <td className="small text-slate-700 font-medium" style={{ whiteSpace: 'nowrap' }}>{order.time ? new Date(order.time).toLocaleString() : 'Empty'}</td>
                                                     <td className="fw-bold text-slate-800" style={{ whiteSpace: 'nowrap' }}>₹{parseFloat(order.total || 0).toFixed(2)}</td>
                                                     <td style={{ whiteSpace: 'nowrap' }}>
-                                                        <span className={`badge ${
-                                                            order.status === 'PAID' || order.status === 'COMPLETED' ? 'bg-success' : 
-                                                            order.status === 'CANCELLED' ? 'bg-danger text-white' : 
-                                                            order.status === 'PENDING' ? 'bg-warning text-dark' : 
-                                                            order.status ? 'bg-info text-dark' : 'bg-secondary text-white'
-                                                        }`}>
+                                                        <span className={`badge ${getStatusBadgeClass(order.status)}`}>
                                                             {order.status === 'PAID' ? 'COMPLETED' : (!order.status || String(order.status).toUpperCase() === 'N/A') ? 'Empty' : order.status}
                                                         </span>
                                                     </td>
@@ -478,9 +487,9 @@ const HistoryPage = () => {
                                                                  style={{
                                                                      width: '32px',
                                                                      height: '32px',
-                                                                     backgroundColor: isActive ? '#6366f1' : 'transparent',
+                                                                     backgroundColor: isActive ? '#1e293b' : 'transparent',
                                                                      color: isActive ? '#ffffff' : '#475569',
-                                                                     boxShadow: isActive ? '0 4px 12px rgba(99, 102, 241, 0.35)' : 'none',
+                                                                     boxShadow: isActive ? '0 4px 10px rgba(30, 41, 59, 0.25)' : 'none',
                                                                      border: 'none'
                                                                  }}
                                                              >
@@ -529,7 +538,7 @@ const HistoryPage = () => {
                                             ></button>
                                         </div>
                                         <div className="d-flex flex-wrap gap-2 align-items-center text-xs text-slate-800 fw-medium">
-                                            <span className="text-slate-800"><strong className="text-slate-900">Order ID:</strong> #{activeOrderSummary.order_id}</span>
+                                            <span className="text-slate-800"><strong className="text-slate-900">Order ID:</strong> {String(activeOrderSummary.order_id).replace(/^#/i, '')}</span>
                                             {posSettings?.isEnableTables && (
                                                 <>
                                                     <span className="text-slate-400">|</span>
@@ -539,10 +548,7 @@ const HistoryPage = () => {
                                             <span className="text-slate-400">|</span>
                                             <span className="text-slate-800"><strong className="text-slate-900">Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.type}</span>
                                             <span className="text-slate-400">|</span>
-                                            <span className={`badge ${
-                                                activeOrderSummary.status === 'COMPLETED' || activeOrderSummary.status === 'PAID' ? 'bg-success' : 
-                                                activeOrderSummary.status === 'SERVED' ? 'bg-info text-dark' : 'bg-warning text-dark'
-                                            }`} style={{ fontSize: '0.65rem' }}>
+                                            <span className={`badge ${getStatusBadgeClass(activeOrderSummary.status)}`} style={{ fontSize: '0.65rem' }}>
                                                 {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : (!activeOrderSummary.status || String(activeOrderSummary.status).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.status}
                                             </span>
                                         </div>
@@ -640,13 +646,13 @@ const HistoryPage = () => {
             {showCalendarModal && (
                 <div className="modal show d-block" style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)', zIndex: 1060 }}>
                     <div className="modal-dialog modal-dialog-centered" style={{ maxWidth: '360px' }}>
-                        <div className="modal-content border-0 rounded-4 shadow-lg overflow-hidden" style={{ backgroundColor: '#f5f3ff' }}>
-                            <div className="p-3 d-flex align-items-center justify-content-between border-bottom" style={{ borderColor: '#e9d5ff' }}>
-                                <h6 className="fw-bold mb-0 d-flex align-items-center gap-2" style={{ color: '#581c87' }}>
-                                    <i className="bi bi-calendar-event"></i>
+                        <div className="modal-content border-0 rounded-4 shadow-lg overflow-hidden bg-white">
+                            <div className="p-3 d-flex align-items-center justify-content-between border-bottom bg-slate-900 text-white">
+                                <h6 className="fw-bold mb-0 d-flex align-items-center gap-2 text-white" style={{ fontSize: '0.9rem' }}>
+                                    <i className="bi bi-calendar-event text-amber-400"></i>
                                     <span>Select Date Range</span>
                                 </h6>
-                                <button type="button" className="btn-close" onClick={() => setShowCalendarModal(false)}></button>
+                                <button type="button" className="btn-close btn-close-white" onClick={() => setShowCalendarModal(false)} aria-label="Close"></button>
                             </div>
 
                             <div className="p-3">
@@ -654,19 +660,17 @@ const HistoryPage = () => {
                                 <div className="d-flex align-items-center justify-content-between mb-3 px-1">
                                     <button
                                         type="button"
-                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold"
-                                        style={{ color: '#6b21a8' }}
+                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold text-slate-800"
                                         onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1))}
                                     >
                                         ‹
                                     </button>
-                                    <span className="fw-bold" style={{ color: '#3b0764', fontSize: '0.95rem' }}>
+                                    <span className="fw-bold text-slate-900" style={{ fontSize: '0.95rem' }}>
                                         {calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
                                     </span>
                                     <button
                                         type="button"
-                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold"
-                                        style={{ color: '#6b21a8' }}
+                                        className="btn btn-sm btn-light rounded-circle border-0 font-bold text-slate-800"
                                         onClick={() => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1))}
                                     >
                                         ›
@@ -676,7 +680,7 @@ const HistoryPage = () => {
                                 {/* Weekday Labels */}
                                 <div className="d-grid gap-1 text-center mb-2" style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}>
                                     {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d, i) => (
-                                        <span key={i} className="text-xs font-bold" style={{ color: '#a855f7' }}>{d}</span>
+                                        <span key={i} className="text-xs font-bold text-slate-500">{d}</span>
                                     ))}
                                 </div>
 
@@ -696,7 +700,7 @@ const HistoryPage = () => {
                                                 className="d-flex align-items-center justify-content-center transition-all"
                                                 style={{
                                                     height: '36px',
-                                                    backgroundColor: inRange ? '#ede9fe' : 'transparent',
+                                                    backgroundColor: inRange ? '#f1f5f9' : 'transparent',
                                                     borderRadius: isStart ? '50% 0 0 50%' : isEnd ? '0 50% 50% 0' : inRange ? '0' : '50%',
                                                     cursor: 'pointer'
                                                 }}
@@ -706,9 +710,9 @@ const HistoryPage = () => {
                                                     style={{
                                                         width: '32px',
                                                         height: '32px',
-                                                        backgroundColor: isSelected ? '#7c3aed' : 'transparent',
-                                                        color: isSelected ? '#ffffff' : inRange ? '#5b21b6' : '#334155',
-                                                        boxShadow: isSelected ? '0 4px 10px rgba(124, 58, 237, 0.35)' : 'none'
+                                                        backgroundColor: isSelected ? '#1e293b' : 'transparent',
+                                                        color: isSelected ? '#ffffff' : inRange ? '#0f172a' : '#334155',
+                                                        boxShadow: isSelected ? '0 4px 10px rgba(30, 41, 59, 0.25)' : 'none'
                                                     }}
                                                 >
                                                     {item.dayNum}
@@ -719,8 +723,8 @@ const HistoryPage = () => {
                                 </div>
 
                                 {/* Selected Info Summary */}
-                                <div className="p-2 rounded-3 text-center mb-3 border" style={{ backgroundColor: '#ffffff', borderColor: '#ddd6fe' }}>
-                                    <span className="text-xs font-medium" style={{ color: '#4c1d95' }}>
+                                <div className="p-2 rounded-3 text-center mb-3 border bg-slate-50 border-slate-200">
+                                    <span className="text-xs font-medium text-slate-800">
                                         {tempStartDate ? (
                                             <>
                                                 Selected: <strong>{tempStartDate}</strong> {tempEndDate ? `to ${tempEndDate}` : '(Select End Date)'}
@@ -735,7 +739,7 @@ const HistoryPage = () => {
                                 <div className="d-flex gap-2">
                                     <button
                                         type="button"
-                                        className="btn btn-sm btn-light border-0 text-slate-600 font-bold flex-fill py-2"
+                                        className="btn btn-sm btn-light border border-slate-200 text-slate-700 font-bold flex-fill py-2"
                                         onClick={() => {
                                             setTempStartDate('');
                                             setTempEndDate('');
@@ -745,8 +749,7 @@ const HistoryPage = () => {
                                     </button>
                                     <button
                                         type="button"
-                                        className="btn btn-sm font-bold text-white flex-fill py-2"
-                                        style={{ backgroundColor: '#7c3aed' }}
+                                        className="btn btn-sm btn-dark font-bold text-white flex-fill py-2"
                                         onClick={applyCalendarRange}
                                     >
                                         Apply Range
