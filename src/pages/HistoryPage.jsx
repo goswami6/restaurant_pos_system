@@ -19,7 +19,7 @@ const HistoryPage = () => {
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
+    const [pageSize, setPageSize] = useState(15);
 
     // Single Unified Calendar State
     const [showCalendarModal, setShowCalendarModal] = useState(false);
