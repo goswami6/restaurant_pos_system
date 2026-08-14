@@ -510,7 +510,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
                     qty: parseInt(item.qty !== undefined ? item.qty : (item.quantity !== undefined ? item.quantity : 1)) || 1,
                     category_id: String(item.category_id || '5'),
                     selectedVariant: item.variant_id ? { id: item.variant_id, name: item.variant_name || 'Variant', price: 0 } : null,
-                    notes: item.notes || `Session Order: ${session.active_order_id || 'Active'}`
+                    notes: (item.notes && !item.notes.includes('Session Order')) ? item.notes : ''
                 };
             });
             return newCart;

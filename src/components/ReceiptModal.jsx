@@ -30,7 +30,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                         <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
                     </div>
                     ${item.selectedVariant ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">Opt: ${item.selectedVariant.name}</div>` : ''}
-                    ${item.notes ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
+                    ${(item.notes && !item.notes.includes('Session Order')) ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
                 </div>
             `;
         }).join('');
@@ -214,7 +214,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                                         <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
                                     </div>
                                     {item.selectedVariant && <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>Opt: {item.selectedVariant.name}</div>}
-                                    {item.notes && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
+                                    {(item.notes && !item.notes.includes('Session Order')) && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
                                 </div>
                             );
                         })

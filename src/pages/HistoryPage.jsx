@@ -567,7 +567,7 @@ const HistoryPage = () => {
                                                                 <span className="text-amber-600">Option: {item.selectedVariant.name}</span>
                                                             )}
                                                         </div>
-                                                        {item.notes && (
+                                                        {item.notes && !item.notes.includes('Session Order') && (
                                                             <div className="text-xs italic text-slate-500 mt-1">"{item.notes}"</div>
                                                         )}
                                                     </div>
