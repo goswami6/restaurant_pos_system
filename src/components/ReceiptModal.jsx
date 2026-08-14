@@ -115,7 +115,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                             <span>Service Charge ${serviceChargeRate}% &nbsp;&nbsp;${serviceAmt.toFixed(2)}</span>
                         </div>
                     ` : ''}
-                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; margin-top: 4px;">
+                    <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-top: 6px; padding-top: 2px;">
                         <span>Grand Total (INR)</span>
                         <span>${grandTotal.toFixed(2)}</span>
                     </div>
@@ -243,7 +243,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                                 <span>Service Charge {serviceChargeRate}% &nbsp;&nbsp;{serviceAmt.toFixed(2)}</span>
                             </div>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '11px', marginTop: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '14px', marginTop: '6px', paddingTop: '2px' }}>
                             <span>Grand Total (INR)</span>
                             <span>{grandTotal.toFixed(2)}</span>
                         </div>
