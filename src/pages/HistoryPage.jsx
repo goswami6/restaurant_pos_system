@@ -174,7 +174,7 @@ const HistoryPage = () => {
 
     return (
         <div className="container-fluid py-3 py-sm-4 px-2 px-sm-4 bg-slate-50" style={{ flex: 1, overflowY: 'auto' }}>
-            <div className="row g-3 g-sm-4 align-items-start">
+            <div className="row g-3 g-sm-4 align-items-start mx-auto" style={{ maxWidth: '1360px' }}>
                 <div className={activeOrderSummary ? "col-lg-8 col-md-7" : "col-12"}>
                     <div className="card shadow-sm border-0 rounded-3 mb-4 bg-white">
                         <div className="card-body p-3 p-sm-4">
@@ -349,17 +349,17 @@ const HistoryPage = () => {
                                 </div>
                             </div>
         
-                            <div className="table-responsive w-100 history-table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
-                                <table className="table table-hover align-middle mb-0" style={{ minWidth: '550px' }}>
-                                    <thead className="table-light text-secondary" style={{ whiteSpace: 'nowrap' }}>
+                            <div className="table-responsive history-table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                                <table className="table table-hover align-middle mb-0" style={{ width: '100%', tableLayout: 'fixed' }}>
+                                    <thead className="table-light text-slate-700 font-bold" style={{ whiteSpace: 'nowrap', fontSize: '0.82rem' }}>
                                         <tr>
-                                            <th>Order ID</th>
-                                            {posSettings.isEnableTables && <th>Table / Ref</th>}
-                                            <th>Type</th>
-                                            <th>Date/Time</th>
-                                            <th>Grand Total</th>
-                                            <th>Status</th>
-                                            <th className="text-end">Actions</th>
+                                            <th style={{ width: posSettings.isEnableTables ? '12%' : '14%', padding: '10px 12px' }}>Order ID</th>
+                                            {posSettings.isEnableTables && <th style={{ width: '13%', padding: '10px 12px' }}>Table / Ref</th>}
+                                            <th style={{ width: posSettings.isEnableTables ? '13%' : '16%', padding: '10px 12px' }}>Type</th>
+                                            <th style={{ width: posSettings.isEnableTables ? '24%' : '28%', padding: '10px 12px' }}>Date/Time</th>
+                                            <th style={{ width: posSettings.isEnableTables ? '15%' : '17%', padding: '10px 12px' }}>Grand Total</th>
+                                            <th style={{ width: posSettings.isEnableTables ? '13%' : '15%', padding: '10px 12px' }}>Status</th>
+                                            <th className="text-end" style={{ width: posSettings.isEnableTables ? '10%' : '10%', padding: '10px 12px' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
