@@ -132,8 +132,42 @@ body {
   @apply bg-slate-50 rounded-xl p-3 mb-3 border border-slate-200;
 }
 
+.quantity-controls {
+  display: inline-flex;
+  align-items: center;
+  background-color: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 9999px;
+  padding: 2px;
+  height: 26px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
 .qty-btn {
-  @apply w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-900 font-bold cursor-pointer transition-all duration-100 hover:bg-slate-200;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.qty-btn:hover {
+  background-color: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.25);
+  transform: scale(1.05);
+}
+
+.qty-btn:active {
+  transform: scale(0.95);
 }
 
 .bill-footer {

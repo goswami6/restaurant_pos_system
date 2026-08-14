@@ -119,35 +119,41 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                         const itemTotalPrice = itemUnitPrice * item.qty;
 
                         return (
-                            <div key={item.id} className="bill-item pb-2.5 mb-2.5 border-bottom">
-                                <div className="d-flex justify-content-between align-items-start mb-1">
+                            <div key={item.id} className="bill-item pb-1.5 mb-1.5 border-bottom">
+                                <div className="d-flex justify-content-between align-items-start mb-0.5">
                                     <div>
-                                        <div className="fw-bold text-slate-800" style={{ fontSize: '0.9rem' }}>{item.name}</div>
+                                        <div className="fw-bold text-slate-800" style={{ fontSize: '0.85rem' }}>{item.name}</div>
                                         {item.selectedVariant && (
-                                            <span className="badge bg-slate-100 text-slate-700 border border-slate-200 mt-1" style={{ fontSize: '0.68rem' }}>
+                                            <span className="badge bg-slate-100 text-slate-700 border border-slate-200 mt-0.5" style={{ fontSize: '0.65rem' }}>
                                                 {item.selectedVariant.name}
                                             </span>
                                         )}
                                     </div>
-                                    <div className="fw-bold text-slate-900" style={{ fontSize: '0.9rem' }}>
+                                    <div className="fw-bold text-slate-900" style={{ fontSize: '0.85rem' }}>
                                         ₹{itemTotalPrice.toFixed(2)}
                                     </div>
                                 </div>
 
-                                <div className="d-flex justify-content-between align-items-center mt-2">
-                                    <div className="quantity-controls d-flex align-items-center gap-2">
+                                <div className="d-flex justify-content-between align-items-center mt-1">
+                                    <div className="quantity-controls">
                                         <button 
+                                            type="button"
                                             className="qty-btn"
                                             onClick={() => updateQty(item.id, -1)}
+                                            title="Decrease quantity"
                                         >
-                                            −
+                                            <i className="bi bi-dash"></i>
                                         </button>
-                                        <span className="fw-bold" style={{ minWidth: '20px', textAlign: 'center' }}>{item.qty}</span>
+                                        <span className="fw-bold text-slate-900 px-1.5" style={{ minWidth: '20px', textAlign: 'center', fontSize: '0.75rem' }}>
+                                            {item.qty}
+                                        </span>
                                         <button 
+                                            type="button"
                                             className="qty-btn"
                                             onClick={() => updateQty(item.id, 1)}
+                                            title="Increase quantity"
                                         >
-                                            +
+                                            <i className="bi bi-plus"></i>
                                         </button>
                                     </div>
                                     <button 
@@ -224,20 +230,20 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                                 aria-label="Hide Summary"
                             ></button>
                         </div>
-                        <div className="d-flex justify-content-between mb-1" style={{ fontSize: '0.78rem' }}>
-                            <span className="text-slate-600">Subtotal</span>
-                            <span className="fw-semibold text-slate-800">₹{subtotal.toFixed(2)}</span>
+                        <div className="d-flex justify-content-between mb-1 text-slate-800 fw-semibold" style={{ fontSize: '0.78rem' }}>
+                            <span>Subtotal</span>
+                            <span>₹{subtotal.toFixed(2)}</span>
                         </div>
-                        <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                        <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                             <span>CGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
                             <span>+₹{(tax / 2).toFixed(2)}</span>
                         </div>
-                        <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                        <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                             <span>SGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
                             <span>+₹{(tax / 2).toFixed(2)}</span>
                         </div>
                         {(posSettings.serviceCharge > 0 && serviceCharge > 0) && (
-                            <div className="d-flex justify-content-between mb-1 text-slate-500" style={{ fontSize: '0.75rem' }}>
+                            <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                                 <span>Service Charge ({posSettings.serviceCharge}%)</span>
                                 <span>+₹{serviceCharge.toFixed(2)}</span>
                             </div>

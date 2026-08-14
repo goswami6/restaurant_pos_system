@@ -495,19 +495,25 @@ const OrderDetailPage = () => {
                                             <div className="d-flex justify-content-between align-items-center mt-2">
                                                 {!isPaid ? (
                                                     <>
-                                                        <div className="quantity-controls d-flex align-items-center gap-2">
+                                                        <div className="quantity-controls">
                                                             <button 
+                                                                type="button"
                                                                 className="qty-btn"
                                                                 onClick={() => updateQty(item.id, -1)}
+                                                                title="Decrease quantity"
                                                             >
-                                                                −
+                                                                <i className="bi bi-dash"></i>
                                                             </button>
-                                                            <span className="fw-bold" style={{ minWidth: '20px', textAlign: 'center' }}>{item.qty}</span>
+                                                            <span className="fw-bold text-slate-900 px-1.5" style={{ minWidth: '20px', textAlign: 'center', fontSize: '0.75rem' }}>
+                                                                {item.qty}
+                                                            </span>
                                                             <button 
+                                                                type="button"
                                                                 className="qty-btn"
                                                                 onClick={() => updateQty(item.id, 1)}
+                                                                title="Increase quantity"
                                                             >
-                                                                +
+                                                                <i className="bi bi-plus"></i>
                                                             </button>
                                                         </div>
                                                         <button 
@@ -588,20 +594,20 @@ const OrderDetailPage = () => {
                                             aria-label="Hide Summary"
                                         ></button>
                                     </div>
-                                    <div className="d-flex justify-content-between mb-1" style={{ fontSize: '0.78rem' }}>
-                                        <span className="text-slate-600">Subtotal</span>
-                                        <span className="fw-semibold text-slate-800">₹{subtotal.toFixed(2)}</span>
+                                    <div className="d-flex justify-content-between mb-1 text-slate-800 fw-semibold" style={{ fontSize: '0.78rem' }}>
+                                        <span>Subtotal</span>
+                                        <span>₹{subtotal.toFixed(2)}</span>
                                     </div>
-                                    <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                                    <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                                         <span>CGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
                                         <span>+₹{(tax / 2).toFixed(2)}</span>
                                     </div>
-                                    <div className="d-flex justify-content-between mb-1 text-slate-500 ps-2" style={{ fontSize: '0.73rem' }}>
+                                    <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                                         <span>SGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
                                         <span>+₹{(tax / 2).toFixed(2)}</span>
                                     </div>
                                     {(posSettings?.serviceCharge > 0 && serviceCharge > 0) && (
-                                        <div className="d-flex justify-content-between mb-1 text-slate-500" style={{ fontSize: '0.75rem' }}>
+                                        <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
                                             <span>Service Charge ({posSettings.serviceCharge}%)</span>
                                             <span>+₹{serviceCharge.toFixed(2)}</span>
                                         </div>
