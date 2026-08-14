@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useMemo 
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_BASE_URL } from '../config';
+import { triggerPrintReceipt } from '../components/ReceiptModal';
 
 export const POSContext = createContext(null);
 
@@ -370,12 +371,34 @@ export const POSProvider = ({ user, onLogout, children }) => {
                     data.is_enable_tables ?? data.hardware_and_preferences?.is_enable_tables, 
                     false
                 );
+                const fetchedCity = data.city || data.restaurant_info?.city || 'Pune';
+                const fetchedState = data.state || data.restaurant_info?.state || 'Maharashtra';
+                const fetchedPincode = data.pincode || data.restaurant_info?.pincode || '411056';
+                const rawAddress = data.restaurant_address || data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Lower Parel';
+
+                const sanitizeAddress = (addr, c = '', s = '', p = '') => {
+                    if (!addr) return '';
+                    let cleaned = String(addr).trim();
+                    const tokens = [c, s, p, 'pune', 'MH', 'Maharashtra', '411057', '411056'].filter(Boolean);
+                    let prev = '';
+                    while (cleaned !== prev) {
+                        prev = cleaned;
+                        tokens.forEach(token => {
+                            if (!token || token.length < 2) return;
+                            const escaped = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+                            const regex = new RegExp(`,\\s*${escaped}\\s*$`, 'i');
+                            cleaned = cleaned.replace(regex, '');
+                        });
+                    }
+                    return cleaned.trim();
+                };
+
                 setPosSettings({
                     restaurantName: data.restaurant_name || data.restaurant_info?.name || 'Big Ben Restaurant',
-                    address: data.restaurant_address || data.restaurant_info?.address || '1st Flr, Sun Mill Compound, Hinjewadi',
-                    city: data.city || data.restaurant_info?.city || 'Pune',
-                    state: data.state || data.restaurant_info?.state || 'Maharashtra',
-                    pincode: data.pincode || data.restaurant_info?.pincode || '411056',
+                    address: sanitizeAddress(rawAddress, fetchedCity, fetchedState, fetchedPincode),
+                    city: fetchedCity,
+                    state: fetchedState,
+                    pincode: fetchedPincode,
                     gstin: data.gstin || data.restaurant_info?.gstin || data.restaurant_info?.gst_number || '27CCCCCC0000A1Z5',
                     fssaiNo: data.fssai_no || data.restaurant_info?.fssai_no || data.restaurant_info?.fssai_number || '10019022009777',
                     taxRate: fetchedTaxRate,
@@ -1021,7 +1044,27 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
     // ── handleAddItems ────────────────────────────────────────────────────────
     const handleAddItems = (tNum) => { setTableId(tNum); navigate('/order'); };
-    const handlePrintBillFromTable = (tNum) => { setTableId(tNum); navigate('/order'); setTimeout(() => window.print(), 300); };
+    const handlePrintBillFromTable = (tNum) => {
+        setTableId(tNum);
+        const tableObj = tablesList.find(t => t.table_number === tNum);
+        const cartObj = tableCarts[tNum] || {};
+        const itemsList = Object.values(cartObj);
+        
+        const activeOrder = orderHistory.find(o => o.table_number === tNum && (o.status === 'PENDING' || o.status === 'ACTIVE' || o.status === 'SERVED')) || {
+            order_id: tableObj?.current_session?.active_order_id || tNum,
+            table_number: tNum,
+            type: 'DINE-IN',
+            status: 'ACTIVE',
+            time: new Date().toISOString(),
+            server: tableObj?.current_session?.staff_name || user?.username || user?.name || 'Ravi',
+            items: itemsList.length > 0 ? itemsList : cartItems,
+            subtotal: subtotal,
+            tax: tax,
+            serviceCharge: serviceCharge,
+            total: grandTotal
+        };
+        triggerPrintReceipt(activeOrder, posSettings);
+    };
 
     // ── handleAddTable ────────────────────────────────────────────────────────
     const handleAddTable = async (tableName, capacity, floor = null) => {
@@ -1136,66 +1179,29 @@ export const POSProvider = ({ user, onLogout, children }) => {
         window.print();
     };
 
-    const printDirectToPrinter = async () => {
-        if (cartItems.length === 0) { showToast('Cart is empty!', 'error', 'Print Failed'); return; }
-        if (!navigator.serial) { showToast('Web Serial not supported. Use Chrome/Edge.', 'error', 'Serial Port Error'); return; }
-        try {
-            const port = await navigator.serial.requestPort();
-            await port.open({ baudRate: 9600 });
-            const writer = port.writable.getWriter();
-            const encoder = new TextEncoder();
-            const ESC = '\x1b', GS = '\x1d';
-
-            const totalQty = cartItems.reduce((acc, item) => acc + item.qty, 0);
-            const halfTaxRate = (posSettings.taxRate / 2).toFixed(1);
-            const cgstAmt = tax / 2;
-            const sgstAmt = tax / 2;
-            const formattedDate = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-
-            let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName}\n${ESC}E\x00${posSettings.address}\n`;
-            if (posSettings.city || posSettings.state || posSettings.pincode) {
-                receipt += `${[posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ')}\n`;
-            }
-            if (posSettings.gstin) receipt += `GSTIN: ${posSettings.gstin}\n`;
-            if (posSettings.fssaiNo) receipt += `FSSAI NO: ${posSettings.fssaiNo}\n`;
-
-            const staffRole = (posSettings?.isEnableTables || Boolean(tableId) || orderType === 'DINE-IN') ? 'Waiter' : 'Cashier';
-            receipt += `--------------------------------\n${ESC}a\x00`;
-            receipt += `Bill No: #${tableId ? `TBL-${tableId}` : '1001'}  Date: ${formattedDate}\n`;
-            receipt += `Dine In: ${tableId || 'N/A'}     ${staffRole}: ${user?.username || user?.name || 'Ravi'}\n`;
-            receipt += `--------------------------------\n`;
-            receipt += `Item              Qty.  Price    Amount\n`;
-            receipt += `--------------------------------\n`;
-
-            cartItems.forEach(item => {
-                const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
-                const itemAmount = unitPrice * item.qty;
-                const nameStr = item.name.padEnd(16, ' ').slice(0, 16);
-                const qtyStr = String(item.qty).padStart(4, ' ');
-                const priceStr = unitPrice.toFixed(2).padStart(7, ' ');
-                const amtStr = itemAmount.toFixed(2).padStart(9, ' ');
-                receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;
-                if (item.selectedVariant) receipt += `  Opt: ${item.selectedVariant.name}\n`;
-                if (item.notes) receipt += `  * ${item.notes}\n`;
-            });
-
-            receipt += `--------------------------------\n`;
-            receipt += `Total Qty: ${totalQty}   Sub Total   ${subtotal.toFixed(2).padStart(8, ' ')}\n`;
-            receipt += `             CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2).padStart(8, ' ')}\n`;
-            receipt += `             SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2).padStart(8, ' ')}\n`;
-            if (posSettings.serviceCharge > 0) {
-                receipt += `      Service Charge ${posSettings.serviceCharge}%   ${serviceCharge.toFixed(2).padStart(8, ' ')}\n`;
-            }
-            receipt += `${ESC}E\x01Grand Total (INR)         ${grandTotal.toFixed(2).padStart(8, ' ')}\n${ESC}E\x00`;
-            receipt += `--------------------------------\n${ESC}a\x01Thank you & Visit Again\n--------------------------------\n\n\n\n${GS}V\x41\x03`;
-
-            await writer.write(encoder.encode(receipt));
-            writer.releaseLock();
-            await port.close();
-            showToast('Print sent!', 'success', 'Print Success');
-        } catch (error) {
-            showToast('Print failed: ' + error.message, 'error', 'Print Failed');
+    const printBillReceipt = (orderDataOverride = null) => {
+        if (!orderDataOverride && cartItems.length === 0) {
+            showToast('Cart is empty!', 'error', 'Print Failed');
+            return;
         }
+        const orderToPrint = orderDataOverride || {
+            order_id: activeTableInfo?.current_session?.active_order_id || (tableId ? tableId : '1001'),
+            table_number: tableId,
+            type: orderType,
+            status: 'ACTIVE',
+            time: new Date().toISOString(),
+            server: user?.username || user?.name || 'Ravi',
+            items: cartItems,
+            subtotal: subtotal,
+            tax: tax,
+            serviceCharge: serviceCharge,
+            total: grandTotal
+        };
+        triggerPrintReceipt(orderToPrint, posSettings);
+    };
+
+    const printDirectToPrinter = async () => {
+        printBillReceipt();
     };
 
     const filteredItems = (searchQuery, selectedCategory) => menuItems.filter(item => {
@@ -1239,7 +1245,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         markTableAsAvailable, checkInTable, cancelActiveOrder,
         handleAddItems, handlePrintBillFromTable,
         handleAddTable, handleCreateReservation,
-        handleUpdateOrder, handlePrintKOT, printDirectToPrinter,
+        handleUpdateOrder, handlePrintKOT, printDirectToPrinter, printBillReceipt,
         getMinutesElapsed,
     };
 

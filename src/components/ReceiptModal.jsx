@@ -1,5 +1,171 @@
 import React from 'react';
 
+const cleanOrderIdHelper = (id) => {
+    if (!id) return '1001';
+    return String(id).replace(/^#?TBL-Table\s*#?/i, '').replace(/^#?TBL-/i, '').replace(/^#/i, '').trim();
+};
+
+const cleanItemNameHelper = (name) => {
+    if (!name) return '';
+    return String(name).replace(/\s*\([^)]*Active Order[^)]*\)/gi, '').trim();
+};
+
+export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
+    if (!selectedHistoryOrder) return '';
+
+    const items = selectedHistoryOrder.items || [];
+    const totalQty = items.reduce((acc, item) => acc + (item.qty || 1), 0);
+    const taxRate = posSettings?.taxRate || 5;
+    const serviceChargeRate = posSettings?.serviceCharge || 10;
+    const subtotal = selectedHistoryOrder.subtotal ?? (selectedHistoryOrder.total / (1 + (taxRate + serviceChargeRate) / 100));
+    const halfTaxRate = (taxRate / 2).toFixed(1);
+    const taxTotal = selectedHistoryOrder.tax ?? (subtotal * (taxRate / 100));
+    const cgstAmt = taxTotal / 2;
+    const sgstAmt = taxTotal / 2;
+    const serviceAmt = selectedHistoryOrder.serviceCharge ?? (subtotal * (serviceChargeRate / 100));
+    const grandTotal = selectedHistoryOrder.total ?? (subtotal + taxTotal + serviceAmt);
+
+    const formattedDate = selectedHistoryOrder.time ? new Date(selectedHistoryOrder.time).toLocaleDateString('en-GB') + ' ' + new Date(selectedHistoryOrder.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString();
+
+    const itemsRowsHtml = items.map((item) => {
+        const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
+        const itemAmount = unitPrice * (item.qty || 1);
+        const cleanName = cleanItemNameHelper(item.name);
+        const hasNotes = item.notes && !item.notes.includes('Session Order') && !item.notes.includes('Active Order');
+
+        return `
+            <div style="margin-bottom: 3px;">
+                <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                    <span style="flex: 1; text-align: left; word-break: break-word;">${cleanName}</span>
+                    <span style="width: 32px; text-align: center;">${item.qty}</span>
+                    <span style="width: 55px; text-align: right;">${unitPrice.toFixed(2)}</span>
+                    <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
+                </div>
+                ${item.selectedVariant ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">Opt: ${item.selectedVariant.name}</div>` : ''}
+                ${hasNotes ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const displayOrderId = cleanOrderIdHelper(selectedHistoryOrder.order_id);
+    const rawTable = selectedHistoryOrder.table_number;
+    const tableText = (posSettings?.isEnableTables && rawTable && rawTable !== 'N/A') ? `Dine In: ${String(rawTable).startsWith('Table') ? rawTable : `Table #${rawTable}`}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`;
+
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>POS Receipt ${displayOrderId}</title>
+            <style>
+                @page { size: 80mm auto; margin: 0; }
+                body {
+                    font-family: monospace, sans-serif;
+                    width: 76mm;
+                    max-width: 100%;
+                    margin: 0 auto;
+                    padding: 8px;
+                    color: #000;
+                    background: #fff;
+                    font-size: 11px;
+                    line-height: 1.3;
+                }
+            </style>
+        </head>
+        <body>
+            <div style="text-align: center; margin-bottom: 6px;">
+                <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurantName || 'Big Ben Restaurant'}</div>
+                <div style="font-size: 10px;">${posSettings?.address || ''}</div>
+                <div style="font-size: 10px;">
+                    ${[posSettings?.city, posSettings?.state, posSettings?.pincode].filter(Boolean).join(', ')}
+                </div>
+                ${posSettings?.gstin ? `<div style="font-size: 10px;">GSTIN: ${posSettings.gstin}</div>` : ''}
+                ${posSettings?.fssaiNo ? `<div style="font-size: 10px;">FSSAI NO: ${posSettings.fssaiNo}</div>` : ''}
+            </div>
+
+            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+            ${selectedHistoryOrder.customer_name ? `
+                <div style="font-size: 10px;">
+                    Customer Name: ${selectedHistoryOrder.customer_name} ${selectedHistoryOrder.customer_phone ? `(${selectedHistoryOrder.customer_phone})` : ''}
+                </div>
+                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+            ` : ''}
+
+            <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                <span>Bill No: ${displayOrderId}</span>
+                <span>Date: ${formattedDate}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                <span>${tableText}</span>
+                <span>${posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: ${selectedHistoryOrder.server || 'Ravi'}</span>
+            </div>
+
+            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
+                <span style="flex: 1; text-align: left;">Item</span>
+                <span style="width: 32px; text-align: center;">Qty.</span>
+                <span style="width: 55px; text-align: right;">Price</span>
+                <span style="width: 60px; text-align: right;">Amount</span>
+            </div>
+
+            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+            ${itemsRowsHtml}
+
+            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
+
+            <div style="font-size: 10px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                    <span>Total Qty: ${totalQty}</span>
+                    <span>Sub Total &nbsp;&nbsp;${subtotal.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                    <span>CGST ${halfTaxRate}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                    <span>SGST ${halfTaxRate}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
+                </div>
+                ${serviceChargeRate > 0 ? `
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                        <span>Service Charge ${serviceChargeRate}% &nbsp;&nbsp;${serviceAmt.toFixed(2)}</span>
+                    </div>
+                ` : ''}
+                <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-top: 6px; padding-top: 2px;">
+                    <span>Grand Total (INR)</span>
+                    <span>${grandTotal.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div style="border-top: 1px dashed #000; margin: 6px 0 4px 0;"></div>
+
+            <div style="text-align: center; font-size: 11px; font-weight: 500; padding: 2px 0;">
+                Thank you & Visit Again
+            </div>
+
+            <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
+
+            <script>
+                window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                };
+            </script>
+        </body>
+        </html>
+    `;
+};
+
+export const triggerPrintReceipt = (selectedHistoryOrder, posSettings) => {
+    const receiptHtml = generateReceiptHtml(selectedHistoryOrder, posSettings);
+    const printWindow = window.open('', '_blank', 'width=420,height=600');
+    if (printWindow) {
+        printWindow.document.write(receiptHtml);
+        printWindow.document.close();
+        printWindow.focus();
+    }
+};
+
 const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettings }) => {
     if (!selectedHistoryOrder) return null;
 
@@ -17,134 +183,12 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
 
     const formattedDate = selectedHistoryOrder.time ? new Date(selectedHistoryOrder.time).toLocaleDateString('en-GB') + ' ' + new Date(selectedHistoryOrder.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString();
 
+    const displayOrderId = cleanOrderIdHelper(selectedHistoryOrder.order_id);
+    const rawTable = selectedHistoryOrder.table_number;
+    const tableText = (posSettings?.isEnableTables && rawTable && rawTable !== 'N/A') ? `Dine In: ${String(rawTable).startsWith('Table') ? rawTable : `Table #${rawTable}`}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`;
+
     const handlePrintReceipt = () => {
-        const itemsRowsHtml = items.map((item) => {
-            const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
-            const itemAmount = unitPrice * item.qty;
-            return `
-                <div style="margin-bottom: 3px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                        <span style="flex: 1; text-align: left; word-break: break-word;">${item.name}</span>
-                        <span style="width: 32px; text-align: center;">${item.qty}</span>
-                        <span style="width: 55px; text-align: right;">${unitPrice.toFixed(2)}</span>
-                        <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
-                    </div>
-                    ${item.selectedVariant ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">Opt: ${item.selectedVariant.name}</div>` : ''}
-                    ${(item.notes && !item.notes.includes('Session Order')) ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
-                </div>
-            `;
-        }).join('');
-
-        const receiptHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>POS Receipt #${selectedHistoryOrder.order_id}</title>
-                <style>
-                    @page { size: 80mm auto; margin: 0; }
-                    body {
-                        font-family: monospace, sans-serif;
-                        width: 76mm;
-                        max-width: 100%;
-                        margin: 0 auto;
-                        padding: 8px;
-                        color: #000;
-                        background: #fff;
-                        font-size: 11px;
-                        line-height: 1.3;
-                    }
-                </style>
-            </head>
-            <body>
-                <div style="text-align: center; margin-bottom: 6px;">
-                    <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurantName || 'Big Ben Restaurant'}</div>
-                    <div style="font-size: 10px;">${posSettings?.address || ''}</div>
-                    <div style="font-size: 10px;">
-                        ${[posSettings?.city, posSettings?.state, posSettings?.pincode].filter(Boolean).join(', ')}
-                    </div>
-                    ${posSettings?.gstin ? `<div style="font-size: 10px;">GSTIN: ${posSettings.gstin}</div>` : ''}
-                    ${posSettings?.fssaiNo ? `<div style="font-size: 10px;">FSSAI NO: ${posSettings.fssaiNo}</div>` : ''}
-                </div>
-
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-                ${selectedHistoryOrder.customer_name ? `
-                    <div style="font-size: 10px;">
-                        Customer Name: ${selectedHistoryOrder.customer_name} ${selectedHistoryOrder.customer_phone ? `(${selectedHistoryOrder.customer_phone})` : ''}
-                    </div>
-                    <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-                ` : ''}
-
-                <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                    <span>Bill No: ${selectedHistoryOrder.order_id}</span>
-                    <span>Date: ${formattedDate}</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                    <span>${(posSettings?.isEnableTables && selectedHistoryOrder.table_number && selectedHistoryOrder.table_number !== 'N/A') ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`}</span>
-                    <span>${posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: ${selectedHistoryOrder.server || 'Ravi'}</span>
-                </div>
-
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
-                    <span style="flex: 1; text-align: left;">Item</span>
-                    <span style="width: 32px; text-align: center;">Qty.</span>
-                    <span style="width: 55px; text-align: right;">Price</span>
-                    <span style="width: 60px; text-align: right;">Amount</span>
-                </div>
-
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-                ${itemsRowsHtml}
-
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-                <div style="font-size: 10px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                        <span>Total Qty: ${totalQty}</span>
-                        <span>Sub Total &nbsp;&nbsp;${subtotal.toFixed(2)}</span>
-                    </div>
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                        <span>CGST ${halfTaxRate}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
-                    </div>
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                        <span>SGST ${halfTaxRate}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
-                    </div>
-                    ${serviceChargeRate > 0 ? `
-                        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                            <span>Service Charge ${serviceChargeRate}% &nbsp;&nbsp;${serviceAmt.toFixed(2)}</span>
-                        </div>
-                    ` : ''}
-                    <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-top: 6px; padding-top: 2px;">
-                        <span>Grand Total (INR)</span>
-                        <span>${grandTotal.toFixed(2)}</span>
-                    </div>
-                </div>
-
-                <div style="border-top: 1px dashed #000; margin: 6px 0 4px 0;"></div>
-
-                <div style="text-align: center; font-size: 11px; font-weight: 500; padding: 2px 0;">
-                    Thank you & Visit Again
-                </div>
-
-                <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
-
-                <script>
-                    window.onload = function() {
-                        window.print();
-                        setTimeout(function() { window.close(); }, 500);
-                    };
-                </script>
-            </body>
-            </html>
-        `;
-
-        const printWindow = window.open('', '_blank', 'width=420,height=600');
-        if (printWindow) {
-            printWindow.document.write(receiptHtml);
-            printWindow.document.close();
-            printWindow.focus();
-        }
+        triggerPrintReceipt(selectedHistoryOrder, posSettings);
     };
 
     return (
@@ -180,11 +224,11 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
 
                     {/* Bill Meta */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                        <span>Bill No: {selectedHistoryOrder.order_id}</span>
+                        <span>Bill No: {displayOrderId}</span>
                         <span>Date: {formattedDate}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                        <span>{(posSettings?.isEnableTables && selectedHistoryOrder.table_number && selectedHistoryOrder.table_number !== 'N/A') ? `Dine In: ${selectedHistoryOrder.table_number}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`}</span>
+                        <span>{tableText}</span>
                         <span>{posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: {selectedHistoryOrder.server || 'Ravi'}</span>
                     </div>
 
@@ -204,17 +248,20 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                     {items.length > 0 ? (
                         items.map((item, idx) => {
                             const unitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
-                            const itemAmount = unitPrice * item.qty;
+                            const itemAmount = unitPrice * (item.qty || 1);
+                            const cleanName = cleanItemNameHelper(item.name);
+                            const hasNotes = item.notes && !item.notes.includes('Session Order') && !item.notes.includes('Active Order');
+
                             return (
                                 <div key={idx} style={{ marginBottom: '3px' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                                        <span style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word' }}>{item.name}</span>
+                                        <span style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word' }}>{cleanName}</span>
                                         <span style={{ width: '32px', textAlign: 'center' }}>{item.qty}</span>
                                         <span style={{ width: '55px', textAlign: 'right' }}>{unitPrice.toFixed(2)}</span>
                                         <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
                                     </div>
                                     {item.selectedVariant && <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>Opt: {item.selectedVariant.name}</div>}
-                                    {(item.notes && !item.notes.includes('Session Order')) && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
+                                    {hasNotes && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
                                 </div>
                             );
                         })

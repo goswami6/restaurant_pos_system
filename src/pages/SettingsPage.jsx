@@ -12,6 +12,25 @@ const SettingsPage = () => {
         setSaving(true);
         const restaurantId = user?.restaurant_id || user?.restaurent_id || 9;
 
+        const sanitizeAddress = (addr, c = '', s = '', p = '') => {
+            if (!addr) return '';
+            let cleaned = String(addr).trim();
+            const tokens = [c, s, p, 'pune', 'MH', 'Maharashtra', '411057', '411056'].filter(Boolean);
+            let prev = '';
+            while (cleaned !== prev) {
+                prev = cleaned;
+                tokens.forEach(token => {
+                    if (!token || token.length < 2) return;
+                    const escaped = token.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const regex = new RegExp(`,\\s*${escaped}\\s*$`, 'i');
+                    cleaned = cleaned.replace(regex, '');
+                });
+            }
+            return cleaned.trim();
+        };
+
+        const cleanedAddress = sanitizeAddress(posSettings.address, posSettings.city, posSettings.state, posSettings.pincode);
+
         try {
             const response = await fetch(`${API_BASE_URL}/settings/pos`, {
                 method: 'POST',
@@ -21,7 +40,7 @@ const SettingsPage = () => {
                 body: JSON.stringify({
                     restaurant_id: restaurantId,
                     restaurant_name: posSettings.restaurantName,
-                    restaurant_address: posSettings.address,
+                    restaurant_address: cleanedAddress,
                     city: posSettings.city || '',
                     state: posSettings.state || '',
                     pincode: posSettings.pincode || '',

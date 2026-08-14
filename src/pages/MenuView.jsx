@@ -3,29 +3,7 @@ import toast from 'react-hot-toast';
 import { usePOS } from '../context/POSContext';
 import { API_BASE_URL } from '../config';
 
-const getDietaryInfo = (item) => {
-    const dietary = String(item?.dietary_info || '').toLowerCase();
-    const nameLower = String(item?.item_name || '').toLowerCase();
-
-    if (
-        nameLower.includes('non veg') || nameLower.includes('non-veg') ||
-        nameLower.includes('chicken') || nameLower.includes('mutton') ||
-        nameLower.includes('fish') || nameLower.includes('prawn') ||
-        nameLower.includes('pork') || nameLower.includes('beef') ||
-        nameLower.includes('kebab') || nameLower.includes('kabab') ||
-        (nameLower.includes('tandoori') && !nameLower.includes('paneer') && !nameLower.includes('veg') && !nameLower.includes('gobi') && !nameLower.includes('mushroom')) ||
-        (nameLower.includes('tikka') && !nameLower.includes('paneer') && !nameLower.includes('veg') && !nameLower.includes('gobi') && !nameLower.includes('mushroom'))
-    ) {
-        return 'Non-Veg';
-    }
-    if (nameLower.includes('egg') || nameLower.includes('anda') || nameLower.includes('omelette') || nameLower.includes('omlet')) {
-        return 'Egg';
-    }
-    if (dietary.includes('non')) return 'Non-Veg';
-    if (dietary.includes('egg')) return 'Egg';
-
-    return 'Veg';
-};
+import { getDietaryInfo } from '../utils/dietaryUtils';
 
 const MenuView = () => {
     const { categories, menuItems, setMenuData, posSettings, user } = usePOS();

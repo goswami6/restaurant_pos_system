@@ -3,19 +3,30 @@ import toast from 'react-hot-toast';
 import { usePOS } from '../context/POSContext';
 import ReceiptModal from './ReceiptModal';
 
-const BillPanel = ({ isMobileDrawer = false, onClose }) => {
+const BillPanel = ({ 
+    isMobileDrawer = false, 
+    onClose,
+    customOrder = null,
+    customItems = null,
+    isReadOnly = false,
+    onUpdateQty = null,
+    onRemoveItem = null,
+    onUpdateOrder = null,
+    onDiscardChanges = null,
+    onCancelOrder = null
+}) => {
     const {
         user,
         orderType,
         activeTableInfo,
         tableId,
-        cartItems,
-        subtotal, tax, serviceCharge, grandTotal,
+        cartItems: contextCartItems,
+        subtotal: contextSubtotal, tax: contextTax, serviceCharge: contextServiceCharge, grandTotal: contextGrandTotal,
         posSettings,
         setCart, setCartModified, setTableModified,
-        updateQty, removeItem,
+        updateQty: contextUpdateQty, removeItem: contextRemoveItem,
         sendOrderToKitchen,
-        handlePrintKOT, printDirectToPrinter,
+        printBillReceipt,
         markTableAsAvailable, checkInTable, cancelActiveOrder,
         tablesList, setTableId,
     } = usePOS();
@@ -23,52 +34,94 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
     const [showBillSummary, setShowBillSummary] = useState(false);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+    const items = customItems || (customOrder ? (customOrder.items || []) : contextCartItems);
+    const handleQtyChange = onUpdateQty || contextUpdateQty;
+    const handleRemove = onRemoveItem || contextRemoveItem;
+
+    const taxRate = posSettings?.taxRate || 5;
+    const serviceRate = posSettings?.serviceCharge || 0;
+
+    const subtotal = customOrder 
+        ? items.reduce((sum, item) => sum + (item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0)) * (item.qty || 1), 0)
+        : contextSubtotal;
+
+    const tax = customOrder ? (subtotal * (taxRate / 100)) : contextTax;
+    const serviceCharge = customOrder ? (subtotal * (serviceRate / 100)) : contextServiceCharge;
+    const grandTotal = customOrder ? (subtotal + tax + serviceCharge) : contextGrandTotal;
+
     return (
         <div 
             className={isMobileDrawer ? "w-100 h-100 bill-panel" : "col-12 col-lg-3 bill-panel border-t lg:border-t-0 border-slate-200"} 
             style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}
         >
             {/* HEADER */}
-            <div className="py-1.5 px-3 border-bottom d-flex justify-content-between align-items-center flex-nowrap gap-2">
-                <div style={{ minWidth: 0, flex: 1 }}>
-                    <div className="d-flex align-items-center gap-1.5">
-                        <span className="fw-bold text-slate-800 text-base" style={{ whiteSpace: 'nowrap' }}>
-                            {posSettings.isEnableTables ? (
-                                <>{activeTableInfo?.section_name ? `${activeTableInfo.section_name} - ` : ''}{tableId}</>
-                            ) : (
-                                "Direct Order"
-                            )}
-                        </span>
-                        {posSettings.isEnableTables && activeTableInfo && (
-                            <span className={`badge ${
-                                activeTableInfo.status === 'Occupied' ? 'bg-danger' : 
-                                activeTableInfo.status === 'Dirty' ? 'bg-warning text-dark' : 'bg-success'
-                            } text-white`} style={{ whiteSpace: 'nowrap', fontSize: '0.62rem', padding: '2px 5px' }}>
-                                {activeTableInfo.status}
+            <div className="py-1.5 px-3 border-bottom d-flex justify-content-between align-items-center flex-nowrap gap-2" style={{ flexShrink: 0 }}>
+                {customOrder ? (
+                    <>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <div className="d-flex align-items-center gap-1.5">
+                                <span className="fw-bold text-slate-800 text-base" style={{ whiteSpace: 'nowrap' }}>
+                                    Order {String(customOrder.order_id).replace(/^#/i, '')}
+                                </span>
+                                <span className={`badge ${
+                                    (String(customOrder.status || '').toUpperCase() === 'PAID' || String(customOrder.status || '').toUpperCase() === 'COMPLETED' || String(customOrder.status || '').toUpperCase() === 'SERVED') ? 'bg-success' : 
+                                    String(customOrder.status || '').toUpperCase() === 'CANCELLED' ? 'bg-danger' : 'bg-warning text-dark'
+                                } text-white`} style={{ whiteSpace: 'nowrap', fontSize: '0.62rem', padding: '2px 6px' }}>
+                                    {customOrder.status}
+                                </span>
+                            </div>
+                            <span className="text-slate-800 fw-bold d-block mt-0.5" style={{ fontSize: '0.7rem', lineHeight: 1 }}>
+                                {customOrder.table_number && customOrder.table_number !== 'N/A' ? customOrder.table_number : 'Direct Order'} • {customOrder.type || 'Dine In'}
                             </span>
+                        </div>
+                        {isReadOnly ? (
+                            <span className="badge bg-slate-200 text-slate-700 py-1 px-2 text-[10px]" style={{ borderRadius: '4px' }}>Locked</span>
+                        ) : (
+                            <span className="badge bg-amber-100 text-amber-800 py-1 px-2 text-[10px] font-bold border border-amber-300" style={{ borderRadius: '4px' }}>Editable</span>
                         )}
-                    </div>
-                    {posSettings.isEnableTables && activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? (
-                        <span className="text-muted d-block" style={{ fontSize: '0.68rem', lineHeight: 1 }}>Order #{activeTableInfo.current_session.active_order_id}</span>
-                    ) : posSettings.isEnableTables ? (
-                        <span className="text-muted d-block" style={{ fontSize: '0.68rem', lineHeight: 1 }}>New Session</span>
-                    ) : null}
-                </div>
+                    </>
+                ) : (
+                    <>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                            <div className="d-flex align-items-center gap-1.5">
+                                <span className="fw-bold text-slate-800 text-base" style={{ whiteSpace: 'nowrap' }}>
+                                    {posSettings.isEnableTables ? (
+                                        <>{activeTableInfo?.section_name ? `${activeTableInfo.section_name} - ` : ''}{tableId}</>
+                                    ) : (
+                                        "Direct Order"
+                                    )}
+                                </span>
+                                {posSettings.isEnableTables && activeTableInfo && (
+                                    <span className={`badge ${
+                                        activeTableInfo.status === 'Occupied' ? 'bg-danger' : 
+                                        activeTableInfo.status === 'Dirty' ? 'bg-warning text-dark' : 'bg-success'
+                                    } text-white`} style={{ whiteSpace: 'nowrap', fontSize: '0.62rem', padding: '2px 5px' }}>
+                                        {activeTableInfo.status}
+                                    </span>
+                                )}
+                            </div>
+                            {posSettings.isEnableTables && activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? (
+                                <span className="text-slate-800 fw-semibold d-block mt-0.5" style={{ fontSize: '0.72rem', lineHeight: 1 }}>Order {String(activeTableInfo.current_session.active_order_id).replace(/^#/i, '')}</span>
+                            ) : posSettings.isEnableTables ? (
+                                <span className="text-slate-800 fw-semibold d-block mt-0.5" style={{ fontSize: '0.72rem', lineHeight: 1 }}>New Session</span>
+                            ) : null}
+                        </div>
 
-                {/* Table Selector Dropdown */}
-                {posSettings.isEnableTables && (
-                    <select
-                        className="form-select form-select-sm ms-auto py-1"
-                        style={{ width: 'auto', maxWidth: '140px', fontSize: '0.72rem', borderRadius: '5px', flexShrink: 0, paddingRight: '20px' }}
-                        value={tableId}
-                        onChange={(e) => setTableId(e.target.value)}
-                    >
-                        {tablesList.map(t => (
-                            <option key={t.table_id} value={t.table_number}>
-                                {t.table_name}{t.capacity ? ` | ${t.capacity} Seats` : ''}
-                            </option>
-                        ))}
-                    </select>
+                        {posSettings.isEnableTables && (
+                            <select
+                                className="form-select form-select-sm ms-auto py-1"
+                                style={{ width: 'auto', maxWidth: '140px', fontSize: '0.72rem', borderRadius: '5px', flexShrink: 0, paddingRight: '20px' }}
+                                value={tableId}
+                                onChange={(e) => setTableId(e.target.value)}
+                            >
+                                {tablesList.map(t => (
+                                    <option key={t.table_id} value={t.table_number}>
+                                        {t.table_name}{t.capacity ? ` | ${t.capacity} Seats` : ''}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </>
                 )}
 
                 {/* Close Mobile Drawer Button */}
@@ -86,8 +139,8 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
             </div>
 
             {/* CART ITEMS LIST */}
-            <div className="p-3 bill-items" style={{ flex: 1, overflowY: 'auto' }}>
-                {posSettings.isEnableTables && activeTableInfo?.status === 'Dirty' ? (
+            <div className="p-3 bill-items" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                {!customOrder && posSettings.isEnableTables && activeTableInfo?.status === 'Dirty' ? (
                     <div className="text-center py-5 px-3">
                         <div className="fs-1 mb-2">🧹</div>
                         <h6 className="fw-bold text-danger">Table Needs Cleaning</h6>
@@ -99,7 +152,7 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             ✅ Mark as Clean
                         </button>
                     </div>
-                ) : posSettings.isEnableTables && activeTableInfo?.status === 'Available' && cartItems.length === 0 ? (
+                ) : !customOrder && posSettings.isEnableTables && activeTableInfo?.status === 'Available' && items.length === 0 ? (
                     <div className="text-center py-5 px-3">
                         <div className="fs-1 mb-2">🪑</div>
                         <h6 className="fw-bold text-success">Table is Available</h6>
@@ -108,15 +161,15 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             Seat Guests
                         </button>
                     </div>
-                ) : cartItems.length === 0 ? (
+                ) : items.length === 0 ? (
                     <div className="empty-cart text-center py-5">
                         <div style={{ fontSize: '2.5rem' }}>🛒</div>
                         <p className="text-muted small mt-2">No items added to bill yet.</p>
                     </div>
                 ) : (
-                    cartItems.map((item) => {
+                    items.map((item) => {
                         const itemUnitPrice = item.price + (item.selectedVariant ? parseFloat(item.selectedVariant.price || 0) : 0);
-                        const itemTotalPrice = itemUnitPrice * item.qty;
+                        const itemTotalPrice = itemUnitPrice * (item.qty || 1);
 
                         return (
                             <div key={item.id} className="bill-item pb-1.5 mb-1.5 border-bottom">
@@ -128,6 +181,11 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                                                 {item.selectedVariant.name}
                                             </span>
                                         )}
+                                        {item.notes && (
+                                            <div className="text-[11px] text-slate-500 italic mt-0.5">
+                                                *{item.notes}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="fw-bold text-slate-900" style={{ fontSize: '0.85rem' }}>
                                         ₹{itemTotalPrice.toFixed(2)}
@@ -135,38 +193,44 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                                 </div>
 
                                 <div className="d-flex justify-content-between align-items-center mt-1">
-                                    <div className="quantity-controls">
-                                        <button 
-                                            type="button"
-                                            className="qty-btn"
-                                            onClick={() => updateQty(item.id, -1)}
-                                            title="Decrease quantity"
-                                        >
-                                            <i className="bi bi-dash"></i>
-                                        </button>
-                                        <span className="fw-bold text-slate-900 px-1.5" style={{ minWidth: '20px', textAlign: 'center', fontSize: '0.75rem' }}>
-                                            {item.qty}
-                                        </span>
-                                        <button 
-                                            type="button"
-                                            className="qty-btn"
-                                            onClick={() => updateQty(item.id, 1)}
-                                            title="Increase quantity"
-                                        >
-                                            <i className="bi bi-plus"></i>
-                                        </button>
-                                    </div>
-                                    <button 
-                                        className="btn btn-sm btn-outline-danger border-0 p-1 rounded-2 transition-all hover:bg-rose-50"
-                                        onClick={() => removeItem(item.id)}
-                                        title="Remove item"
-                                        aria-label="Remove item"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
-                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                            <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                        </svg>
-                                    </button>
+                                    {!isReadOnly ? (
+                                        <>
+                                            <div className="quantity-controls">
+                                                <button 
+                                                    type="button"
+                                                    className="qty-btn"
+                                                    onClick={() => handleQtyChange(item.id, -1)}
+                                                    title="Decrease quantity"
+                                                >
+                                                    <i className="bi bi-dash"></i>
+                                                </button>
+                                                <span className="fw-bold text-slate-900 px-1.5" style={{ minWidth: '20px', textAlign: 'center', fontSize: '0.75rem' }}>
+                                                    {item.qty}
+                                                </span>
+                                                <button 
+                                                    type="button"
+                                                    className="qty-btn"
+                                                    onClick={() => handleQtyChange(item.id, 1)}
+                                                    title="Increase quantity"
+                                                >
+                                                    <i className="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                            <button 
+                                                className="btn btn-sm btn-outline-danger border-0 p-1 rounded-2 transition-all hover:bg-rose-50"
+                                                onClick={() => handleRemove(item.id)}
+                                                title="Remove item"
+                                                aria-label="Remove item"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                                                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                    <path fillRule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                                </svg>
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <span className="text-slate-800 fw-bold small">Qty: <strong>{item.qty}</strong></span>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -235,16 +299,16 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             <span>₹{subtotal.toFixed(2)}</span>
                         </div>
                         <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
-                            <span>CGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
+                            <span>CGST ({(taxRate / 2).toFixed(1)}%)</span>
                             <span>+₹{(tax / 2).toFixed(2)}</span>
                         </div>
                         <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
-                            <span>SGST ({(parseFloat(posSettings?.taxRate || 5) / 2).toFixed(1)}%)</span>
+                            <span>SGST ({(taxRate / 2).toFixed(1)}%)</span>
                             <span>+₹{(tax / 2).toFixed(2)}</span>
                         </div>
-                        {(posSettings.serviceCharge > 0 && serviceCharge > 0) && (
+                        {(serviceRate > 0 && serviceCharge > 0) && (
                             <div className="d-flex justify-content-between mb-1 text-slate-800 fw-medium ps-2" style={{ fontSize: '0.73rem' }}>
-                                <span>Service Charge ({posSettings.serviceCharge}%)</span>
+                                <span>Service Charge ({serviceRate}%)</span>
                                 <span>+₹{serviceCharge.toFixed(2)}</span>
                             </div>
                         )}
@@ -267,8 +331,28 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
 
                 {/* Action Buttons — 1 single horizontal row with equal flex 1fr grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                    {/* 1. Place Order / Update Order */}
-                    {cartItems.length > 0 ? (
+                    {/* 1. Primary Action: Place Order OR Update Order */}
+                    {customOrder ? (
+                        <button
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            style={{ 
+                                background: isReadOnly ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                                whiteSpace: 'nowrap', 
+                                borderRadius: '8px',
+                                height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                boxShadow: isReadOnly ? 'none' : '0 2px 5px rgba(16, 185, 129, 0.25)',
+                                cursor: isReadOnly ? 'not-allowed' : 'pointer'
+                            }}
+                            onClick={onUpdateOrder}
+                            disabled={isReadOnly}
+                        >
+                            <span style={{ fontSize: '0.75rem' }}>⚡</span>
+                            <span>Update</span>
+                        </button>
+                    ) : items.length > 0 ? (
                         <button
                             className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                             style={{ 
@@ -297,7 +381,7 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                         </button>
                     )}
 
-                    {/* 2. Print (Direct Browser Print) */}
+                    {/* 2. Print Button */}
                     <button
                         className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                         style={{ 
@@ -310,77 +394,122 @@ const BillPanel = ({ isMobileDrawer = false, onClose }) => {
                             fontWeight: 700,
                             boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
                         }}
-                        onClick={handlePrintKOT}
+                        onClick={() => printBillReceipt(customOrder || null)}
+                        disabled={customOrder?.status === 'CANCELLED'}
                     >
                         <span style={{ fontSize: '0.75rem' }}>🖨️</span>
                         <span>Print</span>
                     </button>
 
-                    {/* 3. Review (Opens Receipt Preview Modal) */}
-                    <button 
-                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
-                        style={{ 
-                            background: 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
-                            whiteSpace: 'nowrap', 
-                            borderRadius: '8px',
-                            height: '36px',
-                            padding: '4px 2px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            boxShadow: '0 2px 5px rgba(30, 41, 59, 0.25)'
-                        }} 
-                        onClick={() => {
-                            if (cartItems.length === 0) {
-                                toast.error("Cart is empty!");
-                                return;
-                            }
-                            setShowPreviewModal(true);
-                        }}
-                    >
-                        <span style={{ fontSize: '0.75rem' }}>📖</span>
-                        <span>Review</span>
-                    </button>
+                    {/* 3. Discard or Review Button */}
+                    {customOrder ? (
+                        <button 
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            style={{ 
+                                background: isReadOnly ? '#94a3b8' : 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
+                                whiteSpace: 'nowrap', 
+                                borderRadius: '8px',
+                                height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                boxShadow: isReadOnly ? 'none' : '0 2px 5px rgba(30, 41, 59, 0.25)',
+                                cursor: isReadOnly ? 'not-allowed' : 'pointer'
+                            }} 
+                            onClick={onDiscardChanges}
+                            disabled={isReadOnly}
+                        >
+                            <span style={{ fontSize: '0.75rem' }}>↺</span>
+                            <span>Discard</span>
+                        </button>
+                    ) : (
+                        <button 
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            style={{ 
+                                background: 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
+                                whiteSpace: 'nowrap', 
+                                borderRadius: '8px',
+                                height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 5px rgba(30, 41, 59, 0.25)'
+                            }} 
+                            onClick={() => {
+                                if (items.length === 0) {
+                                    toast.error("Cart is empty!");
+                                    return;
+                                }
+                                setShowPreviewModal(true);
+                            }}
+                        >
+                            <span style={{ fontSize: '0.75rem' }}>📖</span>
+                            <span>Review</span>
+                        </button>
+                    )}
 
-                    {/* 4. Cancel Order / Clear Cart */}
-                    <button 
-                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
-                        style={{ 
-                            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
-                            whiteSpace: 'nowrap', 
-                            borderRadius: '8px',
-                            height: '36px',
-                            padding: '4px 2px',
-                            fontSize: '0.72rem',
-                            fontWeight: 700,
-                            boxShadow: '0 2px 5px rgba(239, 68, 68, 0.25)'
-                        }} 
-                        onClick={async () => {
-                            if (activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id) {
-                                await cancelActiveOrder(activeTableInfo.current_session.active_order_id, activeTableInfo.table_number);
-                            } else {
-                                setCart({});
-                                setCartModified(false);
-                                setTableModified(prev => ({ ...prev, [tableId]: false }));
-                            }
-                        }}
-                    >
-                        <span style={{ fontSize: '11px' }}>✕</span>
-                        <span>Cancel</span>
-                    </button>
+                    {/* 4. Cancel Button */}
+                    {customOrder ? (
+                        <button
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            style={{ 
+                                background: (isReadOnly || customOrder.status === 'CANCELLED') ? '#94a3b8' : 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', 
+                                whiteSpace: 'nowrap', 
+                                borderRadius: '8px',
+                                height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                boxShadow: (isReadOnly || customOrder.status === 'CANCELLED') ? 'none' : '0 2px 5px rgba(244, 63, 94, 0.25)',
+                                cursor: (isReadOnly || customOrder.status === 'CANCELLED') ? 'not-allowed' : 'pointer'
+                            }}
+                            onClick={onCancelOrder}
+                            disabled={isReadOnly || customOrder.status === 'CANCELLED'}
+                        >
+                            <span style={{ fontSize: '0.75rem' }}>✕</span>
+                            <span>Cancel</span>
+                        </button>
+                    ) : (
+                        <button 
+                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            style={{ 
+                                background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
+                                whiteSpace: 'nowrap', 
+                                borderRadius: '8px',
+                                height: '36px',
+                                padding: '4px 2px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                boxShadow: '0 2px 5px rgba(239, 68, 68, 0.25)'
+                            }} 
+                            onClick={async () => {
+                                if (activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id) {
+                                    await cancelActiveOrder(activeTableInfo.current_session.active_order_id, activeTableInfo.table_number);
+                                } else {
+                                    setCart({});
+                                    setCartModified(false);
+                                    setTableModified(prev => ({ ...prev, [tableId]: false }));
+                                }
+                            }}
+                        >
+                            <span style={{ fontSize: '11px' }}>✕</span>
+                            <span>Cancel</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* Receipt Modal Preview for Review button */}
             {showPreviewModal && (
                 <ReceiptModal 
-                    selectedHistoryOrder={{
-                        order_id: tableId ? `TBL-${tableId}` : '1001',
+                    selectedHistoryOrder={customOrder || {
+                        order_id: activeTableInfo?.current_session?.active_order_id || (tableId ? tableId : '1001'),
                         table_number: tableId,
                         type: orderType,
                         status: 'ACTIVE',
                         time: new Date().toISOString(),
                         server: user?.username || user?.name || 'Ravi',
-                        items: cartItems,
+                        items: items,
                         subtotal: subtotal,
                         tax: tax,
                         serviceCharge: serviceCharge,

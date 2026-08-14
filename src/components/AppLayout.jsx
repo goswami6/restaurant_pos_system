@@ -94,7 +94,7 @@ const AppLayout = () => {
 
                 {/* Bill Meta */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                    <span>Bill No: #{tableId ? `TBL-${tableId}` : '1001'}</span>
+                    <span>Bill No: {tableId ? tableId : '1001'}</span>
                     <span>Date: {new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
