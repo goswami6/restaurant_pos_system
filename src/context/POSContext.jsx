@@ -1223,56 +1223,109 @@ export const POSProvider = ({ user, onLogout, children }) => {
         const encoder = new TextEncoder();
         const ESC = '\x1b', GS = '\x1d';
 
+        // Helper: pad left and right strings to fit exactly 32 characters per line (58mm/80mm thermal width)
+        const padRow = (left, right, width = 32) => {
+            const l = String(left || '');
+            const r = String(right || '');
+            const spaces = width - l.length - r.length;
+            if (spaces > 0) return l + ' '.repeat(spaces) + r;
+            return l.slice(0, Math.max(0, width - r.length - 1)) + ' ' + r;
+        };
+
         const printSubtotal = customOrderData ? (customOrderData.subtotal || customOrderData.subTotal || 0) : subtotal;
         const printTax = customOrderData ? (customOrderData.tax || 0) : tax;
         const printServiceCharge = customOrderData ? (customOrderData.serviceCharge || customOrderData.service_charge || 0) : serviceCharge;
         const printGrandTotal = customOrderData ? (customOrderData.total || customOrderData.grand_total || 0) : grandTotal;
-        const printOrderId = customOrderData?.order_id || customOrderData?.orderId || (tableId ? `TBL-${tableId}` : '1001');
-        const printTable = customOrderData?.table_number || customOrderData?.table || tableId || 'N/A';
+        
+        // Clean Bill Order ID resolution
+        let rawOrderId = customOrderData?.order_id || customOrderData?.id || customOrderData?.orderId;
+        if (!rawOrderId || String(rawOrderId).toUpperCase() === 'N/A') {
+            rawOrderId = activeTableInfo?.current_session?.active_order_id;
+        }
+        if (!rawOrderId || String(rawOrderId).toUpperCase() === 'N/A') {
+            rawOrderId = tableId ? `TBL-${tableId}` : '1001';
+        }
+        const printOrderId = String(rawOrderId).replace(/^#/i, '');
+
+        const printTable = (customOrderData?.table_number && customOrderData.table_number !== 'N/A') 
+            ? customOrderData.table_number 
+            : (tableId && tableId !== 'N/A' ? (String(tableId).startsWith('Table') ? tableId : `Table #${tableId}`) : 'Takeaway');
         const printOrderType = customOrderData?.type || orderType || 'DINE-IN';
 
         const totalQty = targetItems.reduce((acc, item) => acc + (Number(item.qty || item.quantity) || 1), 0);
         const halfTaxRate = (posSettings.taxRate / 2).toFixed(1);
         const cgstAmt = printTax / 2;
         const sgstAmt = printTax / 2;
-        const formattedDate = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-GB');
+        const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-        let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName || 'RESTAURANT'}\n${ESC}E\x00${posSettings.address || ''}\n`;
+        let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 32)}\n${ESC}E\x00`;
+
+        // Wrap address cleanly into max 32 character chunks
+        if (posSettings.address) {
+            const addrWords = posSettings.address.split(' ');
+            let line = '';
+            addrWords.forEach(w => {
+                if ((line + ' ' + w).trim().length <= 32) {
+                    line = (line + ' ' + w).trim();
+                } else {
+                    receipt += `${line}\n`;
+                    line = w;
+                }
+            });
+            if (line) receipt += `${line}\n`;
+        }
+
         if (posSettings.city || posSettings.state || posSettings.pincode) {
-            receipt += `${[posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ')}\n`;
+            const locationStr = [posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ');
+            receipt += `${locationStr.slice(0, 32)}\n`;
         }
         if (posSettings.gstin) receipt += `GSTIN: ${posSettings.gstin}\n`;
         if (posSettings.fssaiNo) receipt += `FSSAI NO: ${posSettings.fssaiNo}\n`;
 
-        const staffRole = (posSettings?.isEnableTables || Boolean(tableId) || printOrderType === 'DINE-IN') ? 'Waiter' : 'Cashier';
+        const staffName = (user?.username || user?.name || 'Ravi').split(' ')[0];
         receipt += `--------------------------------\n${ESC}a\x00`;
-        receipt += `Bill No: #${printOrderId}  Date: ${formattedDate}\n`;
-        receipt += `Table: ${printTable}     ${staffRole}: ${user?.username || user?.name || 'Ravi'}\n`;
+        receipt += `${padRow(`Bill: #${printOrderId}`, dateStr)}\n`;
+        receipt += `${padRow(`Table: ${printTable}`, `Time: ${timeStr}`)}\n`;
+        receipt += `${padRow(`Type: ${printOrderType}`, `Staff: ${staffName}`)}\n`;
         receipt += `--------------------------------\n`;
-        receipt += `Item              Qty.  Price    Amount\n`;
+        receipt += `Item             Qty Price   Amt\n`;
         receipt += `--------------------------------\n`;
 
         targetItems.forEach(item => {
             const qty = Number(item.qty || item.quantity) || 1;
             const unitPrice = Number(item.price || item.unit_price) || 0;
             const itemAmount = unitPrice * qty;
-            const nameStr = (item.name || item.item_name || 'Item').padEnd(16, ' ').slice(0, 16);
-            const qtyStr = String(qty).padStart(4, ' ');
-            const priceStr = unitPrice.toFixed(2).padStart(7, ' ');
-            const amtStr = itemAmount.toFixed(2).padStart(9, ' ');
+
+            const rawName = String(item.name || item.item_name || 'Item').trim();
+            const nameStr = rawName.slice(0, 16).padEnd(16, ' ');
+            const qtyStr = String(qty).padStart(3, ' ');
+            const priceStr = unitPrice.toFixed(2).padStart(6, ' ');
+            const amtStr = itemAmount.toFixed(2).padStart(7, ' ');
+
             receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;
-            if (item.selectedVariant) receipt += `  Opt: ${item.selectedVariant.name}\n`;
-            if (item.notes) receipt += `  * ${item.notes}\n`;
+            if (rawName.length > 16) {
+                receipt += `  ${rawName.slice(16, 32)}\n`;
+            }
+            if (item.selectedVariant) {
+                receipt += `  Opt: ${item.selectedVariant.name}\n`;
+            }
+            if (item.notes) {
+                receipt += `  * ${item.notes}\n`;
+            }
         });
 
         receipt += `--------------------------------\n`;
-        receipt += `Total Qty: ${totalQty}   Sub Total   ${printSubtotal.toFixed(2).padStart(8, ' ')}\n`;
-        receipt += `             CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2).padStart(8, ' ')}\n`;
-        receipt += `             SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2).padStart(8, ' ')}\n`;
+        receipt += `${padRow(`Total Qty: ${totalQty}`, `Sub: ${printSubtotal.toFixed(2)}`)}\n`;
+        receipt += `${padRow(`CGST (${halfTaxRate}%)`, cgstAmt.toFixed(2))}\n`;
+        receipt += `${padRow(`SGST (${halfTaxRate}%)`, sgstAmt.toFixed(2))}\n`;
         if (posSettings.serviceCharge > 0) {
-            receipt += `      Service Charge ${posSettings.serviceCharge}%   ${printServiceCharge.toFixed(2).padStart(8, ' ')}\n`;
+            receipt += `${padRow(`Service Charge (${posSettings.serviceCharge}%)`, printServiceCharge.toFixed(2))}\n`;
         }
-        receipt += `${ESC}E\x01Grand Total (INR)         ${printGrandTotal.toFixed(2).padStart(8, ' ')}\n${ESC}E\x00`;
+        receipt += `--------------------------------\n`;
+        receipt += `${ESC}E\x01${padRow('GRAND TOTAL (INR)', printGrandTotal.toFixed(2))}\n${ESC}E\x00`;
         receipt += `--------------------------------\n${ESC}a\x01Thank you & Visit Again\n--------------------------------\n\n\n\n${GS}V\x41\x03`;
 
         const encodedData = encoder.encode(receipt);
