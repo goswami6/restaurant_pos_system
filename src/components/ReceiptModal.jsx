@@ -156,7 +156,11 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
     `;
 };
 
-export const triggerPrintReceipt = (selectedHistoryOrder, posSettings) => {
+export const triggerPrintReceipt = (selectedHistoryOrder, posSettings, printDirectFn = null) => {
+    if (printDirectFn) {
+        printDirectFn(selectedHistoryOrder);
+        return;
+    }
     const receiptHtml = generateReceiptHtml(selectedHistoryOrder, posSettings);
     const printWindow = window.open('', '_blank', 'width=420,height=600');
     if (printWindow) {
@@ -166,7 +170,7 @@ export const triggerPrintReceipt = (selectedHistoryOrder, posSettings) => {
     }
 };
 
-const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettings }) => {
+const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettings, onPrintDirect = null }) => {
     if (!selectedHistoryOrder) return null;
 
     const items = selectedHistoryOrder.items || [];
@@ -188,7 +192,11 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
     const tableText = (posSettings?.isEnableTables && rawTable && rawTable !== 'N/A') ? `Dine In: ${String(rawTable).startsWith('Table') ? rawTable : `Table #${rawTable}`}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`;
 
     const handlePrintReceipt = () => {
-        triggerPrintReceipt(selectedHistoryOrder, posSettings);
+        if (onPrintDirect) {
+            onPrintDirect(selectedHistoryOrder);
+        } else {
+            triggerPrintReceipt(selectedHistoryOrder, posSettings);
+        }
     };
 
     return (

@@ -17,7 +17,7 @@ const getStatusBadgeClass = (status) => {
 };
 
 const HistoryPage = () => {
-    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders } = usePOS();
+    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders, printDirectToPrinter } = usePOS();
     const navigate = useNavigate();
     const onViewDetailOrder = (order) => { setSelectedDetailOrder(order); navigate(`/history/${order.order_id}`); };
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState(null);
@@ -395,7 +395,7 @@ const HistoryPage = () => {
                                                             {order.status !== 'CANCELLED' && (
                                                                 <button 
                                                                     className="btn btn-sm btn-outline-secondary rounded-2 px-2.5 py-1"
-                                                                    onClick={() => setSelectedHistoryOrder(order)}
+                                                                    onClick={() => printDirectToPrinter(order)}
                                                                     title="Print Receipt"
                                                                 >
                                                                     <i className="bi bi-printer"></i>
@@ -613,19 +613,19 @@ const HistoryPage = () => {
                                             <strong className="text-primary fs-5">₹{parseFloat(activeOrderSummary.total || 0).toFixed(2)}</strong>
                                         </div>
                                         <div className="d-flex justify-content-center pt-2">
-                                            {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
-                                                <button 
-                                                    className="btn btn-sm btn-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm" 
-                                                    style={{ letterSpacing: '0.2px' }}
-                                                    onClick={() => onViewDetailOrder(activeOrderSummary)}
-                                                >
-                                                    <i className="bi bi-pencil-square"></i> Modify Order / Add Items
-                                                </button>
+                                             {activeOrderSummary.status !== 'PAID' && activeOrderSummary.status !== 'COMPLETED' && activeOrderSummary.status !== 'CANCELLED' ? (
+                                                 <button 
+                                                     className="btn btn-sm btn-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm" 
+                                                     style={{ letterSpacing: '0.2px' }}
+                                                     onClick={() => onViewDetailOrder(activeOrderSummary)}
+                                                 >
+                                                     <i className="bi bi-pencil-square"></i> Modify Order / Add Items
+                                                 </button>
                                             ) : activeOrderSummary.status !== 'CANCELLED' ? (
                                                 <button 
                                                     className="btn btn-sm btn-outline-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm"
                                                     style={{ letterSpacing: '0.2px' }}
-                                                    onClick={() => setSelectedHistoryOrder(activeOrderSummary)}
+                                                    onClick={() => printDirectToPrinter(activeOrderSummary)}
                                                 >
                                                     <i className="bi bi-printer"></i> Print Receipt
                                                 </button>
@@ -762,6 +762,7 @@ const HistoryPage = () => {
                 selectedHistoryOrder={selectedHistoryOrder}
                 setSelectedHistoryOrder={setSelectedHistoryOrder}
                 posSettings={posSettings}
+                onPrintDirect={printDirectToPrinter}
             />
         </div>
     );
