@@ -1297,7 +1297,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         }
 
         receipt += `${padRow(`Bill No: ${printOrderId}`, `Date: ${formattedDateTime}`)}\n`;
-        receipt += `${padRow(`Dine In: ${cleanTableText}`, `Staff: ${staffName}`)}\n`;
+        receipt += `${padRow(`Dine In: ${cleanTableText}`, `Cashier: ${staffName}`)}\n`;
         receipt += `--------------------------------\n`;
         receipt += `Item               Qty.  Price Amount\n`;
         receipt += `--------------------------------\n`;

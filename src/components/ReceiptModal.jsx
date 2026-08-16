@@ -102,7 +102,7 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 10px;">
                 <span>${tableText}</span>
-                <span>${posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: ${selectedHistoryOrder.server || 'Ravi'}</span>
+                <span>Cashier: ${selectedHistoryOrder.server || 'Ravi'}</span>
             </div>
 
             <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
@@ -242,7 +242,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
                         <span>{tableText}</span>
-                        <span>{posSettings?.isEnableTables ? 'Waiter' : 'Cashier'}: {selectedHistoryOrder.server || 'Ravi'}</span>
+                        <span>Cashier: {selectedHistoryOrder.server || 'Ravi'}</span>
                     </div>
 
                     <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
