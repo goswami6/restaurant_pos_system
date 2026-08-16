@@ -2,7 +2,12 @@ import React from 'react';
 
 const cleanOrderIdHelper = (id) => {
     if (!id) return '1001';
-    return String(id).replace(/^#?TBL-Table\s*#?/i, '').replace(/^#?TBL-/i, '').replace(/^#/i, '').trim();
+    let s = String(id).trim();
+    s = s.replace(/^#?TBL-Table\s*#?/i, '');
+    s = s.replace(/^#?TBL-/i, '');
+    s = s.replace(/^#?Table\s*#?/i, '');
+    s = s.replace(/^#/i, '');
+    return s || '1001';
 };
 
 const cleanItemNameHelper = (name) => {
