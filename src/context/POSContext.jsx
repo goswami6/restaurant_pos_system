@@ -243,16 +243,24 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const data = await response.json();
             if (data?.status === true && Array.isArray(data.data)) {
                 const mappedOrders = data.data.map(apiOrder => {
-                    let typeFormatted = 'Dine-In';
-                    if (apiOrder.order_type === 'TAKEAWAY') typeFormatted = 'Takeaway';
-                    if (apiOrder.order_type === 'DELIVERY') typeFormatted = 'Delivery';
+                    let typeFormatted = 'Takeaway';
+                    const rawType = String(apiOrder.order_type || apiOrder.type || '').toUpperCase();
+                    if (rawType.includes('DINE')) typeFormatted = 'Dine-In';
+                    if (rawType.includes('DELIVERY')) typeFormatted = 'Delivery';
 
-                    // Keep full table name to match tablesList.table_number (e.g. 'Table #1')
-                    const tableNum = apiOrder.table_name || apiOrder.table_number_id || 'N/A';
+                    // Clean table name formatting
+                    const rawTable = apiOrder.table_name || (apiOrder.table_number_id ? `Table #${apiOrder.table_number_id}` : '');
+                    const tableNum = (rawTable && String(rawTable).toUpperCase() !== 'N/A' && String(rawTable).toUpperCase() !== 'EMPTY') ? rawTable : 'Direct Order';
 
-                    const statusFormatted = (apiOrder.order_status || '').toUpperCase();
+                    const rawStatus = String(apiOrder.order_status || apiOrder.status || '').toUpperCase();
+                    let statusFormatted = 'COMPLETED';
+                    if (rawStatus === 'CANCELLED' || rawStatus === 'REJECTED') {
+                        statusFormatted = 'CANCELLED';
+                    } else if (rawStatus === 'PENDING' || rawStatus === 'PLACED' || rawStatus === 'ACTIVE') {
+                        statusFormatted = 'PENDING';
+                    }
 
-                    const orderTime = apiOrder.created_at || apiOrder.order_date || apiOrder.created_date || apiOrder.updated_at || apiOrder.timestamp || apiOrder.date;
+                    const orderTime = apiOrder.created_at || apiOrder.order_date || apiOrder.created_date || apiOrder.updated_at || apiOrder.timestamp || apiOrder.date || new Date().toISOString();
 
                     const itemsMapped = (apiOrder.items || []).map(item => ({
                         id: item.menu_item_id ? String(item.menu_item_id) : String(item.id),
@@ -1197,11 +1205,153 @@ export const POSProvider = ({ user, onLogout, children }) => {
             serviceCharge: serviceCharge,
             total: grandTotal
         };
-        triggerPrintReceipt(orderToPrint, posSettings);
+
+        if (posSettings?.enableThermalPrinting) {
+            printDirectToPrinter(orderToPrint);
+        } else {
+            triggerPrintReceipt(orderToPrint, posSettings);
+        }
     };
 
-    const printDirectToPrinter = async () => {
-        printBillReceipt();
+    const printDirectToPrinter = async (customOrderData = null) => {
+        const targetItems = customOrderData?.items || cartItems;
+        if (targetItems.length === 0) {
+            showToast('Cart is empty!', 'error', 'Print Failed');
+            return;
+        }
+
+        const encoder = new TextEncoder();
+        const ESC = '\x1b', GS = '\x1d';
+
+        const printSubtotal = customOrderData ? (customOrderData.subtotal || customOrderData.subTotal || 0) : subtotal;
+        const printTax = customOrderData ? (customOrderData.tax || 0) : tax;
+        const printServiceCharge = customOrderData ? (customOrderData.serviceCharge || customOrderData.service_charge || 0) : serviceCharge;
+        const printGrandTotal = customOrderData ? (customOrderData.total || customOrderData.grand_total || 0) : grandTotal;
+        const printOrderId = customOrderData?.order_id || customOrderData?.orderId || (tableId ? `TBL-${tableId}` : '1001');
+        const printTable = customOrderData?.table_number || customOrderData?.table || tableId || 'N/A';
+        const printOrderType = customOrderData?.type || orderType || 'DINE-IN';
+
+        const totalQty = targetItems.reduce((acc, item) => acc + (Number(item.qty || item.quantity) || 1), 0);
+        const halfTaxRate = (posSettings.taxRate / 2).toFixed(1);
+        const cgstAmt = printTax / 2;
+        const sgstAmt = printTax / 2;
+        const formattedDate = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        let receipt = `${ESC}@${ESC}a\x01${ESC}E\x01${posSettings.restaurantName || 'RESTAURANT'}\n${ESC}E\x00${posSettings.address || ''}\n`;
+        if (posSettings.city || posSettings.state || posSettings.pincode) {
+            receipt += `${[posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ')}\n`;
+        }
+        if (posSettings.gstin) receipt += `GSTIN: ${posSettings.gstin}\n`;
+        if (posSettings.fssaiNo) receipt += `FSSAI NO: ${posSettings.fssaiNo}\n`;
+
+        const staffRole = (posSettings?.isEnableTables || Boolean(tableId) || printOrderType === 'DINE-IN') ? 'Waiter' : 'Cashier';
+        receipt += `--------------------------------\n${ESC}a\x00`;
+        receipt += `Bill No: #${printOrderId}  Date: ${formattedDate}\n`;
+        receipt += `Table: ${printTable}     ${staffRole}: ${user?.username || user?.name || 'Ravi'}\n`;
+        receipt += `--------------------------------\n`;
+        receipt += `Item              Qty.  Price    Amount\n`;
+        receipt += `--------------------------------\n`;
+
+        targetItems.forEach(item => {
+            const qty = Number(item.qty || item.quantity) || 1;
+            const unitPrice = Number(item.price || item.unit_price) || 0;
+            const itemAmount = unitPrice * qty;
+            const nameStr = (item.name || item.item_name || 'Item').padEnd(16, ' ').slice(0, 16);
+            const qtyStr = String(qty).padStart(4, ' ');
+            const priceStr = unitPrice.toFixed(2).padStart(7, ' ');
+            const amtStr = itemAmount.toFixed(2).padStart(9, ' ');
+            receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;
+            if (item.selectedVariant) receipt += `  Opt: ${item.selectedVariant.name}\n`;
+            if (item.notes) receipt += `  * ${item.notes}\n`;
+        });
+
+        receipt += `--------------------------------\n`;
+        receipt += `Total Qty: ${totalQty}   Sub Total   ${printSubtotal.toFixed(2).padStart(8, ' ')}\n`;
+        receipt += `             CGST ${halfTaxRate}%   ${cgstAmt.toFixed(2).padStart(8, ' ')}\n`;
+        receipt += `             SGST ${halfTaxRate}%   ${sgstAmt.toFixed(2).padStart(8, ' ')}\n`;
+        if (posSettings.serviceCharge > 0) {
+            receipt += `      Service Charge ${posSettings.serviceCharge}%   ${printServiceCharge.toFixed(2).padStart(8, ' ')}\n`;
+        }
+        receipt += `${ESC}E\x01Grand Total (INR)         ${printGrandTotal.toFixed(2).padStart(8, ' ')}\n${ESC}E\x00`;
+        receipt += `--------------------------------\n${ESC}a\x01Thank you & Visit Again\n--------------------------------\n\n\n\n${GS}V\x41\x03`;
+
+        const encodedData = encoder.encode(receipt);
+
+        // 1. TRY WEB SERIAL (USB & Bluetooth Virtual COM Ports)
+        if (navigator.serial) {
+            try {
+                const availablePorts = await navigator.serial.getPorts();
+                let port = availablePorts[0];
+                if (!port) {
+                    port = await navigator.serial.requestPort();
+                }
+                if (port) {
+                    await port.open({ baudRate: 9600 });
+                    const writer = port.writable?.getWriter();
+                    if (writer) {
+                        await writer.write(encodedData);
+                        writer.releaseLock();
+                        await port.close();
+                        showToast('Direct print sent to thermal printer!', 'success', 'Print Success');
+                        return;
+                    }
+                }
+            } catch (serialErr) {
+                console.warn('Serial print attempt skipped/failed, trying Web Bluetooth:', serialErr.message);
+            }
+        }
+
+        // 2. TRY WEB BLUETOOTH (Wireless Bluetooth Thermal Printers)
+        if (navigator.bluetooth) {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: [
+                        '000018f0-0000-1000-8000-00805f9b34fb',
+                        '00001101-0000-1000-8000-00805f9b34fb',
+                        '0000e025-0000-1000-8000-00805f9b34fb',
+                        '49535343-fe7d-4ae5-8fa9-9fafd205e455'
+                    ]
+                });
+
+                if (device && device.gatt) {
+                    const server = await device.gatt.connect();
+                    const services = await server.getPrimaryServices();
+                    let targetChar = null;
+
+                    for (const service of services) {
+                        const chars = await service.getCharacteristics();
+                        for (const c of chars) {
+                            if (c.properties.write || c.properties.writeWithoutResponse) {
+                                targetChar = c;
+                                break;
+                            }
+                        }
+                        if (targetChar) break;
+                    }
+
+                    if (targetChar) {
+                        const chunkSize = 512;
+                        for (let i = 0; i < encodedData.length; i += chunkSize) {
+                            const chunk = encodedData.slice(i, i + chunkSize);
+                            if (targetChar.properties.writeWithoutResponse) {
+                                await targetChar.writeValueWithoutResponse(chunk);
+                            } else {
+                                await targetChar.writeValue(chunk);
+                            }
+                        }
+                        await device.gatt.disconnect();
+                        showToast('Direct print sent to Bluetooth thermal printer!', 'success', 'Print Success');
+                        return;
+                    }
+                }
+            } catch (btErr) {
+                console.warn('Bluetooth thermal print error:', btErr.message);
+            }
+        }
+
+        // 3. IF NO DEVICE WAS CONNECTED
+        showToast('No printer device connected. Please connect your USB or Bluetooth thermal printer.', 'error', 'Printer Not Connected');
     };
 
     const filteredItems = (searchQuery, selectedCategory) => menuItems.filter(item => {

@@ -7,16 +7,13 @@ import { API_BASE_URL } from '../config';
 
 const getStatusBadgeClass = (status) => {
     const s = String(status || '').toUpperCase();
-    if (s === 'PAID' || s === 'COMPLETED' || s === 'SERVED') {
-        return 'bg-success text-white';
-    }
     if (s === 'CANCELLED' || s === 'REJECTED') {
         return 'bg-danger text-white';
     }
     if (s === 'PENDING' || s === 'PLACED' || s === 'ACTIVE') {
         return 'bg-warning text-dark';
     }
-    return 'bg-secondary text-white';
+    return 'bg-success text-white';
 };
 
 const HistoryPage = () => {
@@ -377,13 +374,13 @@ const HistoryPage = () => {
                                                             {String(order.order_id).replace(/^#/i, '')}
                                                         </span>
                                                     </td>
-                                                    {posSettings.isEnableTables && <td style={{ whiteSpace: 'nowrap' }}>{(!order.table_number || String(order.table_number).toUpperCase() === 'N/A') ? 'Empty' : order.table_number}</td>}
-                                                    <td style={{ whiteSpace: 'nowrap' }}>{(!order.type || String(order.type).toUpperCase() === 'N/A') ? 'Empty' : order.type}</td>
-                                                    <td className="small text-slate-700 font-medium" style={{ whiteSpace: 'nowrap' }}>{order.time ? new Date(order.time).toLocaleString() : 'Empty'}</td>
+                                                    {posSettings.isEnableTables && <td style={{ whiteSpace: 'nowrap' }}>{(!order.table_number || String(order.table_number).toUpperCase() === 'N/A' || String(order.table_number).toUpperCase() === 'EMPTY') ? 'Direct Order' : order.table_number}</td>}
+                                                    <td style={{ whiteSpace: 'nowrap' }}>{(!order.type || String(order.type).toUpperCase() === 'N/A' || String(order.type).toUpperCase() === 'EMPTY') ? 'Takeaway' : order.type}</td>
+                                                    <td className="small text-slate-700 font-medium" style={{ whiteSpace: 'nowrap' }}>{order.time ? new Date(order.time).toLocaleString() : '-'}</td>
                                                     <td className="fw-bold text-slate-800" style={{ whiteSpace: 'nowrap' }}>₹{parseFloat(order.total || 0).toFixed(2)}</td>
                                                     <td style={{ whiteSpace: 'nowrap' }}>
                                                         <span className={`badge ${getStatusBadgeClass(order.status)}`}>
-                                                            {order.status === 'PAID' ? 'COMPLETED' : (!order.status || String(order.status).toUpperCase() === 'N/A') ? 'Empty' : order.status}
+                                                            {(order.status === 'PAID' || order.status === 'COMPLETED' || !order.status || String(order.status).toUpperCase() === 'N/A' || String(order.status).toUpperCase() === 'EMPTY') ? 'COMPLETED' : order.status}
                                                         </span>
                                                     </td>
                                                     <td className="text-end" style={{ whiteSpace: 'nowrap' }}>
@@ -542,14 +539,14 @@ const HistoryPage = () => {
                                             {posSettings?.isEnableTables && (
                                                 <>
                                                     <span className="text-slate-400">|</span>
-                                                    <span className="text-slate-800"><strong className="text-slate-900">Table:</strong> {(!activeOrderSummary.table_number || String(activeOrderSummary.table_number).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.table_number}</span>
+                                                    <span className="text-slate-800"><strong className="text-slate-900">Table:</strong> {(!activeOrderSummary.table_number || String(activeOrderSummary.table_number).toUpperCase() === 'N/A' || String(activeOrderSummary.table_number).toUpperCase() === 'EMPTY') ? 'Direct Order' : activeOrderSummary.table_number}</span>
                                                 </>
                                             )}
                                             <span className="text-slate-400">|</span>
-                                            <span className="text-slate-800"><strong className="text-slate-900">Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.type}</span>
+                                            <span className="text-slate-800"><strong className="text-slate-900">Type:</strong> {(!activeOrderSummary.type || String(activeOrderSummary.type).toUpperCase() === 'N/A' || String(activeOrderSummary.type).toUpperCase() === 'EMPTY') ? 'Takeaway' : activeOrderSummary.type}</span>
                                             <span className="text-slate-400">|</span>
                                             <span className={`badge ${getStatusBadgeClass(activeOrderSummary.status)}`} style={{ fontSize: '0.65rem' }}>
-                                                {activeOrderSummary.status === 'PAID' ? 'COMPLETED' : (!activeOrderSummary.status || String(activeOrderSummary.status).toUpperCase() === 'N/A') ? 'Empty' : activeOrderSummary.status}
+                                                {(activeOrderSummary.status === 'PAID' || activeOrderSummary.status === 'COMPLETED' || !activeOrderSummary.status || String(activeOrderSummary.status).toUpperCase() === 'N/A' || String(activeOrderSummary.status).toUpperCase() === 'EMPTY') ? 'COMPLETED' : activeOrderSummary.status}
                                             </span>
                                         </div>
                                     </div>

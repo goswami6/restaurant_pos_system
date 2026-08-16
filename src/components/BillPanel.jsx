@@ -331,10 +331,10 @@ const BillPanel = ({
 
                 {/* Action Buttons — 1 single horizontal row with equal flex 1fr grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px' }}>
-                    {/* 1. Primary Action: Place Order OR Update Order */}
+                    {/* 1. Save (Only saves order) */}
                     {customOrder ? (
                         <button
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                             style={{ 
                                 background: isReadOnly ? '#94a3b8' : 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -349,12 +349,11 @@ const BillPanel = ({
                             onClick={onUpdateOrder}
                             disabled={isReadOnly}
                         >
-                            <span style={{ fontSize: '0.75rem' }}>⚡</span>
-                            <span>Update</span>
+                            <span>Save</span>
                         </button>
                     ) : items.length > 0 ? (
                         <button
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                             style={{ 
                                 background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -367,44 +366,55 @@ const BillPanel = ({
                             }}
                             onClick={sendOrderToKitchen}
                         >
-                            <span style={{ fontSize: '0.75rem' }}>⚡</span>
-                            <span>{activeTableInfo?.status === 'Occupied' && activeTableInfo?.current_session?.active_order_id ? 'Update' : 'Order'}</span>
+                            <span>Save</span>
                         </button>
                     ) : (
                         <button 
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-slate-400 border border-slate-200 bg-slate-100" 
+                            className="btn text-slate-400 border border-slate-200 bg-slate-100" 
                             style={{ whiteSpace: 'nowrap', borderRadius: '8px', height: '36px', padding: '4px 2px', fontSize: '0.72rem', fontWeight: 600 }} 
                             disabled
                         >
-                            <span style={{ fontSize: '0.75rem', opacity: 0.5 }}>⚡</span>
-                            <span>Order</span>
+                            <span>Save</span>
                         </button>
                     )}
 
-                    {/* 2. Print Button */}
+                    {/* 2. Save & Print (Two action - save & print on one click) */}
                     <button
-                        className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                        className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                         style={{ 
-                            background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
+                            background: (customOrder?.status === 'CANCELLED' || items.length === 0) ? '#94a3b8' : 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)', 
                             whiteSpace: 'nowrap', 
                             borderRadius: '8px',
                             height: '36px',
                             padding: '4px 2px',
-                            fontSize: '0.72rem',
+                            fontSize: '0.70rem',
                             fontWeight: 700,
-                            boxShadow: '0 2px 5px rgba(59, 130, 246, 0.25)'
+                            boxShadow: (customOrder?.status === 'CANCELLED' || items.length === 0) ? 'none' : '0 2px 5px rgba(59, 130, 246, 0.25)',
+                            cursor: (customOrder?.status === 'CANCELLED' || items.length === 0) ? 'not-allowed' : 'pointer'
                         }}
-                        onClick={() => printBillReceipt(customOrder || null)}
-                        disabled={customOrder?.status === 'CANCELLED'}
+                        onClick={async () => {
+                            if (items.length === 0) {
+                                toast.error("Cart is empty!");
+                                return;
+                            }
+                            if (customOrder) {
+                                if (onUpdateOrder) await onUpdateOrder();
+                            } else {
+                                await sendOrderToKitchen();
+                            }
+                            setTimeout(() => {
+                                printBillReceipt(customOrder || null);
+                            }, 350);
+                        }}
+                        disabled={customOrder?.status === 'CANCELLED' || items.length === 0}
                     >
-                        <span style={{ fontSize: '0.75rem' }}>🖨️</span>
-                        <span>Print</span>
+                        <span>Save & Print</span>
                     </button>
 
                     {/* 3. Discard or Review Button */}
                     {customOrder ? (
                         <button 
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                             style={{ 
                                 background: isReadOnly ? '#94a3b8' : 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -419,12 +429,11 @@ const BillPanel = ({
                             onClick={onDiscardChanges}
                             disabled={isReadOnly}
                         >
-                            <span style={{ fontSize: '0.75rem' }}>↺</span>
                             <span>Discard</span>
                         </button>
                     ) : (
                         <button 
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                             style={{ 
                                 background: 'linear-gradient(135deg, #475569 0%, #1e293b 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -443,7 +452,6 @@ const BillPanel = ({
                                 setShowPreviewModal(true);
                             }}
                         >
-                            <span style={{ fontSize: '0.75rem' }}>📖</span>
                             <span>Review</span>
                         </button>
                     )}
@@ -451,7 +459,7 @@ const BillPanel = ({
                     {/* 4. Cancel Button */}
                     {customOrder ? (
                         <button
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200"
                             style={{ 
                                 background: (isReadOnly || customOrder.status === 'CANCELLED') ? '#94a3b8' : 'linear-gradient(135deg, #f43f5e 0%, #e11d48 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -466,12 +474,11 @@ const BillPanel = ({
                             onClick={onCancelOrder}
                             disabled={isReadOnly || customOrder.status === 'CANCELLED'}
                         >
-                            <span style={{ fontSize: '0.75rem' }}>✕</span>
                             <span>Cancel</span>
                         </button>
                     ) : (
                         <button 
-                            className="btn d-flex align-items-center justify-content-center gap-1 text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
+                            className="btn text-white border-0 shadow-sm hover:shadow-md active:scale-95 transition-all duration-200" 
                             style={{ 
                                 background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)', 
                                 whiteSpace: 'nowrap', 
@@ -492,7 +499,6 @@ const BillPanel = ({
                                 }
                             }}
                         >
-                            <span style={{ fontSize: '11px' }}>✕</span>
                             <span>Cancel</span>
                         </button>
                     )}
