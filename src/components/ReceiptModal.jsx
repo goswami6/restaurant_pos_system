@@ -41,10 +41,10 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
         return `
             <div style="margin-bottom: 3px;">
                 <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                    <span style="flex: 1; text-align: left; word-break: break-word;">${cleanName}</span>
-                    <span style="width: 32px; text-align: center;">${item.qty}</span>
-                    <span style="width: 55px; text-align: right;">${unitPrice.toFixed(2)}</span>
-                    <span style="width: 60px; text-align: right;">${itemAmount.toFixed(2)}</span>
+                    <span style="width: 45%; text-align: left; word-break: break-word;">${cleanName}</span>
+                    <span style="width: 13%; text-align: center;">${item.qty}</span>
+                    <span style="width: 21%; text-align: right;">${unitPrice.toFixed(2)}</span>
+                    <span style="width: 21%; text-align: right;">${itemAmount.toFixed(2)}</span>
                 </div>
                 ${item.selectedVariant ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">Opt: ${item.selectedVariant.name}</div>` : ''}
                 ${hasNotes ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
@@ -62,11 +62,11 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
         <head>
             <title>POS Receipt ${displayOrderId}</title>
             <style>
-                @page { size: 80mm auto; margin: 0; }
+                @page { size: auto; margin: 0; }
                 body {
                     font-family: 'Inconsolata', 'Consolas', 'Courier New', monospace;
-                    width: 76mm;
-                    max-width: 100%;
+                    width: 100%;
+                    max-width: 80mm;
                     margin: 0 auto;
                     padding: 8px;
                     color: #000;
@@ -108,10 +108,10 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
             <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
 
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
-                <span style="flex: 1; text-align: left;">Item</span>
-                <span style="width: 32px; text-align: center;">Qty.</span>
-                <span style="width: 55px; text-align: right;">Price</span>
-                <span style="width: 60px; text-align: right;">Amount</span>
+                <span style="width: 45%; text-align: left;">Item</span>
+                <span style="width: 13%; text-align: center;">Qty.</span>
+                <span style="width: 21%; text-align: right;">Price</span>
+                <span style="width: 21%; text-align: right;">Amount</span>
             </div>
 
             <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
