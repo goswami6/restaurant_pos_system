@@ -1325,15 +1325,15 @@ export const POSProvider = ({ user, onLogout, children }) => {
         });
 
         receipt += `------------------------------\n`;
-        receipt += `${padRow(`Total Qty: ${totalQty}`, `Sub: ${printSubtotal.toFixed(2)}`, 30)}\n`;
+        receipt += `${padRow(`Total Qty: ${totalQty}`, `Sub Total ${printSubtotal.toFixed(2)}`, 30)}\n`;
         receipt += `${padRow(`  CGST ${halfTaxRate}%`, cgstAmt.toFixed(2), 30)}\n`;
         receipt += `${padRow(`  SGST ${halfTaxRate}%`, sgstAmt.toFixed(2), 30)}\n`;
         if (posSettings.serviceCharge > 0 && printServiceCharge > 0) {
             receipt += `${padRow(`  Service Charge ${posSettings.serviceCharge}%`, printServiceCharge.toFixed(2), 30)}\n`;
         }
         receipt += `------------------------------\n`;
-        receipt += `${ESC}E\x01${padRow('Grand Total (INR)', printGrandTotal.toFixed(2), 30)}\n${ESC}E\x00`;
-        receipt += `------------------------------\n${ESC}a\x01Thank you & Visit Again!!\n------------------------------\n\n\n\n${GS}V\x41\x03`;
+        receipt += `${ESC}E\x01${padRow('Grand Total(INR)', printGrandTotal.toFixed(2), 30)}\n${ESC}E\x00`;
+        receipt += `------------------------------\n${ESC}a\x01Thank you & Visit Again\n------------------------------\n\n\n\n${GS}V\x41\x03`;
 
         const encodedData = encoder.encode(receipt);
 

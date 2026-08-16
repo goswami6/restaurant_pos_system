@@ -40,11 +40,11 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
 
         return `
             <div style="margin-bottom: 3px;">
-                <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                    <span style="width: 45%; text-align: left; word-break: break-word;">${cleanName}</span>
-                    <span style="width: 13%; text-align: center;">${item.qty}</span>
-                    <span style="width: 21%; text-align: right;">${unitPrice.toFixed(2)}</span>
-                    <span style="width: 21%; text-align: right;">${itemAmount.toFixed(2)}</span>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 10px;">
+                    <span style="flex: 1; min-width: 0; text-align: left; word-break: break-word; overflow-wrap: break-word; padding-right: 4px;">${cleanName}</span>
+                    <span style="width: 28px; text-align: center; flex-shrink: 0;">${item.qty}</span>
+                    <span style="width: 52px; text-align: right; flex-shrink: 0;">${unitPrice.toFixed(2)}</span>
+                    <span style="width: 56px; text-align: right; flex-shrink: 0;">${itemAmount.toFixed(2)}</span>
                 </div>
                 ${item.selectedVariant ? `<div style="font-size: 9px; color: #555; padding-left: 4px;">Opt: ${item.selectedVariant.name}</div>` : ''}
                 ${hasNotes ? `<div style="font-size: 9px; color: #555; font-style: italic; padding-left: 4px;">* ${item.notes}</div>` : ''}
@@ -62,93 +62,115 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
         <head>
             <title>POS Receipt ${displayOrderId}</title>
             <style>
-                @page { size: auto; margin: 0; }
-                body {
+                @page {
+                    size: auto;
+                    margin: 0mm !important;
+                }
+                * {
+                    box-sizing: border-box !important;
+                }
+                html, body {
+                    width: 100% !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #fff !important;
+                    color: #000 !important;
                     font-family: 'Inconsolata', 'Consolas', 'Courier New', monospace;
+                    font-size: 10.5px;
+                    line-height: 1.25;
+                }
+                .receipt-wrapper {
                     width: 100%;
-                    max-width: 80mm;
-                    margin: 0 auto;
-                    padding: 8px;
-                    color: #000;
-                    background: #fff;
-                    font-size: 11px;
-                    line-height: 1.3;
+                    max-width: 100%;
+                    margin: 0;
+                    padding: 4px 6px;
+                    box-sizing: border-box;
+                }
+                @media print {
+                    html, body, .receipt-wrapper {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        margin: 0 !important;
+                        padding: 2px 4px !important;
+                    }
                 }
             </style>
         </head>
         <body>
-            <div style="text-align: center; margin-bottom: 6px;">
-                <div style="font-size: 14px; font-weight: bold;">${posSettings?.restaurantName || 'Big Ben Restaurant'}</div>
-                <div style="font-size: 10px;">${posSettings?.address || ''}</div>
-                <div style="font-size: 10px;">
-                    ${[posSettings?.city, posSettings?.state, posSettings?.pincode].filter(Boolean).join(', ')}
-                </div>
-                ${posSettings?.gstin ? `<div style="font-size: 10px;">GSTIN: ${posSettings.gstin}</div>` : ''}
-                ${posSettings?.fssaiNo ? `<div style="font-size: 10px;">FSSAI NO: ${posSettings.fssaiNo}</div>` : ''}
-            </div>
-
-            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-            ${selectedHistoryOrder.customer_name ? `
-                <div style="font-size: 10px;">
-                    Customer Name: ${selectedHistoryOrder.customer_name} ${selectedHistoryOrder.customer_phone ? `(${selectedHistoryOrder.customer_phone})` : ''}
-                </div>
-                <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-            ` : ''}
-
-            <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                <span>Bill No: ${displayOrderId}</span>
-                <span>Date: ${formattedDate}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 10px;">
-                <span>${tableText}</span>
-                <span>Cashier: ${selectedHistoryOrder.server || 'Ravi'}</span>
-            </div>
-
-            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
-                <span style="width: 45%; text-align: left;">Item</span>
-                <span style="width: 13%; text-align: center;">Qty.</span>
-                <span style="width: 21%; text-align: right;">Price</span>
-                <span style="width: 21%; text-align: right;">Amount</span>
-            </div>
-
-            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-            ${itemsRowsHtml}
-
-            <div style="border-top: 1px dashed #000; margin: 6px 0;"></div>
-
-            <div style="font-size: 10px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
-                    <span>Total Qty: ${totalQty}</span>
-                    <span>Sub Total &nbsp;&nbsp;${subtotal.toFixed(2)}</span>
-                </div>
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                    <span>CGST ${halfTaxRate}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
-                </div>
-                <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                    <span>SGST ${halfTaxRate}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
-                </div>
-                ${serviceChargeRate > 0 ? `
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
-                        <span>Service Charge ${serviceChargeRate}% &nbsp;&nbsp;${serviceAmt.toFixed(2)}</span>
+            <div class="receipt-wrapper">
+                <div style="text-align: center; margin-bottom: 6px;">
+                    <div style="font-size: 13px; font-weight: bold;">${posSettings?.restaurantName || 'Big Ben Restaurant'}</div>
+                    <div style="font-size: 10px;">${posSettings?.address || '1st Floor, Sun Mill Compound, Lower Parel,'}</div>
+                    <div style="font-size: 10px;">
+                        ${[posSettings?.city, posSettings?.state, posSettings?.pincode].filter(Boolean).join(', ') || 'Mumbai, MH, 400011'}
                     </div>
-                ` : ''}
-                <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 14px; margin-top: 6px; padding-top: 2px;">
-                    <span>Grand Total (INR)</span>
-                    <span>${grandTotal.toFixed(2)}</span>
+                    ${posSettings?.gstin ? `<div style="font-size: 10px;">GSTIN: ${posSettings.gstin}</div>` : ''}
+                    ${posSettings?.fssaiNo ? `<div style="font-size: 10px;">FSSAI NO: ${posSettings.fssaiNo}</div>` : ''}
                 </div>
+
+                <div style="border-top: 1px dashed #000; margin: 5px 0;"></div>
+
+                ${selectedHistoryOrder.customer_name ? `
+                    <div style="font-size: 10px;">
+                        Customer Name: ${selectedHistoryOrder.customer_name} ${selectedHistoryOrder.customer_phone ? `(${selectedHistoryOrder.customer_phone})` : ''}
+                    </div>
+                    <div style="border-top: 1px dashed #000; margin: 5px 0;"></div>
+                ` : ''}
+
+                <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                    <span>Bill No: ${displayOrderId}</span>
+                    <span>Date: ${formattedDate}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px;">
+                    <span>${tableText}</span>
+                    <span>Cashier: ${selectedHistoryOrder.server || 'Ravi'}</span>
+                </div>
+
+                <div style="border-top: 1px dashed #000; margin: 5px 0;"></div>
+
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 10px;">
+                    <span style="flex: 1; text-align: left; padding-right: 4px;">Item</span>
+                    <span style="width: 28px; text-align: center; flex-shrink: 0;">Qty.</span>
+                    <span style="width: 52px; text-align: right; flex-shrink: 0;">Price</span>
+                    <span style="width: 56px; text-align: right; flex-shrink: 0;">Amount</span>
+                </div>
+
+                <div style="border-top: 1px dashed #000; margin: 5px 0;"></div>
+
+                ${itemsRowsHtml}
+
+                <div style="border-top: 1px dashed #000; margin: 5px 0;"></div>
+
+                <div style="font-size: 10px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                        <span>Total Qty: ${totalQty}</span>
+                        <span>Sub Total &nbsp;&nbsp;${subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                        <span>CGST ${halfTaxRate}% &nbsp;&nbsp;${cgstAmt.toFixed(2)}</span>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                        <span>SGST ${halfTaxRate}% &nbsp;&nbsp;${sgstAmt.toFixed(2)}</span>
+                    </div>
+                    ${serviceChargeRate > 0 ? `
+                        <div style="display: flex; justify-content: flex-end; margin-bottom: 2px;">
+                            <span>Service Charge ${serviceChargeRate}% &nbsp;&nbsp;${serviceAmt.toFixed(2)}</span>
+                        </div>
+                    ` : ''}
+                    <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 13px; margin-top: 5px; padding-top: 2px;">
+                        <span>Grand Total(INR)</span>
+                        <span>${grandTotal.toFixed(2)}</span>
+                    </div>
+                </div>
+
+                <div style="border-top: 1px dashed #000; margin: 5px 0 4px 0;"></div>
+
+                <div style="text-align: center; font-size: 10.5px; font-weight: 500; padding: 2px 0;">
+                    Thank you & Visit Again
+                </div>
+
+                <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
             </div>
-
-            <div style="border-top: 1px dashed #000; margin: 6px 0 4px 0;"></div>
-
-            <div style="text-align: center; font-size: 11px; font-weight: 500; padding: 2px 0;">
-                Thank you & Visit Again
-            </div>
-
-            <div style="border-top: 1px dashed #000; margin: 4px 0;"></div>
 
             <script>
                 window.onload = function() {
@@ -245,17 +267,17 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                         <span>Cashier: {selectedHistoryOrder.server || 'Ravi'}</span>
                     </div>
 
-                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+                    <div style={{ borderTop: '1px dashed #000', margin: '5px 0' }}></div>
 
                     {/* Table Header */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '10px' }}>
-                        <span style={{ flex: 1, textAlign: 'left' }}>Item</span>
-                        <span style={{ width: '32px', textAlign: 'center' }}>Qty.</span>
-                        <span style={{ width: '55px', textAlign: 'right' }}>Price</span>
-                        <span style={{ width: '60px', textAlign: 'right' }}>Amount</span>
+                        <span style={{ flex: 1, textAlign: 'left', paddingRight: '4px' }}>Item</span>
+                        <span style={{ width: '28px', textAlign: 'center', flexShrink: 0 }}>Qty.</span>
+                        <span style={{ width: '52px', textAlign: 'right', flexShrink: 0 }}>Price</span>
+                        <span style={{ width: '56px', textAlign: 'right', flexShrink: 0 }}>Amount</span>
                     </div>
 
-                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+                    <div style={{ borderTop: '1px dashed #000', margin: '5px 0' }}></div>
 
                     {/* Items List */}
                     {items.length > 0 ? (
@@ -267,11 +289,11 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
 
                             return (
                                 <div key={idx} style={{ marginBottom: '3px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
-                                        <span style={{ flex: 1, textAlign: 'left', wordBreak: 'break-word' }}>{cleanName}</span>
-                                        <span style={{ width: '32px', textAlign: 'center' }}>{item.qty}</span>
-                                        <span style={{ width: '55px', textAlign: 'right' }}>{unitPrice.toFixed(2)}</span>
-                                        <span style={{ width: '60px', textAlign: 'right' }}>{itemAmount.toFixed(2)}</span>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: '10px' }}>
+                                        <span style={{ flex: 1, minWidth: 0, textAlign: 'left', wordBreak: 'break-word', overflowWrap: 'break-word', paddingRight: '4px' }}>{cleanName}</span>
+                                        <span style={{ width: '28px', textAlign: 'center', flexShrink: 0 }}>{item.qty}</span>
+                                        <span style={{ width: '52px', textAlign: 'right', flexShrink: 0 }}>{unitPrice.toFixed(2)}</span>
+                                        <span style={{ width: '56px', textAlign: 'right', flexShrink: 0 }}>{itemAmount.toFixed(2)}</span>
                                     </div>
                                     {item.selectedVariant && <div style={{ fontSize: '9px', color: '#555', paddingLeft: '4px' }}>Opt: {item.selectedVariant.name}</div>}
                                     {hasNotes && <div style={{ fontSize: '9px', color: '#555', fontStyle: 'italic', paddingLeft: '4px' }}>* {item.notes}</div>}
@@ -284,7 +306,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                         </div>
                     )}
 
-                    <div style={{ borderTop: '1px dashed #000', margin: '6px 0' }}></div>
+                    <div style={{ borderTop: '1px dashed #000', margin: '5px 0' }}></div>
 
                     {/* Totals Section */}
                     <div style={{ fontSize: '10px' }}>
@@ -303,8 +325,8 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
                                 <span>Service Charge {serviceChargeRate}% &nbsp;&nbsp;{serviceAmt.toFixed(2)}</span>
                             </div>
                         )}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '14px', marginTop: '6px', paddingTop: '2px' }}>
-                            <span>Grand Total (INR)</span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '800', fontSize: '13px', marginTop: '5px', paddingTop: '2px' }}>
+                            <span>Grand Total(INR)</span>
                             <span>{grandTotal.toFixed(2)}</span>
                         </div>
                     </div>
