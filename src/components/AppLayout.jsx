@@ -78,7 +78,7 @@ const AppLayout = () => {
             />
 
             {/* ── Hidden Print Receipt ────────────────────────── */}
-            <div id="print-receipt-kot" style={{ fontFamily: 'monospace, monospace', width: '76mm', margin: '0 auto', fontSize: '11px', color: '#000', lineHeight: '1.3' }}>
+            <div id="print-receipt-kot" style={{ fontFamily: "'Inconsolata', 'Consolas', 'Courier New', monospace", width: '76mm', margin: '0 auto', fontSize: '11px', color: '#000', lineHeight: '1.3' }}>
                 {/* Header */}
                 <div style={{ textAlign: 'center', marginBottom: '6px' }}>
                     <div style={{ fontSize: '14px', fontWeight: 'bold' }}>{posSettings.restaurantName}</div>

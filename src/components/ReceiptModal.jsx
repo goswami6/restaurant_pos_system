@@ -64,7 +64,7 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
             <style>
                 @page { size: 80mm auto; margin: 0; }
                 body {
-                    font-family: monospace, sans-serif;
+                    font-family: 'Inconsolata', 'Consolas', 'Courier New', monospace;
                     width: 76mm;
                     max-width: 100%;
                     margin: 0 auto;
@@ -206,7 +206,7 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
 
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 font-sans">
-            <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl p-4 text-black" style={{ fontFamily: 'monospace, monospace' }}>
+            <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl p-4 text-black" style={{ fontFamily: "'Inconsolata', 'Consolas', 'Courier New', monospace" }}>
                 <div className="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
                     <h6 className="fw-bold mb-0 font-sans">Receipt Preview</h6>
                     <button className="btn-close" onClick={() => setSelectedHistoryOrder(null)}></button>
