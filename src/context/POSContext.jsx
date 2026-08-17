@@ -531,7 +531,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const newCart = {};
             session.items.forEach(item => {
                 const itemName = item.name || item.item_name || 'Item';
-                const formattedName = String(itemName).endsWith('(Active Order)') ? String(itemName) : `${String(itemName)} (Active Order)`;
+                const formattedName = String(itemName).replace(/\s*\([^)]*Active Order[^)]*\)/gi, '').trim();
                 const cartKey = item.variant_id ? `${item.item_id}_${item.variant_id}` : String(item.item_id || item.id || Math.random());
                 newCart[cartKey] = {
                     id: cartKey,
@@ -1263,8 +1263,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
         const shortDateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         const staffName = (user?.username || user?.name || 'Ravi').split(' ')[0];
 
-        // ESC/POS Reset & Small/Compact Font B (\x1b!\x01) for crisp, non-wrapping 58mm layout
-        let receipt = `${ESC}@${ESC}!\x01${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 42)}\n${ESC}E\x00`;
+        // ESC/POS Reset & Standard Font A (\x1b!\x00) for slightly larger, clearer receipt text
+        let receipt = `${ESC}@${ESC}!\x00${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 42)}\n${ESC}E\x00`;
 
         // Wrap address cleanly into max 42 character chunks
         if (posSettings.address) {
@@ -1298,7 +1298,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
         receipt += `${padRow(`Bill No: ${printOrderId}`, `Date: ${shortDateStr}`, 42)}\n`;
         receipt += `${padRow(`Dine In: ${cleanTableText}`, `Cashier: ${staffName}`, 42)}\n`;
         receipt += `------------------------------------------\n`;
-        receipt += `${"Item".padEnd(21, ' ')}${"Qty.".padStart(5, ' ')}${"Price".padStart(8, ' ')}${"Amount".padStart(8, ' ')}\n`;
+        receipt += `${"Item".padEnd(20, ' ')}${" Qty. "}${" Price  "}${"  Amount"}\n`;
         receipt += `------------------------------------------\n`;
 
         targetItems.forEach(item => {
@@ -1307,9 +1307,9 @@ export const POSProvider = ({ user, onLogout, children }) => {
             const itemAmount = unitPrice * qty;
 
             const rawName = String(item.name || item.item_name || 'Item').replace(/\s*\([^)]*Active Order[^)]*\)/gi, '').trim();
-            const nameStr = rawName.slice(0, 21).padEnd(21, ' ');
-            const qtyStr = String(qty).padStart(5, ' ');
-            const priceStr = unitPrice.toFixed(2).padStart(8, ' ');
+            const nameStr = rawName.slice(0, 20).padEnd(20, ' ');
+            const qtyStr = `  ${String(qty)}`.padEnd(6, ' ');
+            const priceStr = unitPrice.toFixed(2).padStart(7, ' ') + ' ';
             const amtStr = itemAmount.toFixed(2).padStart(8, ' ');
 
             receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;

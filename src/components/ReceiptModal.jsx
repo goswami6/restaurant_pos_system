@@ -76,7 +76,7 @@ export const generateReceiptHtml = (selectedHistoryOrder, posSettings) => {
                     background: #fff !important;
                     color: #000 !important;
                     font-family: 'Inconsolata', 'Consolas', 'Courier New', monospace;
-                    font-size: 10.5px;
+                    font-size: 11.5px;
                     line-height: 1.25;
                 }
                 .receipt-wrapper {
