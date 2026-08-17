@@ -1,4 +1,5 @@
 import React from 'react';
+import { usePOS } from '../context/POSContext';
 
 const cleanOrderIdHelper = (id) => {
     if (!id) return '1001';
@@ -198,12 +199,16 @@ export const triggerPrintReceipt = (selectedHistoryOrder, posSettings, printDire
 };
 
 const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettings, onPrintDirect = null }) => {
+    const posCtx = usePOS() || {};
+    const effectivePosSettings = posSettings || posCtx.posSettings;
+    const printDirectFn = onPrintDirect || posCtx.printDirectToPrinter;
+
     if (!selectedHistoryOrder) return null;
 
     const items = selectedHistoryOrder.items || [];
     const totalQty = items.reduce((acc, item) => acc + (item.qty || 1), 0);
-    const taxRate = posSettings?.taxRate || 5;
-    const serviceChargeRate = posSettings?.serviceCharge || 10;
+    const taxRate = effectivePosSettings?.taxRate || 5;
+    const serviceChargeRate = effectivePosSettings?.serviceCharge || 10;
     const subtotal = selectedHistoryOrder.subtotal ?? (selectedHistoryOrder.total / (1 + (taxRate + serviceChargeRate) / 100));
     const halfTaxRate = (taxRate / 2).toFixed(1);
     const taxTotal = selectedHistoryOrder.tax ?? (subtotal * (taxRate / 100));
@@ -216,13 +221,13 @@ const ReceiptModal = ({ selectedHistoryOrder, setSelectedHistoryOrder, posSettin
 
     const displayOrderId = cleanOrderIdHelper(selectedHistoryOrder.order_id);
     const rawTable = selectedHistoryOrder.table_number;
-    const tableText = (posSettings?.isEnableTables && rawTable && rawTable !== 'N/A') ? `Dine In: ${String(rawTable).startsWith('Table') ? rawTable : `Table #${rawTable}`}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`;
+    const tableText = (effectivePosSettings?.isEnableTables && rawTable && rawTable !== 'N/A') ? `Dine In: ${String(rawTable).startsWith('Table') ? rawTable : `Table #${rawTable}`}` : `Type: ${selectedHistoryOrder.type || 'Takeaway'}`;
 
     const handlePrintReceipt = () => {
-        if (onPrintDirect) {
-            onPrintDirect(selectedHistoryOrder);
+        if (effectivePosSettings?.enableThermalPrinting && printDirectFn) {
+            printDirectFn(selectedHistoryOrder);
         } else {
-            triggerPrintReceipt(selectedHistoryOrder, posSettings);
+            triggerPrintReceipt(selectedHistoryOrder, effectivePosSettings);
         }
     };
 
