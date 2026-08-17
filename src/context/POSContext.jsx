@@ -1223,8 +1223,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
         const encoder = new TextEncoder();
         const ESC = '\x1b', GS = '\x1d';
 
-        // Helper: pad left and right strings to fit exactly 38 characters per line (Font B 58mm thermal width)
-        const padRow = (left, right, width = 38) => {
+        // Helper: pad left and right strings to fit exactly 42 characters per line (Font B 58mm thermal width)
+        const padRow = (left, right, width = 42) => {
             const l = String(left || '');
             const r = String(right || '');
             const spaces = width - l.length - r.length;
@@ -1264,14 +1264,14 @@ export const POSProvider = ({ user, onLogout, children }) => {
         const staffName = (user?.username || user?.name || 'Ravi').split(' ')[0];
 
         // ESC/POS Reset & Small/Compact Font B (\x1b!\x01) for crisp, non-wrapping 58mm layout
-        let receipt = `${ESC}@${ESC}!\x01${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 38)}\n${ESC}E\x00`;
+        let receipt = `${ESC}@${ESC}!\x01${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 42)}\n${ESC}E\x00`;
 
-        // Wrap address cleanly into max 38 character chunks
+        // Wrap address cleanly into max 42 character chunks
         if (posSettings.address) {
             const addrWords = posSettings.address.split(' ');
             let line = '';
             addrWords.forEach(w => {
-                if ((line + ' ' + w).trim().length <= 38) {
+                if ((line + ' ' + w).trim().length <= 42) {
                     line = (line + ' ' + w).trim();
                 } else {
                     receipt += `${line}\n`;
@@ -1283,59 +1283,59 @@ export const POSProvider = ({ user, onLogout, children }) => {
 
         if (posSettings.city || posSettings.state || posSettings.pincode) {
             const locationStr = [posSettings.city, posSettings.state, posSettings.pincode].filter(Boolean).join(', ');
-            receipt += `${locationStr.slice(0, 38)}\n`;
+            receipt += `${locationStr.slice(0, 42)}\n`;
         }
         if (posSettings.gstin) receipt += `GSTIN: ${posSettings.gstin}\n`;
         if (posSettings.fssaiNo) receipt += `FSSAI NO: ${posSettings.fssaiNo}\n`;
 
-        receipt += `--------------------------------------\n${ESC}a\x00`;
+        receipt += `------------------------------------------\n${ESC}a\x00`;
 
         if (customOrderData?.customer_name) {
             receipt += `Name: ${customOrderData.customer_name}${customOrderData.customer_phone ? ` (${customOrderData.customer_phone})` : ''}\n`;
-            receipt += `--------------------------------------\n`;
+            receipt += `------------------------------------------\n`;
         }
 
-        receipt += `${padRow(`Bill No: ${printOrderId}`, `Date: ${shortDateStr}`, 38)}\n`;
-        receipt += `${padRow(`Dine In: ${cleanTableText}`, `Cashier: ${staffName}`, 38)}\n`;
-        receipt += `--------------------------------------\n`;
-        receipt += `Item                 Qty.   Price   Amount\n`;
-        receipt += `--------------------------------------\n`;
+        receipt += `${padRow(`Bill No: ${printOrderId}`, `Date: ${shortDateStr}`, 42)}\n`;
+        receipt += `${padRow(`Dine In: ${cleanTableText}`, `Cashier: ${staffName}`, 42)}\n`;
+        receipt += `------------------------------------------\n`;
+        receipt += `${"Item".padEnd(21, ' ')}${"Qty.".padStart(5, ' ')}${"Price".padStart(8, ' ')}${"Amount".padStart(8, ' ')}\n`;
+        receipt += `------------------------------------------\n`;
 
         targetItems.forEach(item => {
             const qty = Number(item.qty || item.quantity) || 1;
             const unitPrice = Number(item.price || item.unit_price) || 0;
             const itemAmount = unitPrice * qty;
 
-            const rawName = String(item.name || item.item_name || 'Item').trim();
-            const nameStr = rawName.slice(0, 18).padEnd(18, ' ');
-            const qtyStr = String(qty).padStart(4, ' ');
-            const priceStr = unitPrice.toFixed(2).padStart(7, ' ');
-            const amtStr = itemAmount.toFixed(2).padStart(9, ' ');
+            const rawName = String(item.name || item.item_name || 'Item').replace(/\s*\([^)]*Active Order[^)]*\)/gi, '').trim();
+            const nameStr = rawName.slice(0, 21).padEnd(21, ' ');
+            const qtyStr = String(qty).padStart(5, ' ');
+            const priceStr = unitPrice.toFixed(2).padStart(8, ' ');
+            const amtStr = itemAmount.toFixed(2).padStart(8, ' ');
 
             receipt += `${nameStr}${qtyStr}${priceStr}${amtStr}\n`;
-            if (rawName.length > 18) {
-                receipt += `  ${rawName.slice(18, 36)}\n`;
+            if (rawName.length > 21) {
+                receipt += `  ${rawName.slice(21, 40)}\n`;
             }
             if (item.selectedVariant) {
                 receipt += `  Opt: ${item.selectedVariant.name}\n`;
             }
-            if (item.notes) {
+            if (item.notes && !item.notes.includes('Session Order') && !item.notes.includes('Active Order')) {
                 receipt += `  * ${item.notes}\n`;
             }
         });
 
-        receipt += `--------------------------------------\n`;
-        receipt += `${padRow(`Total Qty: ${totalQty}`, `Sub Total ${printSubtotal.toFixed(2)}`, 38)}\n`;
-        receipt += `${padRow(`  CGST ${halfTaxRate}%`, cgstAmt.toFixed(2), 38)}\n`;
-        receipt += `${padRow(`  SGST ${halfTaxRate}%`, sgstAmt.toFixed(2), 38)}\n`;
+        receipt += `------------------------------------------\n`;
+        receipt += `${padRow(`Total Qty: ${totalQty}`, `Sub Total ${printSubtotal.toFixed(2)}`, 42)}\n`;
+        receipt += `${padRow(`  CGST ${halfTaxRate}%`, cgstAmt.toFixed(2), 42)}\n`;
+        receipt += `${padRow(`  SGST ${halfTaxRate}%`, sgstAmt.toFixed(2), 42)}\n`;
         if (posSettings.serviceCharge > 0 && printServiceCharge > 0) {
-            receipt += `${padRow(`  Service Charge ${posSettings.serviceCharge}%`, printServiceCharge.toFixed(2), 38)}\n`;
+            receipt += `${padRow(`  Service Charge ${posSettings.serviceCharge}%`, printServiceCharge.toFixed(2), 42)}\n`;
         }
-        receipt += `--------------------------------------\n`;
-        receipt += `${ESC}E\x01${padRow('Grand Total(INR)', printGrandTotal.toFixed(2), 38)}\n${ESC}E\x00`;
-        receipt += `--------------------------------------\n${ESC}a\x01Thank you & Visit Again\n--------------------------------------\n\n\n\n${GS}V\x41\x03`;
+        receipt += `------------------------------------------\n`;
+        receipt += `${ESC}E\x01${padRow('Grand Total(INR)', printGrandTotal.toFixed(2), 42)}\n${ESC}E\x00`;
+        receipt += `------------------------------------------\n${ESC}a\x01Thank you & Visit Again\n------------------------------------------\n\n\n\n${GS}V\x41\x03`;
 
-        console.log('--- REAL-TIME THERMAL PRINTER RAW OUTPUT (38 CHARS) ---\n' + receipt);
+        console.log('--- REAL-TIME THERMAL PRINTER RAW OUTPUT (42 CHARS) ---\n' + receipt);
 
         const encodedData = encoder.encode(receipt);
 
