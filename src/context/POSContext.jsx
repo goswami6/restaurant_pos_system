@@ -1263,8 +1263,8 @@ export const POSProvider = ({ user, onLogout, children }) => {
         const shortDateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) + ' ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
         const staffName = (user?.username || user?.name || 'Ravi').split(' ')[0];
 
-        // ESC/POS Reset & Standard Font A (\x1b!\x00) for slightly larger, clearer receipt text
-        let receipt = `${ESC}@${ESC}!\x00${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 42)}\n${ESC}E\x00`;
+        // ESC/POS Reset & Small/Compact Font B (\x1b!\x01) for crisp, non-wrapping 58mm layout
+        let receipt = `${ESC}@${ESC}!\x01${ESC}a\x01${ESC}E\x01${(posSettings.restaurantName || 'RESTAURANT').slice(0, 42)}\n${ESC}E\x00`;
 
         // Wrap address cleanly into max 42 character chunks
         if (posSettings.address) {
