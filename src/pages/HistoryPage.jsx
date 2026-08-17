@@ -17,7 +17,7 @@ const getStatusBadgeClass = (status) => {
 };
 
 const HistoryPage = () => {
-    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders, printDirectToPrinter } = usePOS();
+    const { orderHistory, setOrderHistory, posSettings, setSelectedDetailOrder, fetchOrders, printDirectToPrinter, printBillReceipt } = usePOS();
     const navigate = useNavigate();
     const onViewDetailOrder = (order) => { setSelectedDetailOrder(order); navigate(`/history/${order.order_id}`); };
     const [selectedHistoryOrder, setSelectedHistoryOrder] = useState(null);
@@ -395,7 +395,7 @@ const HistoryPage = () => {
                                                             {order.status !== 'CANCELLED' && (
                                                                 <button 
                                                                     className="btn btn-sm btn-outline-secondary rounded-2 px-2.5 py-1"
-                                                                    onClick={() => printDirectToPrinter(order)}
+                                                                    onClick={() => printBillReceipt(order)}
                                                                     title="Print Receipt"
                                                                 >
                                                                     <i className="bi bi-printer"></i>
@@ -625,7 +625,7 @@ const HistoryPage = () => {
                                                 <button 
                                                     className="btn btn-sm btn-outline-dark font-medium px-4 py-1.5 rounded-pill text-xs d-inline-flex align-items-center gap-1.5 shadow-sm"
                                                     style={{ letterSpacing: '0.2px' }}
-                                                    onClick={() => printDirectToPrinter(activeOrderSummary)}
+                                                    onClick={() => printBillReceipt(activeOrderSummary)}
                                                 >
                                                     <i className="bi bi-printer"></i> Print Receipt
                                                 </button>

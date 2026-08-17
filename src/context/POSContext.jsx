@@ -1071,7 +1071,7 @@ export const POSProvider = ({ user, onLogout, children }) => {
             serviceCharge: serviceCharge,
             total: grandTotal
         };
-        triggerPrintReceipt(activeOrder, posSettings);
+        printBillReceipt(activeOrder);
     };
 
     // ── handleAddTable ────────────────────────────────────────────────────────
